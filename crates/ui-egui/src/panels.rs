@@ -202,7 +202,7 @@ pub fn title_bar(app: &mut PhotocraftApp, ui: &mut egui::Ui) {
             let max = ui.ctx().input(|i| i.viewport().maximized.unwrap_or(false));
             ui.ctx().send_viewport_cmd(egui::ViewportCommand::Maximized(!max));
         }
-        let title = app.session.active().map(|d| format!("{}{}", d.doc.name, if d.is_dirty() { "  •" } else { "" })).unwrap_or_else(|| "Photocraft".into());
+        let title = app.session.active().map(|d| format!("{}{}", d.doc.name, if d.is_dirty() { "  •" } else { "" })).unwrap_or_else(|| "PhotoCraft".into());
         ui.painter().text(full.center(), Align2::CENTER_CENTER, title, theme::medium(13.0), t.text_dim);
         ui.horizontal_centered(|ui| {
             crate::menus::menu_bar(app, ui);

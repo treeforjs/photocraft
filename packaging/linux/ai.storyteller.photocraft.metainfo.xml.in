@@ -2,17 +2,17 @@
 <!-- AppStream metadata (software centres, Flathub). Template: package.sh and the Flatpak
      manifest substitute @VERSION@ and @DATE@ from Cargo.toml and the build date. -->
 <component type="desktop-application">
-  <id>ai.storyteller.Photocraft</id>
+  <id>ai.storyteller.photocraft</id>
   <metadata_license>CC0-1.0</metadata_license>
   <project_license>MIT OR Apache-2.0</project_license>
-  <name>Photocraft</name>
+  <name>PhotoCraft</name>
   <summary>Edit photos and layered Photoshop documents</summary>
   <developer id="ai.storyteller">
     <name>Learning Machines LLC</name>
   </developer>
   <description>
     <p>
-      Photocraft is an open-source, native image editor that works the way Photoshop users
+      PhotoCraft is an open-source, native image editor that works the way Photoshop users
       expect: familiar menus, shortcuts, panels and tools, with layers, masks, adjustment
       layers, layer styles, type and brushes.
     </p>
@@ -23,8 +23,8 @@
       <li>Every action is a command, scriptable from a CLI, a JSON control channel and an MCP server</li>
     </ul>
   </description>
-  <launchable type="desktop-id">ai.storyteller.Photocraft.desktop</launchable>
-  <icon type="stock">ai.storyteller.Photocraft</icon>
+  <launchable type="desktop-id">ai.storyteller.photocraft.desktop</launchable>
+  <icon type="stock">ai.storyteller.photocraft</icon>
   <url type="homepage">https://github.com/storytold/photocraft</url>
   <url type="bugtracker">https://github.com/storytold/photocraft/issues</url>
   <url type="vcs-browser">https://github.com/storytold/photocraft</url>

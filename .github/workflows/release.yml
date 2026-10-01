@@ -1,5 +1,5 @@
 # Release pipeline: every push to `release` builds signed installers for every platform and
-# creates or updates the draft GitHub Release "Photocraft v<version>". See docs/releasing.md.
+# creates or updates the draft GitHub Release "PhotoCraft v<version>". See docs/releasing.md.
 #
 # All jobs run in the `release` environment (restricted to the `release` branch), which holds
 # the signing secrets. Every secret is optional: missing ones produce unsigned artifacts and a
@@ -21,7 +21,8 @@ permissions:
 
 concurrency:
   group: release-${{ github.ref }}
-  cancel-in-progress: true
+  # Never cancel a run mid-notarization or mid-upload; a newer push waits its turn.
+  cancel-in-progress: false
 
 env:
   CARGO_TERM_COLOR: always
@@ -57,7 +58,7 @@ jobs:
             echo "date=$(date -u +%Y-%m-%d)"
             echo "prerelease=$pre"
           } >>"$GITHUB_OUTPUT"
-          echo "### Photocraft v$v (\`${GITHUB_SHA::9}\`)" >>"$GITHUB_STEP_SUMMARY"
+          echo "### PhotoCraft v$v (\`${GITHUB_SHA::9}\`)" >>"$GITHUB_STEP_SUMMARY"
 
   macos:
     name: macOS universal
@@ -189,7 +190,7 @@ jobs:
           dpkg-deb --info dist/release/*.deb
           dpkg-deb --contents dist/release/*.deb | grep -E 'usr/bin/photocraft$|metainfo|applications'
           ldd target/release/photocraft
-          python3 -c "import yaml; m = yaml.safe_load(open('packaging/linux/flatpak/ai.storyteller.Photocraft.yml')); assert m['id'] == 'ai.storyteller.Photocraft'"
+          python3 -c "import yaml; m = yaml.safe_load(open('packaging/linux/flatpak/ai.storyteller.photocraft.yml')); assert m['id'] == 'ai.storyteller.photocraft'"
           for appimage in dist/release/*.AppImage; do
             chmod +x "$appimage"
             APPIMAGE_EXTRACT_AND_RUN=1 "$appimage" --version
@@ -259,7 +260,7 @@ jobs:
         working-directory: artifacts
         run: |
           tag="v$VERSION"
-          title="Photocraft v$VERSION"
+          title="PhotoCraft v$VERSION"
           pre=()
           if [ "$PRERELEASE" = true ]; then pre=(--prerelease); fi
           if draft="$(gh release view "$tag" --json isDraft --jq .isDraft 2>/dev/null)"; then

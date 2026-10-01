@@ -1,11 +1,11 @@
 [Desktop Entry]
 Type=Application
-Name=Photocraft
+Name=PhotoCraft
 GenericName=Image Editor
 Comment=Edit photos and layered PSD documents
 Exec=photocraft %F
 TryExec=photocraft
-Icon=ai.storyteller.Photocraft
+Icon=ai.storyteller.photocraft
 Terminal=false
 StartupNotify=true
 StartupWMClass=photocraft

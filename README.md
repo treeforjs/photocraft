@@ -1,4 +1,4 @@
-<h1 align="center">📷 Photocraft</h1>
+<h1 align="center">📷 PhotoCraft</h1>
 
 <p align="center">
   <b>The image editor you already know how to use.</b><br>
@@ -23,7 +23,7 @@
 </p>
 
 <p align="center">
-  <img src="docs/images/photocraft-demo.jpg" alt="Photocraft editing Hokusai's The Great Wave: a caption card with a drop shadow, type layers, Vibrance and Curves adjustment layers, and the Curves editor with its histogram" width="100%">
+  <img src="docs/images/photocraft-demo.jpg" alt="PhotoCraft editing Hokusai's The Great Wave: a caption card with a drop shadow, type layers, Vibrance and Curves adjustment layers, and the Curves editor with its histogram" width="100%">
   <br>
   <sub><i>The Great Wave off Kanagawa</i>, Katsushika Hokusai, c. 1831</sub>
 </p>
@@ -34,7 +34,7 @@
   <tr>
     <td width="25%" valign="top">
       <h3>🎛️ Familiar by design</h3>
-      The menus, shortcuts, panels and tools are where your hands expect them, from ⌘J to ⇧⌘D. If you know Photoshop, you already know Photocraft.
+      The menus, shortcuts, panels and tools are where your hands expect them, from ⌘J to ⇧⌘D. If you know Photoshop, you already know PhotoCraft.
     </td>
     <td width="25%" valign="top">
       <h3>⚡ Native and fast</h3>
@@ -189,7 +189,7 @@
 
 ## PSD without compromise
 
-Photocraft's PSD support is a standalone crate written from Adobe's public specification and tested against a corpus of real-world files.
+PhotoCraft's PSD support is a standalone crate written from Adobe's public specification and tested against a corpus of real-world files.
 
 - **Byte-exact round trips:** 134 of 135 corpus files are written back identical, and anything we don't model yet (raw blocks, descriptors, extras) is preserved verbatim instead of being dropped.
 - **Pixels that match:** a composite oracle compares our render with Photoshop's own merged image, covering gradient interpolation (Classic, Perceptual and Linear), layer effects, shape strokes, clipping and fill opacity.
@@ -222,7 +222,7 @@ The desktop app also listens on a local control channel (`photocraft --control`)
 - **Copy-on-write tiles:** 256² sparse tiles make undo cheap and huge canvases light, and effect maps are cached per layer state.
 - **Runs in the browser:** the whole engine and UI compile to WebAssembly.
 - **Clean-room:** implemented from public specs and observed behaviour only. No proprietary code, shaders or assets.
-- **Tested:** more than 1,600 tests, including PSD round trips, synthetic generators, compositor oracles and multi-depth checks.
+- **Tested:** more than 1,700 tests, including PSD round trips, synthetic generators, compositor oracles and multi-depth checks.
 
 ## Get started
 
@@ -237,7 +237,7 @@ New contributors and AI agents: start with [`AGENTS.md`](AGENTS.md), then [`docs
 
 Installers for macOS, Windows, Linux and the web are attached to each [GitHub release](https://github.com/storytold/photocraft/releases). Maintainers: [`docs/releasing.md`](docs/releasing.md) explains how releases are built, signed and published.
 
-> **Status:** Photocraft is in early alpha. The core editing workflow is here, and we're working toward full Photoshop parity milestone by milestone (see [`docs/roadmap.md`](docs/roadmap.md)). Progress is measured, not guessed: `cargo xtask parity` checks every item in Photoshop's menu tree against the live command registry and writes [`docs/parity.md`](docs/parity.md). Expect rough edges, and please file issues.
+> **Status:** PhotoCraft is in early alpha. The core editing workflow is here, and we're working toward full Photoshop parity milestone by milestone (see [`docs/roadmap.md`](docs/roadmap.md)). Progress is measured, not guessed: `cargo xtask parity` checks every item in Photoshop's menu tree against the live command registry and writes [`docs/parity.md`](docs/parity.md). Expect rough edges, and please file issues.
 
 ## Crafting Apps
 
@@ -273,5 +273,5 @@ Open-source, clean-room, pure-Rust creative apps that share the same conventions
 <p align="center"><sub>
   Built by the artcraft team. Licensed under MIT or Apache-2.0.<br>
   Every artwork shown is in the public domain (Wikimedia Commons, NASA, U.S. National Archives); sources are listed in <a href="docs/images/SOURCES.md"><code>docs/images/SOURCES.md</code></a>.<br>
-  Photoshop is a trademark of Adobe Inc. Photocraft is an independent project, not affiliated with or endorsed by Adobe.
+  Photoshop is a trademark of Adobe Inc. PhotoCraft is an independent project, not affiliated with or endorsed by Adobe.
 </sub></p>

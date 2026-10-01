@@ -26,10 +26,10 @@ render "$SVG" 1024 "$DIR/photocraft-1024.png"
 # Linux hicolor theme.
 for s in 16 24 32 48 64 128 256 512; do
   mkdir -p "$DIR/hicolor/${s}x${s}/apps"
-  render "$TIGHT" "$s" "$DIR/hicolor/${s}x${s}/apps/ai.storyteller.Photocraft.png"
+  render "$TIGHT" "$s" "$DIR/hicolor/${s}x${s}/apps/ai.storyteller.photocraft.png"
 done
 mkdir -p "$DIR/hicolor/scalable/apps"
-cp "$SVG" "$DIR/hicolor/scalable/apps/ai.storyteller.Photocraft.svg"
+cp "$SVG" "$DIR/hicolor/scalable/apps/ai.storyteller.photocraft.svg"
 
 # Windows .ico.
 ICO_PNGS=()

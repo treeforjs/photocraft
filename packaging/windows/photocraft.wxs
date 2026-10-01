@@ -1,27 +1,27 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  Photocraft MSI (WiX Toolset v5: `dotnet tool install -g wix`). Built by package.ps1:
+  PhotoCraft MSI (WiX Toolset v5: `dotnet tool install -g wix`). Built by package.ps1:
 
-    wix build Photocraft.wxs -arch x64 -d Version=1.2.3 -d BinDir=... -d IconPath=... -o out.msi
+    wix build photocraft.wxs -arch x64 -d Version=1.2.3 -d BinDir=... -d IconPath=... -o out.msi
 
-  Per-machine install into Program Files, a Start Menu shortcut, `.pcraft` owned by Photocraft,
-  and Photocraft offered under "Open with" for PSD/PSB and the image formats it reads (without
+  Per-machine install into Program Files, a Start Menu shortcut, `.pcraft` owned by PhotoCraft,
+  and PhotoCraft offered under "Open with" for PSD/PSB and the image formats it reads (without
   taking over the user's default app for them).
 -->
 <Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
   <Package
-      Name="Photocraft"
+      Name="PhotoCraft"
       Manufacturer="Learning Machines LLC"
       Version="$(var.Version)"
       UpgradeCode="D9660F32-2D0A-4ABE-B73D-17BE25F1542C"
       Scope="perMachine"
       Compressed="yes"
       Language="1033">
-    <SummaryInformation Description="Photocraft image editor" Manufacturer="Learning Machines LLC" />
+    <SummaryInformation Description="PhotoCraft image editor" Manufacturer="Learning Machines LLC" />
     <!-- Same-version upgrades let successive pre-releases of one X.Y.Z replace each other
          (MSI versions are numeric, so 1.2.3-rc.1 and 1.2.3-rc.2 are both 1.2.3). -->
     <MajorUpgrade AllowSameVersionUpgrades="yes"
-        DowngradeErrorMessage="A newer version of Photocraft is already installed." />
+        DowngradeErrorMessage="A newer version of PhotoCraft is already installed." />
     <MediaTemplate EmbedCab="yes" CompressionLevel="high" />
 
     <Icon Id="PhotocraftIcon" SourceFile="$(var.IconPath)" />
@@ -30,11 +30,11 @@
     <Property Id="ARPHELPLINK" Value="https://github.com/storytold/photocraft/issues" />
 
     <StandardDirectory Id="ProgramFiles6432Folder">
-      <Directory Id="INSTALLFOLDER" Name="Photocraft" />
+      <Directory Id="INSTALLFOLDER" Name="PhotoCraft" />
     </StandardDirectory>
     <StandardDirectory Id="ProgramMenuFolder" />
 
-    <Feature Id="Main" Title="Photocraft" Level="1">
+    <Feature Id="Main" Title="PhotoCraft" Level="1">
       <ComponentGroupRef Id="PhotocraftFiles" />
     </Feature>
   </Package>
@@ -43,13 +43,13 @@
     <ComponentGroup Id="PhotocraftFiles" Directory="INSTALLFOLDER">
       <Component Id="PhotocraftApp" Guid="A6DE41B7-A80F-4C59-A17E-BB68065BF67E">
         <File Id="PhotocraftExe" Source="$(var.BinDir)\photocraft.exe" KeyPath="yes">
-          <Shortcut Id="StartMenuShortcut" Directory="ProgramMenuFolder" Name="Photocraft"
-              Description="Photocraft image editor" WorkingDirectory="INSTALLFOLDER" Advertise="yes"
+          <Shortcut Id="StartMenuShortcut" Directory="ProgramMenuFolder" Name="PhotoCraft"
+              Description="PhotoCraft image editor" WorkingDirectory="INSTALLFOLDER" Advertise="yes"
               Icon="PhotocraftIcon" IconIndex="0" />
         </File>
 
-        <!-- .pcraft: Photocraft's own format; Photocraft is its default app. -->
-        <ProgId Id="Photocraft.Document" Description="Photocraft Document" Icon="PhotocraftExe" IconIndex="0">
+        <!-- .pcraft: PhotoCraft's own format; PhotoCraft is its default app. -->
+        <ProgId Id="Photocraft.Document" Description="PhotoCraft Document" Icon="PhotocraftExe" IconIndex="0">
           <Extension Id="pcraft" ContentType="application/x-photocraft">
             <Verb Id="open" Command="Open" TargetFile="PhotocraftExe" Argument="&quot;%1&quot;" />
           </Extension>
@@ -77,7 +77,7 @@
         <RegistryValue Root="HKLM" Key="Software\Classes\.ico\OpenWithProgids" Name="Photocraft.Image" Value="" Type="string" />
 
         <!-- "Open with" app list and the Run dialog (Win+R "photocraft"). -->
-        <RegistryValue Root="HKLM" Key="Software\Classes\Applications\photocraft.exe" Name="FriendlyAppName" Value="Photocraft" Type="string" />
+        <RegistryValue Root="HKLM" Key="Software\Classes\Applications\photocraft.exe" Name="FriendlyAppName" Value="PhotoCraft" Type="string" />
         <RegistryValue Root="HKLM" Key="Software\Classes\Applications\photocraft.exe\shell\open\command" Value="&quot;[#PhotocraftExe]&quot; &quot;%1&quot;" Type="string" />
         <RegistryValue Root="HKLM" Key="Software\Classes\Applications\photocraft.exe\SupportedTypes" Name=".pcraft" Value="" Type="string" />
         <RegistryValue Root="HKLM" Key="Software\Classes\Applications\photocraft.exe\SupportedTypes" Name=".psd" Value="" Type="string" />

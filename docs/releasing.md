@@ -1,8 +1,12 @@
-# Releasing Photocraft
+# Releasing PhotoCraft
 
 Every push to the `release` branch runs `.github/workflows/release.yml`. The workflow builds
 signed installers for macOS, Windows, Linux and the web, then creates or updates a **draft**
-GitHub Release named `Photocraft v<version>`. Nobody sees a draft until a maintainer publishes it.
+GitHub Release named `PhotoCraft v<version>`. Nobody sees a draft until a maintainer publishes it.
+
+This is PhotoCraft's implementation of the shared
+[release playbook](release-playbook.md). User-facing names say **PhotoCraft**. Files, binaries
+and ids stay lowercase (`photocraft-<version>-<platform>-<arch>.<ext>`, `ai.storyteller.photocraft`).
 
 ## Cutting a release
 
@@ -17,7 +21,7 @@ GitHub Release named `Photocraft v<version>`. Nobody sees a draft until a mainta
    Commit the change (`Cargo.toml` + `Cargo.lock`) through the normal review flow.
 2. **Merge `main` into `release`** (or fast-forward it) and push. The workflow starts by itself.
 3. **Wait for the draft.** After about 30 to 45 minutes (notarization is the slow part), the
-   Releases page has a draft `Photocraft v0.2.0`, tagged `v0.2.0` on the pushed commit, with
+   Releases page has a draft `PhotoCraft v0.2.0`, tagged `v0.2.0` on the pushed commit, with
    every artifact and `SHA256SUMS.txt`. The notes are generated from the merged PRs.
 4. **Check it.** Download an installer or two and look at the job summaries. Any
    `::warning::` there means a signing secret was missing and that artifact is unsigned.
@@ -37,26 +41,26 @@ in the dialog.
 
 | Platform | Artifacts | Built on |
 |---|---|---|
-| macOS 11+ (universal: Apple silicon + Intel) | `Photocraft-<v>-macos-universal.dmg`, `photocraft-cli-<v>-macos-universal.zip` | `macos-15` |
-| Windows 10+ x64 | `Photocraft-<v>-windows-x64.msi`, `…-windows-x64-portable.zip` | `windows-latest` |
-| Windows 10+ x86 (32-bit) | `Photocraft-<v>-windows-x86.msi`, `…-windows-x86-portable.zip` | `windows-latest` |
-| Linux x86_64 | `Photocraft-<v>-x86_64.AppImage`, `photocraft_<v>-1_amd64.deb`, `photocraft-<v>-1.x86_64.rpm`, `photocraft-<v>-linux-x86_64.tar.gz` | `ubuntu-22.04` |
-| Linux aarch64 | the same four, for `aarch64` / `arm64` | `ubuntu-22.04-arm` |
+| macOS 11+ (universal: Apple silicon + Intel) | `photocraft-<v>-macos-universal.dmg`, `photocraft-cli-<v>-macos-universal.zip` | `macos-15` |
+| Windows 10+ x64 | `photocraft-<v>-windows-x64.msi`, `photocraft-<v>-windows-x64-portable.zip` | `windows-latest` |
+| Windows 10+ x86 (32-bit) | `photocraft-<v>-windows-x86.msi`, `photocraft-<v>-windows-x86-portable.zip` | `windows-latest` |
+| Linux x86_64 | `photocraft-<v>-linux-x86_64.{AppImage,deb,rpm,tar.gz}` | `ubuntu-22.04` |
+| Linux aarch64 | `photocraft-<v>-linux-aarch64.{AppImage,deb,rpm,tar.gz}` | `ubuntu-22.04-arm` |
 | Web | `photocraft-web-<v>.zip` (static site; see [`packaging/web/README.md`](../packaging/web/README.md)) | `ubuntu-latest` |
 
 Every binary reports its version, the commit and the build date: `photocraft --version`,
-`photocraft-cli --version`, and *Help › About Photocraft*. CI sets `PHOTOCRAFT_BUILD_SHA` and
+`photocraft-cli --version`, and *Help › About PhotoCraft*. CI sets `PHOTOCRAFT_BUILD_SHA` and
 `PHOTOCRAFT_BUILD_DATE`, and `crates/engine/src/build_info.rs` reads them at compile time. A plain
 `cargo build` doesn't set them and reports `0.2.0 (dev build)`.
 
 ### macOS
 
 `packaging/macos/package.sh` builds `aarch64-apple-darwin` and `x86_64-apple-darwin` with
-`MACOSX_DEPLOYMENT_TARGET=11.0`, joins them with `lipo`, and assembles `Photocraft.app`:
+`MACOSX_DEPLOYMENT_TARGET=11.0`, joins them with `lipo`, and assembles `PhotoCraft.app`:
 
 - `Info.plist` is generated from `Info.plist.in`. The bundle id is `ai.storyteller.photocraft`.
   The plist sets `LSMinimumSystemVersion` 11.0, `NSHighResolutionCapable`, and document types:
-  `.pcraft` (Owner), plus PSD/PSB and the image formats Photocraft reads (Alternate, so it never
+  `.pcraft` (Owner), plus PSD/PSB and the image formats PhotoCraft reads (Alternate, so it never
   takes over Preview's defaults). The icon is `assets/app-icon/photocraft.icns`.
 - **Signing** goes inside-out with the hardened runtime and a secure timestamp. The executable
   is signed first, then the bundle. There's no `--deep` on the final signature. The
@@ -74,7 +78,7 @@ That's enough to check the bundle and the DMG on your own Mac:
 ```sh
 packaging/macos/package.sh                    # universal; needs both rustup targets
 packaging/macos/package.sh --arch aarch64     # quicker, host-only
-open dist/release/Photocraft-*-macos-*.dmg
+open dist/release/photocraft-*-macos-*.dmg
 ```
 
 ### Windows
@@ -88,8 +92,8 @@ goes in `CARGO_TARGET_<TRIPLE>_RUSTFLAGS`, so host build scripts aren't affected
   VERSIONINFO with the `winresource` crate. It only does this when targeting Windows. Elsewhere
   it's a no-op, and the web build doesn't touch that crate.
 - Release builds use the GUI subsystem, so Start Menu launches don't open a console window.
-- `Photocraft.wxs` (WiX v5) is a per-machine install into Program Files with an advertised
-  Start Menu shortcut. Photocraft becomes the default app for `.pcraft` and is listed under
+- `photocraft.wxs` (WiX v5) is a per-machine install into Program Files with an advertised
+  Start Menu shortcut. PhotoCraft becomes the default app for `.pcraft` and is listed under
   "Open with" for PSD/PSB and image files. It also registers App Paths (Win+R `photocraft`).
   The MSI version is the numeric `X.Y.Z`, because MSI has no pre-release field. Same-version
   upgrades are allowed so that release candidates replace each other.
@@ -108,7 +112,7 @@ Locally on Windows: `dotnet tool install -g wix --version 5.0.2`, then
 ### Linux
 
 `packaging/linux/package.sh` stages one FHS tree and makes every format from it. The tree
-holds both binaries, `ai.storyteller.Photocraft.desktop`, hicolor icons from 16 px to 512 px
+holds both binaries, `ai.storyteller.photocraft.desktop`, hicolor icons from 16 px to 512 px
 plus a scalable SVG, AppStream metainfo, and a shared-mime-info file for `.pcraft`, `.psb` and
 `.qoi`.
 
@@ -125,7 +129,7 @@ Why these formats:
   it can build both formats on Ubuntu.
 - **.tar.gz** is for people who manage their own `/opt` or `~/.local`.
 - **Flatpak** is the route into Flathub, GNOME Software and KDE Discover.
-  `packaging/linux/flatpak/ai.storyteller.Photocraft.yml` is ready for a Flathub submission.
+  `packaging/linux/flatpak/ai.storyteller.photocraft.yml` is ready for a Flathub submission.
   CI only validates it. A real build needs vendored crate sources (`cargo-sources.json` from
   `flatpak-cargo-generator.py`) and adds 20+ minutes per architecture. Build it by hand with
   the commands in the manifest's header.

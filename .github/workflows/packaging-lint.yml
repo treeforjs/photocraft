@@ -46,8 +46,8 @@ jobs:
           }
       - name: XML, desktop entry, AppStream, Flatpak manifest
         run: |
-          xmllint --noout packaging/windows/Photocraft.wxs packaging/macos/*.plist* packaging/linux/*.xml*
-          desktop-file-validate packaging/linux/ai.storyteller.Photocraft.desktop
-          sed -e 's/@VERSION@/0.0.0/' -e 's/@DATE@/2026-01-01/' packaging/linux/ai.storyteller.Photocraft.metainfo.xml.in >"$RUNNER_TEMP/ai.storyteller.Photocraft.metainfo.xml"
-          appstreamcli validate --no-net --explain "$RUNNER_TEMP/ai.storyteller.Photocraft.metainfo.xml"
-          python3 -c "import yaml; m = yaml.safe_load(open('packaging/linux/flatpak/ai.storyteller.Photocraft.yml')); assert m['id'] == 'ai.storyteller.Photocraft' and m['command'] == 'photocraft'"
+          xmllint --noout packaging/windows/photocraft.wxs packaging/macos/*.plist* packaging/linux/*.xml*
+          desktop-file-validate packaging/linux/ai.storyteller.photocraft.desktop
+          sed -e 's/@VERSION@/0.0.0/' -e 's/@DATE@/2026-01-01/' packaging/linux/ai.storyteller.photocraft.metainfo.xml.in >"$RUNNER_TEMP/ai.storyteller.photocraft.metainfo.xml"
+          appstreamcli validate --no-net --explain "$RUNNER_TEMP/ai.storyteller.photocraft.metainfo.xml"
+          python3 -c "import yaml; m = yaml.safe_load(open('packaging/linux/flatpak/ai.storyteller.photocraft.yml')); assert m['id'] == 'ai.storyteller.photocraft' and m['command'] == 'photocraft'"

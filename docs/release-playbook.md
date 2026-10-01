@@ -1,15 +1,21 @@
 # Release playbook for storytold apps
 
-How every storytold desktop/web app (PhotoCraft, DrawCraft, FilmCraft, LightCraft, PrintCraft,
-DesignCraft, EffectsCraft, and later ArtCraft) builds signed release binaries in CI. Photocraft is
-the reference implementation: copy its `.github/workflows/release.yml`, `packaging/` and
-`xtask version` code, then rename. Photocraft-specific details live in its `docs/releasing.md`.
+How every crafting app (DesignCraft, DrawCraft, EffectCraft, FilmCraft, LightCraft,
+PhotoCraft, PrintCraft; later ArtCraft and ArtCraftX) builds signed release binaries in CI.
+PhotoCraft is the reference implementation: copy its `.github/workflows/release.yml`, `packaging/`
+and `xtask version` code into your repo, then rename. Repos never share code (see
+`../craftrules/README.md`): each app keeps and evolves its own copy. PhotoCraft-specific details
+live in its `docs/releasing.md`.
+
+This playbook is meant to move to `craftrules/release/playbook.md` as the canonical shared copy.
+Until then, this file is the source.
 
 Agents: follow this document step by step, and keep each app's setup identical to it except for
-the names in §9. If you improve the recipe in one app, update this playbook in photocraft too.
+the names in §9. If you improve the recipe in one app, update the playbook too.
 
-**Naming.** Display names are PascalCase with a capital "C": **PhotoCraft, DrawCraft, FilmCraft,
-LightCraft, PrintCraft, DesignCraft, EffectsCraft, ArtCraft**. Use them for:
+**Naming.** Display names follow `{Function}Craft`, PascalCase with a capital "C": **ArtCraft,
+ArtCraftX, DesignCraft, DrawCraft, EffectCraft, FilmCraft, LightCraft, PhotoCraft, PrintCraft**.
+Use them for:
 - release names (`PhotoCraft v0.2.0`);
 - the macOS bundle (`PhotoCraft.app`, `CFBundleName`/`CFBundleDisplayName`), the DMG volume name;
 - the Windows product name, Start Menu shortcut and installer title;
@@ -212,28 +218,14 @@ signing material is still being identified, because artcraft never signed its Wi
 6. Document anything app-specific in that app's `docs/releasing.md`. Improvements to the recipe
    itself go back into this playbook.
 
-## 10. Shared reusable workflow (planned)
+## 10. Copy, don't depend
 
-So apps don't each carry a copy of the pipeline, the photocraft workflow will be lifted into a
-reusable workflow in a shared repo (`storytold/release-kit`, `on: workflow_call`). Each app's
-`release.yml` then shrinks to a caller:
-
-```yaml
-jobs:
-  release:
-    uses: storytold/release-kit/.github/workflows/rust-app-release.yml@v1
-    with:
-      app-name: DrawCraft          # display name (PascalCase), release name "DrawCraft v<version>"
-      package: drawcraft           # cargo package of the desktop app
-      bundle-id: ai.storyteller.drawcraft
-      web-dir: apps/drawcraft-web  # omit if there is no web build
-      wix-upgrade-code: "<GUID generated once for this app>"
-    secrets: inherit
-```
-
-The called jobs declare `environment: release`, so they read the *caller's* `release`
-environment secrets, and the branch rule from §3 still applies. Until release-kit exists, copy the
-files from photocraft as described in §9.
+Crafting apps never share code (craftrules README). There is deliberately **no** shared reusable
+workflow or packaging library: each app copies PhotoCraft's files and owns them. To make copying
+easy, the reference implementation keeps every app-specific value (display name, package, bundle
+id, web dir, WiX upgrade GUID, file types) in one clearly marked place at the top of the workflow
+and scripts. When an app finds a better recipe, it updates this playbook (and a learning in
+craftrules) so the others can adopt the idea in their own copies.
 
 ## 11. Prompt for an app's agent
 

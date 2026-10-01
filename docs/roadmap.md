@@ -1,6 +1,6 @@
 # Roadmap
 
-Status legend: ✅ done · 🟡 in progress · ⬜ not started. Updated 2026-09-30.
+Status legend: ✅ done · 🟡 in progress · ⬜ not started. Updated 2026-10-01.
 
 **Parity metric:** `cargo xtask parity` measures how much of Photoshop's menu tree is live and
 writes [`parity.md`](parity.md). It is the headline number for "how close are we", next to the PSD
@@ -20,22 +20,28 @@ composite oracle and the test count.
 | M9 Text, vector, styles | 🟡 | type engine + Warp Text, shapes / pen / paths, all 10 effects on CPU and GPU (parity ≤1/255, 30/31 corpus effect files on the GPU) |
 | M10 Smart features | 🟡 | classical Select Subject / Object, content-aware fill and scale, healing, auto-align / auto-blend; ML backend not started |
 | M11 Automation + formats | 🟡 | MCP (headless + live bridge), batch, Image Processor, prefs over MCP; DoD test passes (10 agent tasks over MCP, `automation/tests/agent_tasks.rs`); JP2 / DICOM / DPX / C2PA pending |
-| M12 Pro parity | 🟡 | CMYK / Lab / Indexed / Bitmap / Duotone, ICC + soft proofing, channels + Quick Mask, smart-object stack modes; print, HDR, photomerge, timeline, artboards, layer comps pending |
+| M12 Pro parity | 🟡 | CMYK / Lab / Indexed / Bitmap / Duotone, ICC + soft proofing, channels + Quick Mask, smart-object stack modes, artboards, layer comps; print, HDR, photomerge, timeline pending |
 
-**Menu parity: 518 / 625 (82.9%)** on 2026-10-01, up from 224 (35.8%) the day before. See [`parity.md`](parity.md).
+**Menu parity: 532 / 625 (85.1%)** on 2026-10-01, up from 224 (35.8%) the day before. See [`parity.md`](parity.md).
 
 ## Current focus (infrastructure before the long tail)
 
-Landed on 2026-10-01: multi-layer selection, live smart objects + smart filters, alpha channels +
-Quick Mask, patterns, Warp, preferences, snapping, ~33 filters, the remaining core adjustments.
+Landed on 2026-10-01:
+- multi-layer selection, live smart objects + smart filters, alpha channels + Quick Mask;
+- patterns, Warp, preferences, snapping, ~33 filters, the remaining core adjustments;
+- Layer Comps and Artboards, GPU layer effects, Liquify / Puppet Warp / Perspective Warp;
+- the PSD fidelity pass (oracle 102 → 111), the M11 MCP acceptance test, and the release pipeline
+  (`docs/releasing.md`).
 
 Next:
-1. **Fidelity**: the PSD oracle (111/170). Bevel/emboss, satin, inner glow; modern
+1. **First signed release**: push to `release`, verify notarization and the installers, and fix CI
+   (`docs/releasing.md`). Windows code-signing material still needs to be obtained.
+2. **Fidelity**: the PSD oracle (111/170). Bevel/emboss, satin, inner glow; modern
    Brightness/Contrast and grayscale Levels curves; channel restrictions (`brst`); Lab-space
-   blending; Photoshop smart filters in `SoLd`.
-2. **Layer Comps and Artboards** (File/Layer/View items and export depend on them).
-3. **GPU layer effects** (the last big CPU fallback on the canvas).
-4. **Puppet Warp, Perspective Warp, Liquify, Vanishing Point, Camera Raw / Lens Correction**.
+   blending; Photoshop smart filters in `SoLd`. Also the GPU/CPU Color Burn edge case (51/255 at
+   backdrop 1, source 0).
+3. **Remaining GPU fallbacks**: vector masks, layers clipped to pass-through groups, artboards.
+4. **Vanishing Point, Camera Raw / Lens Correction, Face-Aware Liquify** (needs a landmark model).
 5. **Panels**: Patterns, Styles, Glyphs, Character/Paragraph Styles, Timeline; Custom Shape tool.
 6. Print, Photomerge, Merge to HDR, video layers.
 

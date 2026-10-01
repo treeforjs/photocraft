@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# Build and package Photocraft for Linux:
+# Build and package PhotoCraft for Linux (<arch> is x86_64 or aarch64):
 #
-#   $DIST/Photocraft-<version>-<arch>.AppImage      runs on any distro with glibc >= the build host's
-#   $DIST/photocraft_<version>-1_<debarch>.deb      Debian, Ubuntu, Mint, Pop!_OS, ...
-#   $DIST/photocraft-<version>-1.<arch>.rpm         Fedora, openSUSE, RHEL, ...
-#   $DIST/photocraft-<version>-linux-<arch>.tar.gz  plain FHS-style tree (bin/, share/)
+#   $DIST/photocraft-<version>-linux-<arch>.AppImage  any distro with glibc >= the build host's
+#   $DIST/photocraft-<version>-linux-<arch>.deb       Debian, Ubuntu, Mint, Pop!_OS, ...
+#   $DIST/photocraft-<version>-linux-<arch>.rpm       Fedora, openSUSE, RHEL, ...
+#   $DIST/photocraft-<version>-linux-<arch>.tar.gz    plain FHS-style tree (bin/, share/)
 #
 # Usage: packaging/linux/package.sh [--skip-build] [--formats "appimage deb rpm tar"]
 #
@@ -15,7 +15,7 @@ set -euo pipefail
 # shellcheck source=../env.sh
 . "$(dirname "${BASH_SOURCE[0]}")/../env.sh"
 HERE="$ROOT/packaging/linux"
-APP_ID=ai.storyteller.Photocraft
+APP_ID=ai.storyteller.photocraft
 
 SKIP_BUILD=0
 FORMATS="appimage deb rpm tar"
@@ -34,9 +34,10 @@ case "$ARCH" in
   aarch64 | arm64) ARCH=aarch64; DEB_ARCH=arm64 ;;
   *) echo "unsupported architecture $ARCH" >&2; exit 2 ;;
 esac
-export PHOTOCRAFT_MAINTAINER="${PHOTOCRAFT_MAINTAINER:-Photocraft maintainers <photocraft@storyteller.ai>}"
+export PHOTOCRAFT_MAINTAINER="${PHOTOCRAFT_MAINTAINER:-PhotoCraft maintainers <photocraft@storyteller.ai>}"
+BASENAME="photocraft-$VERSION-linux-$ARCH"
 
-echo "==> Photocraft $VERSION for Linux $ARCH ($FORMATS)"
+echo "==> PhotoCraft $VERSION for Linux $ARCH ($FORMATS)"
 
 if [ "$SKIP_BUILD" = 0 ]; then
   (cd "$ROOT" && cargo build --release --locked -p photocraft -p photocraft-cli)
@@ -71,11 +72,10 @@ has() { case " $FORMATS " in *" $1 "*) return 0 ;; *) return 1 ;; esac; }
 
 # ---- .tar.gz ------------------------------------------------------------------------------------
 if has tar; then
-  NAME="photocraft-$VERSION-linux-$ARCH"
   mkdir -p "$WORK/tar"
-  cp -R "$STAGE/usr" "$WORK/tar/$NAME"
-  tar -C "$WORK/tar" -czf "$DIST/$NAME.tar.gz" "$NAME"
-  echo "wrote $DIST/$NAME.tar.gz"
+  cp -R "$STAGE/usr" "$WORK/tar/$BASENAME"
+  tar -C "$WORK/tar" -czf "$DIST/$BASENAME.tar.gz" "$BASENAME"
+  echo "wrote $DIST/$BASENAME.tar.gz"
 fi
 
 # ---- .deb / .rpm --------------------------------------------------------------------------------
@@ -84,13 +84,13 @@ if has deb || has rpm; then
   export STAGE VERSION
   export NFPM_ARCH="$DEB_ARCH"
   for fmt in deb rpm; do
-    if has "$fmt"; then (cd "$ROOT" && nfpm package -f "$HERE/nfpm.yaml" -p "$fmt" -t "$DIST/"); fi
+    if has "$fmt"; then (cd "$ROOT" && nfpm package -f "$HERE/nfpm.yaml" -p "$fmt" -t "$DIST/$BASENAME.$fmt"); fi
   done
 fi
 
 # ---- AppImage -----------------------------------------------------------------------------------
 if has appimage; then
-  APPDIR="$WORK/Photocraft.AppDir"
+  APPDIR="$WORK/PhotoCraft.AppDir"
   cp -R "$STAGE" "$APPDIR"
   mv "$APPDIR/usr/share/doc" "$WORK/doc-unused"
   ln -s usr/bin/photocraft "$APPDIR/AppRun"
@@ -106,7 +106,7 @@ if has appimage; then
       chmod +x "$TOOL"
     fi
   fi
-  OUT="$DIST/Photocraft-$VERSION-$ARCH.AppImage"
+  OUT="$DIST/$BASENAME.AppImage"
   # Extract-and-run: works without FUSE (containers, CI). The output embeds the static runtime,
   # so users don't need libfuse2 either.
   ARCH="$ARCH" APPIMAGE_EXTRACT_AND_RUN=1 "$TOOL" --no-appstream "$APPDIR" "$OUT"
