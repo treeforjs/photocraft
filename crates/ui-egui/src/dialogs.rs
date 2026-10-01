@@ -29,6 +29,13 @@ pub fn show(app: &mut PhotocraftApp, ctx: &egui::Context) {
                 DialogKind::About => {
                     ui.label("PhotoCraft — an open-source, native image editor written in Rust.");
                     ui.label(format!("Version {}", photocraft_engine::build_info::long_version()));
+                    ui.add_space(12.0);
+                    ui.vertical_centered(|ui| {
+                        crate::links::discord_button(app, ui, 220.0);
+                        ui.add_space(8.0);
+                        crate::links::link_row(ui);
+                    });
+                    ui.add_space(10.0);
                     ui.weak("egui · wgpu · photocraft-engine");
                 }
                 DialogKind::Command if crate::prefs_ui::owns(&fields) => crate::prefs_ui::body(app, ui, &mut fields),

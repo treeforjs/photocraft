@@ -49,6 +49,11 @@ pub const UI_COMMANDS: &[(&str, &str, &[&str], Option<&str>)] = &[
     ("window.theme.studioLight", "Studio Light Theme", &["Window", "Theme"], None),
     ("window.theme.classic", "Classic Theme", &["Window", "Theme"], None),
     ("edit.search", "Search…", &["Edit"], Some("Cmd+K")),
+    ("help.discord", "Join the ArtCraft Discord…", &["Help"], None),
+    ("help.website", "PhotoCraft Website", &["Help"], None),
+    ("help.artcraftWebsite", "ArtCraft Website", &["Help"], None),
+    ("help.github", "PhotoCraft on GitHub", &["Help"], None),
+    ("help.reportIssue", "Report an Issue…", &["Help"], None),
     ("help.about", "About PhotoCraft", &["Help"], None),
 ];
 
@@ -91,6 +96,10 @@ fn workspace_name(id: &str) -> Option<&'static str> {
 
 /// Run a command id from any source (menu, shortcut, palette, automation).
 pub fn invoke(app: &mut PhotocraftApp, ctx: &egui::Context, id: &str, params: Value) -> Result<Value, String> {
+    // Help › Discord, website, GitHub, Report an Issue.
+    if let Some(url) = crate::links::url_for(id) {
+        return Ok(crate::links::open(app, ctx, url));
+    }
     if id == "view.proofSetup.custom" {
         return Ok(json!({"dialog": crate::filter_dialog::open(app, "view.proofSetup")}));
     }
@@ -315,6 +324,7 @@ pub fn is_enabled(app: &PhotocraftApp, id: &str) -> bool {
     }
     match id {
         "file.open" | "help.about" | "edit.search" => true,
+        i if crate::links::url_for(i).is_some() => true,
         i if i.starts_with("window.theme.") => true,
         "file.save" | "file.saveAs" | "file.export.exportAs" | "file.export.quickExportAsPng" => app.session.active().is_some() && app.services.export.is_some(),
         i if i.starts_with("window.toggle.") => true,
@@ -437,6 +447,10 @@ pub fn menu_items(app: &PhotocraftApp) -> Vec<MenuItem> {
             let at = items.iter().rposition(|i| i.path.first() == top.as_ref()).map_or(items.len(), |p| p + 1);
             items.insert(at, e);
         }
+    }
+    // Help: the link items, a separator, then About.
+    if let Some(at) = items.iter().position(|i| i.id == "help.about") {
+        items.insert(at, MenuItem { id: "---".into(), label: "---".into(), path: vec!["Help".into()], shortcut: None, enabled: false, checked: None, color: None });
     }
     // Edit › Keyboard Shortcuts overrides, Edit › Menus hidden items and colours.
     let prefs = app.session.prefs();

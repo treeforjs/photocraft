@@ -26,8 +26,9 @@
 
     <Icon Id="PhotocraftIcon" SourceFile="$(var.IconPath)" />
     <Property Id="ARPPRODUCTICON" Value="PhotocraftIcon" />
-    <Property Id="ARPURLINFOABOUT" Value="https://github.com/storytold/photocraft" />
-    <Property Id="ARPHELPLINK" Value="https://github.com/storytold/photocraft/issues" />
+    <Property Id="ARPURLINFOABOUT" Value="https://getartcraft.com/apps/photocraft" />
+    <Property Id="ARPURLUPDATEINFO" Value="https://getartcraft.com/apps/photocraft" />
+    <Property Id="ARPHELPLINK" Value="https://discord.gg/artcraft" />
 
     <StandardDirectory Id="ProgramFiles6432Folder">
       <Directory Id="INSTALLFOLDER" Name="PhotoCraft" />

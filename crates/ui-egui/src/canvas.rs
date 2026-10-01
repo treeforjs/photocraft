@@ -559,7 +559,7 @@ fn start_screen(app: &mut PhotocraftApp, ui: &mut egui::Ui) {
     let t = crate::theme::Tokens::get(ui.ctx());
     let area = ui.available_rect_before_wrap();
     paint_dots(ui, area);
-    let card = Rect::from_center_size(area.center(), egui::vec2(460.0, 250.0));
+    let card = Rect::from_center_size(area.center(), egui::vec2(460.0, 330.0));
     ui.scope_builder(egui::UiBuilder::new().max_rect(card), |ui| {
         ui.vertical_centered(|ui| {
             ui.horizontal(|ui| {
@@ -594,6 +594,10 @@ fn start_screen(app: &mut PhotocraftApp, ui: &mut egui::Ui) {
                 crate::icons::paint(ui, r, "image", 15.0, t.text_faint);
                 ui.label(egui::RichText::new(msg).color(t.text_faint));
             });
+            ui.add_space(26.0);
+            crate::links::discord_button(app, ui, 190.0);
+            ui.add_space(10.0);
+            crate::links::link_row(ui);
         });
     });
 }

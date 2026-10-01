@@ -21,6 +21,7 @@ pub mod gpu_canvas;
 pub mod filter_dialog;
 pub mod icons;
 pub mod layer_style;
+pub mod links;
 pub mod menu_catalog;
 pub mod menus;
 pub mod outline;

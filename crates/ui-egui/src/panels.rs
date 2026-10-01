@@ -222,6 +222,11 @@ pub fn title_bar(app: &mut PhotocraftApp, ui: &mut egui::Ui) {
                     let next = app.ui.theme.next();
                     app.set_theme(ui.ctx(), next);
                 }
+                // Always one click away: the community Discord.
+                let discord = egui::Button::image_and_text(icons::image("message-square", 14.0, t.text_dim), egui::RichText::new("Discord").color(t.text_dim).size(12.0)).frame(false);
+                if ui.add(discord).on_hover_text(format!("Join the ArtCraft Discord ({})", crate::links::DISCORD)).clicked() {
+                    crate::links::open(app, ui.ctx(), crate::links::DISCORD);
+                }
             });
         });
     });
