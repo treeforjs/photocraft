@@ -81,10 +81,12 @@ fi
 # ---- .deb / .rpm --------------------------------------------------------------------------------
 if has deb || has rpm; then
   command -v nfpm >/dev/null || { echo "error: nfpm not found (https://nfpm.goreleaser.com/install/)" >&2; exit 1; }
-  export STAGE VERSION
+  export VERSION
   export NFPM_ARCH="$DEB_ARCH"
+  # nfpm expands env vars in fields like `version` and `arch`, but not in `contents[].src`.
+  sed "s|\${STAGE}|$STAGE|g" "$HERE/nfpm.yaml" >"$WORK/nfpm.yaml"
   for fmt in deb rpm; do
-    if has "$fmt"; then (cd "$ROOT" && nfpm package -f "$HERE/nfpm.yaml" -p "$fmt" -t "$DIST/$BASENAME.$fmt"); fi
+    if has "$fmt"; then (cd "$ROOT" && nfpm package -f "$WORK/nfpm.yaml" -p "$fmt" -t "$DIST/$BASENAME.$fmt"); fi
   done
 fi
 
