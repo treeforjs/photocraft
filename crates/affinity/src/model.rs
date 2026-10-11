@@ -301,7 +301,7 @@ pub(crate) struct Reader<'s, 'a, 'b> {
 }
 
 impl<'s, 'a, 'b> Reader<'s, 'a, 'b> {
-    fn new(s: &'s Stream, archive: &'b mut Archive<'a>) -> Self {
+    pub(crate) fn new(s: &'s Stream, archive: &'b mut Archive<'a>) -> Self {
         Self { s, archive, dpi: 72.0, warnings: BTreeMap::new(), nodes: 0, active: HashSet::new() }
     }
 

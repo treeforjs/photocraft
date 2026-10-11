@@ -11,16 +11,38 @@ const MAX_NODES: usize = 4_000_000;
 /// Compound operands are shared objects and may form a cyclic or branching graph.
 const MAX_COMPOUND_DEPTH: usize = 128;
 const MAX_OUTLINE_NODES: usize = 500_000;
+/// Cubic segments and subpath starts materialized across all operands of one outline.
+const MAX_OUTLINE_GEOMETRY: usize = 4_000_000;
+const GEOMETRY_LIMIT_WARNING: &str = "outlines with more than four million curve segments and subpaths";
 
 struct OutlineBudget {
     active: HashSet<ObjId>,
     remaining: usize,
+    geometry_remaining: usize,
+}
+
+impl OutlineBudget {
+    fn admit_geometry(&mut self, path: &Path) -> bool {
+        let remaining =
+            path.subpaths.iter().try_fold(self.geometry_remaining, |remaining, subpath| remaining.checked_sub(1)?.checked_sub(subpath.segments.len()));
+        match remaining {
+            Some(remaining) => {
+                self.geometry_remaining = remaining;
+                true
+            }
+            None => {
+                // Stop expanding this outline after the first operand that cannot fit.
+                self.geometry_remaining = 0;
+                false
+            }
+        }
+    }
 }
 
 /// The node-space outline of a curve, shape or compound node, and whether it fills even-odd.
 /// Instances (master-page or symbol copies) take the geometry of their master.
 pub(crate) fn outline(r: &mut Reader, id: ObjId, class: Tag, world: Affine) -> Option<(Path, bool)> {
-    let mut budget = OutlineBudget { active: HashSet::new(), remaining: MAX_OUTLINE_NODES };
+    let mut budget = OutlineBudget { active: HashSet::new(), remaining: MAX_OUTLINE_NODES, geometry_remaining: MAX_OUTLINE_GEOMETRY };
     outline_bounded(r, id, class, world, &mut budget)
 }
 
@@ -40,6 +62,15 @@ fn outline_bounded(r: &mut Reader, id: ObjId, class: Tag, world: Affine, budget:
     budget.remaining -= 1;
     let result = outline_inner(r, id, class, world, budget);
     budget.active.remove(&id);
+    // Charge each emitted leaf once. Charging compounds too would count the same
+    // geometry again at each ancestor, while deduplicating object IDs would miss copies.
+    if class != Tag::of(b"Comp")
+        && let Some((path, _)) = &result
+        && !budget.admit_geometry(path)
+    {
+        r.warn(GEOMETRY_LIMIT_WARNING);
+        return None;
+    }
     result
 }
 
@@ -60,6 +91,10 @@ fn outline_inner(r: &mut Reader, id: ObjId, class: Tag, world: Affine, budget: &
             for c in s.objs(id, b"Chld") {
                 if budget.remaining == 0 {
                     r.warn("compound shapes with more than 500000 operands");
+                    break;
+                }
+                if budget.geometry_remaining == 0 {
+                    r.warn(GEOMETRY_LIMIT_WARNING);
                     break;
                 }
                 let local = s.floats::<6>(c, b"Xfrm").map(Affine::from_xfrm).unwrap_or(Affine::IDENTITY);
@@ -210,4 +245,60 @@ fn corner_radii(fields: Vec<&Value>) -> Option<Vec<(usize, f64)>> {
             })
             .collect(),
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::synth::{self, F, Method, tag};
+    use crate::{Archive, Limits, stream};
+
+    fn line() -> F {
+        let records = [0.0f64, 1.0]
+            .into_iter()
+            .map(|x| {
+                let mut record = x.to_le_bytes().to_vec();
+                record.extend(0.0f64.to_le_bytes());
+                record.extend([0, 0]);
+                record
+            })
+            .collect();
+        let data = F::Pos(vec![F::U8(0), F::U32(1), F::Bool(false), F::Records(18, records)]);
+        F::Def(1, vec![tag(b"PCrv")], vec![(tag(b"Crvs"), F::Obj(tag(b"PCvD"), vec![(tag(b"Data"), data)]))])
+    }
+
+    fn repeated_outline(operand: F, limit: usize) -> Path {
+        let inner = F::Def(2, vec![tag(b"Comp")], vec![(tag(b"Chld"), F::Shared(vec![operand, F::Ref(1)]))]);
+        let outer = F::Def(3, vec![tag(b"Comp")], vec![(tag(b"Chld"), F::Shared(vec![inner, F::Ref(2)]))]);
+        let bytes = synth::stream(&[(tag(b"Node"), outer)]);
+        let file = synth::container(&[("doc.dat", &bytes, Method::Stored)], None);
+        let mut archive = Archive::open(&file, Limits::default()).unwrap();
+        let stream = stream::parse(&bytes).unwrap();
+        let id = stream.obj(stream.root, b"Node").unwrap();
+        let mut reader = Reader::new(&stream, &mut archive);
+        let mut budget = OutlineBudget { active: HashSet::new(), remaining: MAX_OUTLINE_NODES, geometry_remaining: limit };
+        outline_bounded(&mut reader, id, tag(b"Comp"), Affine::IDENTITY, &mut budget).unwrap().0
+    }
+
+    #[test]
+    fn shared_curve_geometry_is_charged_per_emitted_copy() {
+        // Four references to the same line, each one start plus one segment. Compound
+        // ancestors must not charge their children's geometry again as it is propagated.
+        for limit in 0..=9 {
+            let path = repeated_outline(line(), limit);
+            assert_eq!(path.subpaths.len(), (limit / 2).min(4), "budget {limit}");
+            assert!(path.subpaths.iter().all(|p| p.segments.len() == 1));
+        }
+    }
+
+    #[test]
+    fn parametric_geometry_uses_the_same_aggregate_budget() {
+        let rectangle =
+            F::Def(1, vec![tag(b"ShpN")], vec![(tag(b"ShpB"), F::F64s(vec![0.0, 0.0, 10.0, 10.0])), (tag(b"Shpe"), F::Obj(tag(b"ShNR"), Vec::new()))]);
+        // One start and three cubic segments per rectangle. The third copy exceeds the
+        // budget; the first two complete operands are retained.
+        let path = repeated_outline(rectangle, 9);
+        assert_eq!(path.subpaths.len(), 2);
+        assert!(path.subpaths.iter().all(|p| p.segments.len() == 3));
+    }
 }
