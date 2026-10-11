@@ -273,8 +273,46 @@ pub(crate) fn adjust_as_filter(kind: &str, p: &Value, surf: &Surface) -> Option<
 }
 
 fn shadows_highlights(s: &mut Session, p: &Value) -> Result<Value> {
-    let sh = shadows_highlights_params(p);
+    let normalized = checked_shadows_highlights_params(p)?;
+    if crate::channel_cmds::target_of(p) == crate::channel_cmds::Target::Pixels
+        && let Some(result) = crate::smart_adjust_cmds::apply(s, "shadowsHighlights", &normalized, "Shadows/Highlights")
+    {
+        return result;
+    }
+    let sh = shadows_highlights_params(&normalized);
     rgba_edit(s, "Shadows/Highlights", p, |px, r| tone::shadows_highlights(px, r.width() as usize, r.height() as usize, &sh))
+}
+
+pub(crate) fn checked_shadows_highlights_params(p: &Value) -> Result<Value> {
+    const CMD: &str = "image.adjustments.shadowsHighlights";
+    if !p.is_object() && !p.is_null() {
+        return Err(bad(CMD, "params must be an object"));
+    }
+    let d = ShadowsHighlights::default();
+    let mut out = serde_json::Map::new();
+    for (key, default, low, high) in [
+        ("shadowAmount", d.shadow_amount, 0.0, 100.0),
+        ("shadowTone", d.shadow_tone, 0.0, 100.0),
+        ("shadowRadius", d.shadow_radius, 0.0, 2500.0),
+        ("highlightAmount", d.highlight_amount, 0.0, 100.0),
+        ("highlightTone", d.highlight_tone, 0.0, 100.0),
+        ("highlightRadius", d.highlight_radius, 0.0, 2500.0),
+        ("color", d.color, -100.0, 100.0),
+        ("midtone", d.midtone, -100.0, 100.0),
+        ("blackClip", d.black_clip, 0.0, 50.0),
+        ("whiteClip", d.white_clip, 0.0, 50.0),
+    ] {
+        let value = match given(p, key) {
+            Some(value) => value.as_f64().filter(|v| v.is_finite()).ok_or_else(|| bad(CMD, format!("`{key}` must be a finite number")))?,
+            None => f64::from(default),
+        };
+        let value = (value as f32).clamp(low, high);
+        // The PSD representation for defaults has no options descriptor.
+        if value != default {
+            out.insert(key.into(), json!(value));
+        }
+    }
+    Ok(Value::Object(out))
 }
 
 fn shadows_highlights_params(p: &Value) -> ShadowsHighlights {
@@ -406,7 +444,7 @@ pub fn specs() -> Vec<CommandSpec> {
             "Shadows/Highlights…",
             ["Image", "Adjustments"],
             r##"{"shadowAmount":0..100=35,"shadowTone":0..100=50,"shadowRadius":0..2500=30,"highlightAmount":0..100=0,"highlightTone":0..100=50,"highlightRadius":0..2500=30,"color":-100..100=20,"midtone":-100..100=0,"blackClip":0..50=0.01,"whiteClip":0..50=0.01}"##,
-            has_pixels,
+            crate::smart_adjust_cmds::enabled,
             shadows_highlights
         ),
         spec!(

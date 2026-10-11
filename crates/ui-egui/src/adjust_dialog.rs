@@ -151,8 +151,20 @@ pub fn reset(ctx: &egui::Context, fields: &mut Map<String, Value>) {
 
 /// Opens the dialog for `command` with the kind's neutral settings.
 pub fn open(app: &mut PhotocraftApp, command: &str) -> Option<u64> {
+    open_inner(app, command, true)
+}
+
+/// The explicit Smart Filter target was checked by `smart_ui`, independently of the active layer.
+pub(crate) fn open_for_smart_filter(app: &mut PhotocraftApp, command: &str) -> Option<u64> {
+    open_inner(app, command, false)
+}
+
+fn open_inner(app: &mut PhotocraftApp, command: &str, creation: bool) -> Option<u64> {
     let kind = command.strip_prefix(PREFIX).filter(|k| adjust_editors::has_editor(k))?;
     let spec = photocraft_engine::commands::find(command)?;
+    if creation && !crate::smart_ui::prepare_creation_dialog(app, command) {
+        return None;
+    }
     let mode = app.session.active().map_or(photocraft_doc::ColorMode::Rgb, |s| s.doc.mode);
     let defaults = photocraft_engine::adjust_params::default_for(kind, mode).ok()?;
     let mut fields = Map::new();
@@ -164,7 +176,11 @@ pub fn open(app: &mut PhotocraftApp, command: &str) -> Option<u64> {
     if let Value::Object(p) = photocraft_engine::adjust_params::to_params(&defaults) {
         fields.extend(p);
     }
-    Some(app.ui.open_dialog(crate::state::DialogKind::Command, fields))
+    let id = app.ui.open_dialog(crate::state::DialogKind::Command, fields);
+    if creation {
+        crate::smart_ui::bind_creation_preview(app, command, id);
+    }
+    Some(id)
 }
 
 /// Dialog body: the kind's editor over the fields, then the Preview checkbox.
@@ -176,7 +192,12 @@ pub fn body(app: &mut PhotocraftApp, ui: &mut egui::Ui, fields: &mut Map<String,
         ui.add_space(4.0);
     }
     let mut values = crate::filter_dialog::params_of(fields);
-    let active = app.session.active().and_then(|s| s.active_layer);
+    let active = fields
+        .get("__smartFilter")
+        .and_then(|binding| binding.get("layer"))
+        .and_then(Value::as_u64)
+        .map(photocraft_doc::LayerId)
+        .or_else(|| app.session.active().and_then(|s| s.active_layer));
     let gray = app.session.active().is_some_and(|s| adjust_editors::is_gray(s.doc.mode));
     let hist = match active {
         Some(id) if adjust_editors::needs_histogram(&kind) => Some(tone::histograms(app, HistSource::Layer(id), adjust_editors::space_of(&values))),

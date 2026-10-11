@@ -87,30 +87,213 @@ pub fn filter_rows(app: &mut PhotocraftApp, ui: &mut egui::Ui, l: &Layer, depth:
 /// Re-opens a smart filter's dialog with its recorded parameters; OK runs
 /// `layer.smartFilter.setParams` instead of adding another filter (see `dialogs::confirm`).
 pub fn open_editor(app: &mut PhotocraftApp, ctx: &egui::Context, layer: u64, sm: &SmartObject, index: usize) {
-    let Some(f) = sm.smart_filters.get(index) else { return };
+    let _ = open_editor_dialog(app, ctx, layer, sm, index);
+}
+
+/// The dialog id for automation; Camera Raw retains its separate workspace editor.
+pub(crate) fn open_editor_dialog(app: &mut PhotocraftApp, ctx: &egui::Context, layer: u64, sm: &SmartObject, index: usize) -> Option<u64> {
+    let f = sm.smart_filters.get(index)?;
+    if let Err(error) = authorize_filter_preview(app, photocraft_doc::LayerId(layer)) {
+        app.ui.status = error;
+        app.ui.status_error = true;
+        return None;
+    }
     // Camera Raw has its own full-window dialog rather than a generic parameter form.
     if f.command == photocraft_engine::lens_cmds::RAW {
         if let Err(e) = crate::camera_raw_ui::open_smart_filter(app, ctx, photocraft_doc::LayerId(layer), index) {
             app.ui.status = e;
             app.ui.status_error = true;
         }
-        return;
+        return None;
     }
-    if !crate::filter_dialog::has_dialog(&f.command) {
-        return;
-    }
-    let Some(id) = crate::filter_dialog::open(app, &f.command) else { return };
+    let adjustment = crate::smart_adjust_preview::supported(&f.command);
+    let id = if crate::adjust_dialog::has_dialog(&f.command) {
+        crate::adjust_dialog::open_for_smart_filter(app, &f.command)?
+    } else {
+        crate::filter_dialog::open_for_smart_filter(app, &f.command)?
+    };
+    let binding = app.session.active().map(|st| json!({"layer": layer, "index": index, "document": st.doc.id.0, "revision": st.revision}));
     if let Some(d) = app.ui.dialog_mut(id) {
-        // The live preview would stack a second copy of the filter on the smart object.
-        d.fields.remove("__preview");
-        d.fields.insert("__smartFilter".into(), json!({"layer": layer, "index": index}));
+        // Other filters still use their existing non-preview editor; their proxy semantics
+        // (including opaque imported filters) have not been qualified here.
+        if !adjustment {
+            d.fields.remove("__preview");
+        }
+        if let Some(binding) = binding {
+            d.fields.insert("__smartFilter".into(), binding);
+        }
+        // Adjustment editors store complete per-channel curves/levels, which are not all
+        // present among their default fields. Never silently reset those channels on OK.
         if let Value::Object(p) = &f.params {
             for (k, v) in p {
-                if d.fields.contains_key(k) {
+                if !k.starts_with("__") && (adjustment || d.fields.contains_key(k)) {
                     d.fields.insert(k.clone(), v.clone());
                 }
             }
         }
+    }
+    capture_dialog_preview_authority(app, id);
+    Some(id)
+}
+
+pub(crate) fn effective_preview_authority(app: &PhotocraftApp) -> crate::state::PreviewAuthority {
+    crate::state::PreviewAuthority(app.session.authorize.or_else(|| app.automation_input.then_some(app.services.automation_authorize).flatten()))
+}
+
+/// Once automation has touched a dialog, later preview frames retain its request authority.
+/// A subsequent manual frame must not clear the captured callback.
+pub(crate) fn capture_dialog_preview_authority(app: &mut PhotocraftApp, id: u64) {
+    let authority = effective_preview_authority(app);
+    if authority.0.is_some()
+        && let Some(dialog) = app.ui.dialog_mut(id)
+    {
+        dialog.preview_authorize = authority;
+    }
+}
+
+/// Keyboard and pointer automation opens dialogs after the control request has returned.
+/// Install its effective gate only for this check, preserving an existing caller's authority.
+fn with_preview_authority<T>(app: &mut PhotocraftApp, check: impl FnOnce(&PhotocraftApp) -> Result<T, String>) -> Result<T, String> {
+    let previous = app.session.authorize;
+    if previous.is_none() && app.automation_input {
+        app.session.authorize = app.services.automation_authorize;
+    }
+    let result = check(app);
+    app.session.authorize = previous;
+    result
+}
+
+/// All engine drivers that append a Smart Filter and may therefore resolve its source.
+pub(crate) fn creates_smart_filter(command: &str) -> bool {
+    use photocraft_engine::{distort_cmds, lens_cmds};
+    channel_filter(command)
+        || matches!(
+            command,
+            distort_cmds::LIQUIFY
+                | distort_cmds::PUPPET
+                | distort_cmds::PUPPET_SMART
+                | distort_cmds::PERSPECTIVE
+                | distort_cmds::PERSPECTIVE_SMART
+                | lens_cmds::LENS
+                | lens_cmds::WIDE
+                | lens_cmds::RAW
+        )
+}
+
+/// Only these drivers divert mask/alpha targets before entering their Smart Object branch.
+fn channel_filter(command: &str) -> bool {
+    photocraft_engine::filters::params_for(command, &Value::Null).is_some()
+        || crate::smart_adjust_preview::supported(command)
+        || command == photocraft_engine::plugin_cmds::RUN
+}
+
+/// Re-editors can also be opened directly by synthetic native menu/keyboard input.
+pub(crate) fn authorize_filter_preview(app: &mut PhotocraftApp, layer: photocraft_doc::LayerId) -> Result<(), String> {
+    with_preview_authority(app, |app| photocraft_engine::smart_cmds::check_filter_edit(&app.session, layer).map_err(|error| error.to_string()))
+}
+
+/// Shared native and control entry point for creation-dialog builders.
+pub(crate) fn prepare_creation_dialog(app: &mut PhotocraftApp, command: &str) -> bool {
+    match with_preview_authority(app, |app| authorize_creation_preview(app, command, &json!({}))) {
+        Ok(()) => true,
+        Err(error) => {
+            app.ui.status = error;
+            app.ui.status_error = true;
+            false
+        }
+    }
+}
+
+/// A saved index must never address a different stack after an automated document edit/switch.
+pub fn validate_editor(app: &PhotocraftApp, fields: &serde_json::Map<String, Value>) -> Result<(), String> {
+    if let Some(binding) = fields.get("__smartCreation") {
+        let valid = app.session.active().is_some_and(|st| {
+            binding.get("document").and_then(Value::as_u64) == Some(st.doc.id.0)
+                && binding.get("revision").and_then(Value::as_u64) == Some(st.revision)
+                && binding.get("layer").and_then(Value::as_u64) == st.active_layer.map(|layer| layer.0)
+                && binding.get("channel") == Some(&json!(st.channel_view.target))
+                && binding.get("maskTarget").and_then(Value::as_bool) == Some(app.ui.mask_target)
+        });
+        if !valid {
+            return Err("the document or target changed; reopen the adjustment dialog".into());
+        }
+    }
+    let Some(binding) = fields.get("__smartFilter") else { return Ok(()) };
+    let valid = app.session.active().is_some_and(|st| {
+        binding.get("document").and_then(Value::as_u64) == Some(st.doc.id.0) && binding.get("revision").and_then(Value::as_u64) == Some(st.revision)
+    });
+    if valid { Ok(()) } else { Err("the document changed; reopen the Smart Filter to edit it".into()) }
+}
+
+/// A creation preview must keep the target whose source the opening request authorized.
+/// Bind raster and channel dialogs too: selecting a Smart Object later must not acquire a
+/// fresh linked-source read after the temporary request gate has been restored.
+pub(crate) fn bind_creation_preview(app: &mut PhotocraftApp, command: &str, dialog: u64) {
+    capture_dialog_preview_authority(app, dialog);
+    if !creates_smart_filter(command) {
+        return;
+    }
+    let active = app.session.active();
+    let binding = json!({
+        "document": active.map(|st| st.doc.id.0),
+        "revision": active.map(|st| st.revision),
+        "layer": active.and_then(|st| st.active_layer).map(|layer| layer.0),
+        "channel": active.map(|st| st.channel_view.target),
+        "maskTarget": app.ui.mask_target,
+    });
+    if let Some(dialog) = app.ui.dialog_mut(dialog) {
+        dialog.fields.insert("__smartCreation".into(), binding);
+    }
+}
+
+/// Control requests temporarily install their authorization gate. Check the source while that
+/// gate is present, before a creation dialog can schedule an independent preview session.
+pub(crate) fn authorize_creation_preview(app: &PhotocraftApp, command: &str, params: &Value) -> Result<(), String> {
+    if !creates_smart_filter(command) {
+        return Ok(());
+    }
+    let params = photocraft_engine::channel_cmds::inject_target(&app.session, command, app.with_mask_target(command, params.clone()));
+    let channel_target = match params.get("target") {
+        Some(Value::String(target)) => matches!(target.as_str(), "mask" | "quickMask"),
+        Some(Value::Object(target)) => target.get("channel").and_then(Value::as_u64).is_some(),
+        _ => false,
+    };
+    if channel_filter(command) && channel_target {
+        return Ok(());
+    }
+    let Some(st) = app.session.active() else { return Ok(()) };
+    // All Smart Filter drivers except these adjustments accept an explicit layer. Match
+    // their routing before checking the source; adjustments use the active layer instead.
+    let explicit_layer =
+        (!crate::smart_adjust_preview::supported(command)).then(|| params.get("layer").and_then(Value::as_u64).map(photocraft_doc::LayerId)).flatten();
+    let Some(layer) = explicit_layer.or(st.active_layer).and_then(|id| st.doc.layer(id)) else { return Ok(()) };
+    if !matches!(layer.content, LayerContent::Smart(_)) {
+        return Ok(());
+    }
+    if crate::smart_adjust_preview::supported(command) && matches!(st.channel_view.target, photocraft_engine::channel_cmds::ChannelTarget::Color(_)) {
+        return Err("select the composite color channel before adding a Smart Filter".into());
+    }
+    photocraft_engine::smart_cmds::check_filter_edit(&app.session, layer.id).map_err(|error| error.to_string())
+}
+
+/// User fields such as the channel target remain editable over control. Validate the
+/// prospective target under the request gate before replacing any live fields.
+pub(crate) fn authorize_dialog_preview(app: &PhotocraftApp, fields: &serde_json::Map<String, Value>) -> Result<(), String> {
+    validate_editor(app, fields)?;
+    let Some(command) = fields.get("__command").and_then(Value::as_str) else { return Ok(()) };
+    let (command, params) = confirm_command(fields, command.to_string(), crate::filter_dialog::params_of(fields));
+    if let Some(authorize) = app.session.authorize {
+        authorize(&command, &params).map_err(|error| error.to_string())?;
+    }
+    if command == "layer.smartFilter.setParams" {
+        let layer = match params.get("layer") {
+            Some(value) => value.as_u64().map(photocraft_doc::LayerId),
+            None => app.session.active().and_then(|st| st.active_layer),
+        }
+        .ok_or("need a valid Smart Object layer")?;
+        photocraft_engine::smart_cmds::check_filter_edit(&app.session, layer).map_err(|error| error.to_string())
+    } else {
+        authorize_creation_preview(app, &command, &params)
     }
 }
 

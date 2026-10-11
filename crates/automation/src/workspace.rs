@@ -249,9 +249,15 @@ fn params_contain_ambient_path(id: &str, params: &Value) -> bool {
     let keys: &[&str] = match id {
         "image.adjustments.colorLookup" | "layer.newAdjustmentLayer.colorLookup" | "layer.setAdjustment" => &["file"],
         "filter.distort.displace" => &["mapPath"],
-        "layer.quickExportAsPng" | "layer.exportAs" | "image.applyDataSet" | "layer.smartObjects.editContents" | "layer.smartObjects.convertToLayers" => {
-            &["path"]
-        }
+        "layer.quickExportAsPng"
+        | "layer.exportAs"
+        | "image.applyDataSet"
+        | "layer.smartObjects.editContents"
+        | "layer.smartObjects.convertToLayers"
+        | "image.adjustments.levels"
+        | "image.adjustments.curves"
+        | "image.adjustments.shadowsHighlights" => &["path"],
+        id if id.starts_with("layer.smartFilter.") => &["path"],
         "image.mode.rgb" | "image.mode.grayscale" | "image.mode.cmyk" | "image.mode.lab" => &["profile"],
         "edit.assignProfile" | "edit.convertToProfile" | "edit.profileInfo" | "view.proofSetup" | "view.gamutWarning" => &["profile"],
         "edit.colorSettings" => &["workingRgb", "workingCmyk", "workingGray"],
@@ -598,6 +604,150 @@ mod tests {
         assert!(workspace.write("junction/new.txt", b"blocked").is_err());
         assert!(!outside.join("new.txt").exists());
         let _ = std::fs::remove_dir(link);
+    }
+
+    #[test]
+    fn smart_adjustment_sources_use_the_production_filesystem_policy() {
+        use base64::Engine as _;
+        use photocraft_engine::{
+            Session,
+            doc::{LayerContent, SmartSource},
+        };
+        use serde_json::json;
+
+        let adjustments = ["image.adjustments.levels", "image.adjustments.curves", "image.adjustments.shadowsHighlights"];
+        for id in adjustments
+            .into_iter()
+            .chain(photocraft_engine::commands::command_specs().iter().map(|spec| spec.id).filter(|id| id.starts_with("layer.smartFilter.")))
+        {
+            for params in [json!({}), json!({"path":""})] {
+                assert!(authorize_engine_step(id, &params).is_ok(), "{id}: {params}");
+            }
+            for path in ["/outside/source.psb", "relative-source.psb"] {
+                assert!(authorize_engine_step(id, &json!({"path":path})).is_err(), "{id}: {path}");
+            }
+        }
+
+        let mut session = Session::new();
+        session.execute("file.new", json!({"width":8,"height":8})).unwrap();
+        session.execute("layer.smartObjects.convertToSmartObject", json!({})).unwrap();
+        session.authorize = Some(authorize_engine_step);
+        // Embedded sources remain usable with the actual production hook installed.
+        session.execute("image.adjustments.levels", json!({"gamma":1.2})).unwrap();
+        session
+            .execute(
+                "plugin.install",
+                json!({"data":base64::engine::general_purpose::STANDARD.encode(include_bytes!("../../plugins/tests/fixtures/invert.wasm"))}),
+            )
+            .unwrap();
+        let other_filters = [
+            ("filter.blur.gaussianBlur", json!({"radius":1})),
+            ("filter.liquify", json!({"strokes":[{"tool":"forwardWarp","size":4,"points":[[2,2],[3,2]]}]})),
+            ("filter.lensCorrection", json!({})),
+            ("plugin.run", json!({"id":"org.photocraft.example.invert"})),
+        ];
+        for (id, params) in &other_filters {
+            session.execute(id, params.clone()).unwrap();
+        }
+        session
+            .edit("Unavailable external source", |doc, active| {
+                let LayerContent::Smart(sm) = &mut doc.layer_mut(active.unwrap()).unwrap().content else { panic!() };
+                sm.source = SmartSource::Linked { path: "/photocraft-test-unavailable/source.psb".into() };
+                Ok(())
+            })
+            .unwrap();
+        session
+            .edit("Redo sentinel", |doc, _| {
+                doc.name = "Temporary title".into();
+                Ok(())
+            })
+            .unwrap();
+        session.execute("edit.undo", json!({})).unwrap();
+        let before = session.active().unwrap().clone();
+        let redo: Vec<_> = before.history.redo_labels().map(str::to_string).collect();
+        assert!(!redo.is_empty());
+        let layer = before.active_layer.unwrap();
+        let error = photocraft_engine::smart_cmds::check_filter_edit(&session, layer).unwrap_err();
+        assert!(error.to_string().contains("uses ambient filesystem paths"), "{error}");
+        for (id, params) in adjustments.into_iter().map(|id| (id, json!({}))).chain(other_filters).chain([
+            ("layer.smartFilter.setParams", json!({"index":0,"params":{"gamma":0.8}})),
+            ("layer.smartFilter.setVisible", json!({"index":0,"visible":false})),
+            ("layer.smartFilter.delete", json!({"index":0})),
+            ("layer.smartFilter.move", json!({"index":0,"to":0})),
+        ]) {
+            let error = session.execute(id, params).unwrap_err();
+            assert!(error.to_string().contains("uses ambient filesystem paths"), "{id}: {error}");
+            let after = session.active().unwrap();
+            assert!(std::sync::Arc::ptr_eq(&before.doc, &after.doc), "{id} changed the document");
+            assert_eq!(after.history.past_len(), before.history.past_len(), "{id}");
+            assert_eq!(after.history.redo_labels().map(str::to_string).collect::<Vec<_>>(), redo, "{id}");
+        }
+        // The callback must travel with a background worker after request authority is restored.
+        let started = session.start("filter.blur.gaussianBlur", json!({"radius":1})).unwrap();
+        session.authorize = None;
+        let photocraft_engine::jobs::Started::Job(job) = started else { panic!("native filter worker") };
+        let error = session.wait_job(job).unwrap_err();
+        assert!(error.to_string().contains("uses ambient filesystem paths"), "{error}");
+        let after = session.active().unwrap();
+        assert!(std::sync::Arc::ptr_eq(&before.doc, &after.doc));
+        assert_eq!(after.history.past_len(), before.history.past_len());
+        assert_eq!(after.history.redo_labels().map(str::to_string).collect::<Vec<_>>(), redo);
+
+        // Alpha and layer-mask filters do not resolve the Smart Object's linked source.
+        session.authorize = Some(authorize_engine_step);
+        session.execute("layer.layerMask.revealAll", json!({})).unwrap();
+        session.execute("channel.new", json!({"fill":"white"})).unwrap();
+        for target in [json!("mask"), json!({"channel":0})] {
+            session.execute("filter.blur.gaussianBlur", json!({"radius":1,"target":target})).unwrap();
+            assert_eq!(session.active().unwrap().doc.layer(layer).unwrap().content, before.doc.layer(layer).unwrap().content);
+        }
+        session.execute("plugin.remove", json!({"id":"org.photocraft.example.invert"})).unwrap();
+    }
+
+    #[test]
+    fn stored_smart_filter_inputs_recheck_the_production_policy() {
+        use photocraft_engine::{Session, doc::LayerContent};
+        use serde_json::json;
+        let mut session = Session::new();
+        session.execute("file.new", json!({"width":8,"height":8})).unwrap();
+        session.execute("layer.smartObjects.convertToSmartObject", json!({})).unwrap();
+        session.execute("image.adjustments.levels", json!({"gamma":1.2})).unwrap();
+        session
+            .edit("Synthetic stored Displace descriptor", |doc, active| {
+                let LayerContent::Smart(sm) = &mut doc.layer_mut(active.unwrap()).unwrap().content else { panic!() };
+                let mut filter = sm.smart_filters[0].clone();
+                filter.command = "filter.distort.displace".into();
+                filter.params = json!({});
+                sm.smart_filters.push(filter);
+                Ok(())
+            })
+            .unwrap();
+        session.authorize = Some(authorize_engine_step);
+        let before = session.active().unwrap().doc.clone();
+        let error = session.execute("layer.smartFilter.setParams", json!({"index":1,"params":{"mapPath":"/outside/map.png"}})).unwrap_err();
+        assert!(error.to_string().contains("uses ambient filesystem paths"), "{error}");
+        assert!(Arc::ptr_eq(&before, &session.active().unwrap().doc), "a merged unsafe path must fail before mutation");
+
+        // An imported/native descriptor may already contain the external input.
+        session
+            .edit("Synthetic external input", |doc, active| {
+                let LayerContent::Smart(sm) = &mut doc.layer_mut(active.unwrap()).unwrap().content else { panic!() };
+                sm.smart_filters[1].params = json!({"mapPath":"/outside/map.png"});
+                Ok(())
+            })
+            .unwrap();
+        let before = session.active().unwrap().clone();
+        for (id, params) in [("image.adjustments.levels", json!({"gamma":0.8})), ("layer.smartFilter.setParams", json!({"index":0,"params":{"gamma":0.8}}))] {
+            let error = session.execute(id, params).unwrap_err();
+            assert!(error.to_string().contains("uses ambient filesystem paths"), "{id}: {error}");
+            assert!(Arc::ptr_eq(&before.doc, &session.active().unwrap().doc));
+            assert_eq!(before.history.past_len(), session.active().unwrap().history.past_len());
+        }
+        session.execute("layer.smartFilter.setVisible", json!({"index":1,"visible":false})).unwrap();
+        let hidden = session.active().unwrap().doc.clone();
+        let error = session.execute("layer.smartFilter.setVisible", json!({"index":1,"visible":true})).unwrap_err();
+        assert!(error.to_string().contains("uses ambient filesystem paths"), "{error}");
+        assert!(Arc::ptr_eq(&hidden, &session.active().unwrap().doc));
     }
 
     #[test]

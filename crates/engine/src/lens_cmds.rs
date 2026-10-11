@@ -283,6 +283,7 @@ fn run_filter(s: &mut Session, cmd: &str, label: &str, stored: Value, float_bg: 
     if let Value::Object(m) = &mut stored {
         m.remove("layer");
     }
+    let authorize = s.authorize;
     s.edit(label, |doc: &mut Document, _| {
         let canvas = doc.bounds();
         let selection = doc.selection.clone();
@@ -290,7 +291,7 @@ fn run_filter(s: &mut Session, cmd: &str, label: &str, stored: Value, float_bg: 
         let l = doc.layer_mut(id).ok_or(EngineError::NoLayer(id))?;
         if let LayerContent::Smart(_) = l.content {
             let sf = SmartFilter { command: cmd.to_string(), params: stored.clone(), blend: photocraft_color::BlendMode::Normal, opacity: 1.0, visible: true };
-            return crate::smart_cmds::add_smart_filter(doc, id, sf, selection.as_ref());
+            return crate::smart_cmds::add_smart_filter(doc, id, sf, selection.as_ref(), authorize);
         }
         if locks.all || locks.pixels {
             return Err(EngineError::Other(format!("layer \"{}\" is locked", l.name)));

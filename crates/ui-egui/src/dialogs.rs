@@ -79,6 +79,14 @@ fn place_id(d: &Dialog) -> egui::Id {
 pub fn show(app: &mut PhotocraftApp, ctx: &egui::Context) {
     crate::layer_style::color_picker::prune(app);
     crate::type_panels_ui::color_picker::prune(app);
+    if app.automation_input {
+        let authority = crate::smart_ui::effective_preview_authority(app);
+        if authority.0.is_some() {
+            for dialog in &mut app.ui.dialogs {
+                dialog.preview_authorize = authority;
+            }
+        }
+    }
     let dialogs = app.ui.dialogs.clone();
     let top = dialogs.last().map(|d| d.id);
     let mut shown = Vec::new();
@@ -417,6 +425,7 @@ pub fn confirm(app: &mut PhotocraftApp, id: u64) -> Result<Value, String> {
         DialogKind::Command if crate::prefs_ui::owns(&d.fields) => crate::prefs_ui::confirm(app, &d.fields),
         DialogKind::Command if d.fields.contains_key("__export") => crate::export_dialog::confirm(app, &d.fields),
         DialogKind::Command => {
+            crate::smart_ui::validate_editor(app, &d.fields)?;
             let Some(cmd) = d.fields.get("__command").and_then(Value::as_str).map(str::to_string) else {
                 app.filter_preview = None;
                 return Err("dialog has no command".into());
@@ -500,6 +509,7 @@ mod tests {
             command: "filter.blur.gaussianBlur".into(),
             params: serde_json::json!({"radius": 4.0}),
             k: 1,
+            preview_authorize: Default::default(),
         };
         app.filter_preview = Some(crate::filter_dialog::FilterPreview { key, result: result.map(std::sync::Arc::new), committing: false });
         (app, id)

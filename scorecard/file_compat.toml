@@ -31,14 +31,14 @@ id = "FILE-215-4"
 target = "Adjustments (Hue/Sat + Colorize, Curves, Levels, Shadows/Highlights) apply as Smart Filters"
 status = "partial"
 issue = 215
-note = "PSD Levels/Curves/Shadows-Highlights smart filters render (adjust_cmds.rs adjust_as_filter); Image › Adjustments on a smart object doesn't add one yet"
+note = "Levels, Curves and Shadows/Highlights now append editable Smart Filters from Image › Adjustments, with validated edits, undo/redo, mask/channel routing and native round trips. RGB Levels/Curves and default Shadows/Highlights retain live PSD descriptors; custom Shadows/Highlights and CMYK/Lab channel settings warn on PSD export. Hue/Saturation + Colorize remain missing"
 
 [[item]]
 id = "FILE-215-5"
 target = "Smart Filter rows: collapse, mask thumb, blend icon, drag reorder, context menu, live preview"
 status = "partial"
 issue = 215
-note = "smart_ui.rs:31 rows + visibility + editor; no collapse, drag or context menu"
+note = "smart_ui.rs rows + visibility + editor; Levels/Curves/Shadows-Highlights reopen with complete stored settings and replacement previews, including scaled placement/filter masks. No collapse, drag or context menu; other filter editors retain their existing preview limitations"
 
 [[item]]
 id = "FILE-215-6"

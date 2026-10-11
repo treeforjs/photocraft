@@ -1175,13 +1175,25 @@ fn ensure_filter_preview(app: &mut PhotocraftApp, idx: usize, ctx: &egui::Contex
         return None;
     }
     let d = app.ui.dialogs.iter().find(|d| d.fields.contains_key("__filter"))?;
+    let preview_authorize = crate::state::PreviewAuthority(crate::smart_ui::effective_preview_authority(app).0.or(d.preview_authorize.0));
+    crate::smart_ui::validate_editor(app, &d.fields).ok()?;
     if d.fields.get("__preview").and_then(serde_json::Value::as_bool) != Some(true) {
         return None;
     }
     let cmd = d.fields.get("__command")?.as_str()?.to_string();
     // Previews edit what the command will: a targeted layer mask included (#780).
     let params = app.with_mask_target(&cmd, crate::filter_dialog::params_of(&d.fields));
+    // Worker sessions do not inherit channel selection; bind the actual target before dispatch.
+    let params = photocraft_engine::channel_cmds::inject_target(&app.session, &cmd, params);
+    let (cmd, params) = crate::smart_ui::confirm_command(&d.fields, cmd, params);
     let st = app.session.documents().get(idx)?;
+    let k = crate::smart_adjust_preview::factor(
+        &st.doc,
+        st.active_layer,
+        &cmd,
+        &params,
+        crate::proxy::preview_factor(&st.doc, crate::proxy::reduced_previews(app)),
+    );
     let request = crate::filter_dialog::FilterPreviewKey {
         doc: st.doc.id,
         revision: st.revision,
@@ -1189,7 +1201,8 @@ fn ensure_filter_preview(app: &mut PhotocraftApp, idx: usize, ctx: &egui::Contex
         active: st.active_layer,
         command: cmd,
         params,
-        k: crate::proxy::preview_factor(&st.doc, crate::proxy::reduced_previews(app)),
+        k,
+        preview_authorize,
     };
     let key = request.doc.0 ^ (1u64 << 61);
     // Every filter's preview computes off the UI thread in the desktop app: Gaussian Blur at
@@ -1215,7 +1228,16 @@ fn ensure_filter_preview(app: &mut PhotocraftApp, idx: usize, ctx: &egui::Contex
             let task = request.clone();
             if let Err(error) = app.filter_preview_worker.start(request.clone(), ctx.clone(), move |cancel| {
                 let t0 = crate::gpu_canvas::now_ms();
-                let result = crate::filter_dialog::preview_document_with(&doc, task.active, &task.command, &task.params, task.k, Some(cancel)).map(|doc| {
+                let result = crate::filter_dialog::preview_document_authorized(
+                    &doc,
+                    task.active,
+                    &task.command,
+                    &task.params,
+                    task.k,
+                    Some(cancel),
+                    task.preview_authorize,
+                )
+                .map(|doc| {
                     let buffer = photocraft_compose::flatten(&doc);
                     (std::sync::Arc::new(doc), buffer)
                 });
@@ -1237,6 +1259,7 @@ fn ensure_filter_preview(app: &mut PhotocraftApp, idx: usize, ctx: &egui::Contex
             || preview.key.active != request.active
             || preview.key.k != request.k
             || preview.key.command != request.command
+            || preview.key.preview_authorize != request.preview_authorize
         {
             return None;
         }
@@ -1249,7 +1272,16 @@ fn ensure_filter_preview(app: &mut PhotocraftApp, idx: usize, ctx: &egui::Contex
     if app.filter_preview.as_ref().is_none_or(|p| p.key != request) {
         let doc = app.session.documents().get(idx)?.doc.clone();
         let t0 = crate::gpu_canvas::now_ms();
-        let result = crate::filter_dialog::preview_document(&doc, request.active, &request.command, &request.params, request.k).map(std::sync::Arc::new);
+        let result = crate::filter_dialog::preview_document_authorized(
+            &doc,
+            request.active,
+            &request.command,
+            &request.params,
+            request.k,
+            None,
+            request.preview_authorize,
+        )
+        .map(std::sync::Arc::new);
         if let Some(r) = &result {
             let buf = photocraft_compose::flatten(r);
             let t1 = crate::gpu_canvas::now_ms();
@@ -4242,6 +4274,7 @@ mod tests {
             command: "filter.blur.gaussianBlur".into(),
             params: json!({"radius": 999.0}),
             k: 1,
+            preview_authorize: Default::default(),
         };
         let (told, cancelled) = std::sync::mpsc::channel();
         app.filter_preview_worker
@@ -4289,6 +4322,7 @@ mod tests {
                 command: "image.mode.indexedColor".into(),
                 params: app.with_mask_target("image.mode.indexedColor", crate::filter_dialog::params_of(&d.fields)),
                 k: 1,
+                preview_authorize: Default::default(),
             };
             let (release, wait) = std::sync::mpsc::channel();
             let ctx = egui::Context::default();
@@ -5402,6 +5436,112 @@ mod transform_controls_tests {
         assert!(transform_controls_hit(r, pos2(60.0, 18.0)));
         assert!(!transform_controls_hit(r, r.center()));
         assert!(!transform_controls_hit(r, pos2(60.0, 4.0)));
+    }
+}
+
+#[cfg(test)]
+mod preview_authority_tests {
+    use super::*;
+    use serde_json::{Value, json};
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
+    static CONTROL_SOURCE_CHECKS: AtomicUsize = AtomicUsize::new(0);
+    static SYNTHETIC_SOURCE_CHECKS: AtomicUsize = AtomicUsize::new(0);
+
+    fn deny_displacement_source(command: &str, params: &Value) -> photocraft_engine::Result<()> {
+        if command == "filter.distort.displace" {
+            match params.get("mapPath").and_then(Value::as_str) {
+                Some("/__preview_guard__/control.png") => {
+                    CONTROL_SOURCE_CHECKS.fetch_add(1, Ordering::SeqCst);
+                }
+                Some("/__preview_guard__/synthetic.png") => {
+                    SYNTHETIC_SOURCE_CHECKS.fetch_add(1, Ordering::SeqCst);
+                }
+                _ => return Ok(()),
+            }
+            return Err(photocraft_engine::EngineError::Other("preview displacement source denied".into()));
+        }
+        Ok(())
+    }
+
+    fn app() -> PhotocraftApp {
+        let mut session = photocraft_engine::Session::new();
+        session.execute("file.new", json!({"width": 8, "height": 6})).unwrap();
+        PhotocraftApp::new(session, crate::Services { automation_authorize: Some(deny_displacement_source), ..Default::default() })
+    }
+
+    fn control(app: &mut PhotocraftApp, ctx: &egui::Context, method: &str, params: Value) -> Value {
+        let (request, _) = crate::control::ControlRequest::new(method, params);
+        match crate::control::handle(app, ctx, &request) {
+            crate::control::Outcome::Done(response) => response,
+            _ => panic!("synchronous dialog response expected"),
+        }
+    }
+
+    fn finish_preview(app: &mut PhotocraftApp, ctx: &egui::Context) {
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
+        loop {
+            assert!(ensure_filter_preview(app, 0, ctx).is_none(), "denied source must not produce a preview");
+            if let Some(preview) = &app.filter_preview {
+                assert!(preview.result.is_none());
+                return;
+            }
+            assert!(std::time::Instant::now() < deadline, "preview worker did not finish");
+            std::thread::sleep(std::time::Duration::from_millis(1));
+        }
+    }
+
+    #[test]
+    fn delayed_raster_previews_retain_control_authority_after_request_restoration() {
+        for background in [false, true] {
+            let mut app = app();
+            app.background_jobs = background;
+            let ctx = egui::Context::default();
+            let before = app.session.active().unwrap().doc.clone();
+            let response = control(&mut app, &ctx, "ui.dialog.open", json!({"kind": "command", "command": "filter.distort.displace"}));
+            assert_eq!(response["ok"], true, "{response}");
+            let dialog = response["result"]["dialog"].as_u64().unwrap();
+            assert!(app.session.authorize.is_none());
+            assert!(app.ui.dialog_mut(dialog).unwrap().preview_authorize.0.is_some());
+            assert!(serde_json::to_value(app.ui.dialog_mut(dialog).unwrap()).unwrap().get("preview_authorize").is_none(), "authority is never JSON state");
+
+            let before_fields = app.ui.dialog_mut(dialog).unwrap().fields.clone();
+            let response = control(&mut app, &ctx, "ui.dialog.set", json!({"dialog": dialog, "field": "mapPath", "value": "/__preview_guard__/control.png"}));
+            assert_eq!(response["ok"], false, "prospective command parameters are checked immediately: {response}");
+            assert!(response["error"].as_str().unwrap().contains("preview displacement source denied"));
+            assert_eq!(app.ui.dialog_mut(dialog).unwrap().fields, before_fields);
+
+            // A text widget can change fields without a control set request. The delayed
+            // worker must independently retain the dialog's authority before resolving I/O.
+            app.ui.dialog_mut(dialog).unwrap().fields.insert("mapPath".into(), json!("/__preview_guard__/control.png"));
+            CONTROL_SOURCE_CHECKS.store(0, Ordering::SeqCst);
+            finish_preview(&mut app, &ctx);
+            assert!(CONTROL_SOURCE_CHECKS.load(Ordering::SeqCst) > 0, "the preview Session must execute the captured callback");
+            assert!(app.session.authorize.is_none());
+            assert_eq!(*app.session.active().unwrap().doc, *before);
+        }
+    }
+
+    #[test]
+    fn synthetic_input_to_a_manual_dialog_captures_authority_for_later_frames() {
+        let mut app = app();
+        let ctx = egui::Context::default();
+        PhotocraftApp::setup_context(&ctx, Default::default());
+        let dialog = crate::filter_dialog::open(&mut app, "filter.distort.displace").unwrap();
+        assert!(app.ui.dialog_mut(dialog).unwrap().preview_authorize.0.is_none(), "a local manual dialog starts trusted");
+        let before = app.session.active().unwrap().doc.clone();
+        app.automation_input = true;
+        ctx.run_ui(Default::default(), |_| crate::dialogs::show(&mut app, &ctx)).textures_delta.clear();
+        assert!(app.ui.dialog_mut(dialog).unwrap().preview_authorize.0.is_some());
+        app.ui.dialog_mut(dialog).unwrap().fields.insert("mapPath".into(), json!("/__preview_guard__/synthetic.png"));
+        app.automation_input = false;
+        ctx.run_ui(Default::default(), |_| crate::dialogs::show(&mut app, &ctx)).textures_delta.clear();
+        assert!(app.ui.dialog_mut(dialog).unwrap().preview_authorize.0.is_some(), "a later manual frame cannot clear captured authority");
+        SYNTHETIC_SOURCE_CHECKS.store(0, Ordering::SeqCst);
+        finish_preview(&mut app, &ctx);
+        assert!(SYNTHETIC_SOURCE_CHECKS.load(Ordering::SeqCst) > 0);
+        assert!(app.session.authorize.is_none());
+        assert_eq!(*app.session.active().unwrap().doc, *before);
     }
 }
 

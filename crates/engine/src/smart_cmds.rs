@@ -107,11 +107,28 @@ fn authorized_source_bytes(s: &Session, cmd: &str, meta: &Metadata, src: &SmartS
 
 /// Recheck a source's actual path before an untrusted command reads it: the path lives in the
 /// document, not in the command's params. Embedded PSD UUIDs never reach the filesystem.
-fn authorize_source(s: &Session, cmd: &str, doc: &Document, src: &SmartSource) -> Result<()> {
-    if let (Some(gate), SmartSource::Linked { path }) = (s.authorize, src)
+pub(crate) fn authorize_source(s: &Session, cmd: &str, doc: &Document, src: &SmartSource) -> Result<()> {
+    authorize_source_with(s.authorize, cmd, doc, src)
+}
+
+fn authorize_source_with(authorize: Option<fn(&str, &Value) -> Result<()>>, cmd: &str, doc: &Document, src: &SmartSource) -> Result<()> {
+    if let (Some(gate), SmartSource::Linked { path }) = (authorize, src)
         && embedded_source_bytes(&doc.metadata, src).is_none()
     {
         gate(cmd, &json!({"path": path}))?;
+    }
+    Ok(())
+}
+
+/// Stored filter parameters can contain external inputs too (for example a displacement map).
+/// Re-rendering a stack must retain the same command policy as directly running each filter.
+fn authorize_filter_stack(authorize: Option<fn(&str, &Value) -> Result<()>>, sm: &SmartObject) -> Result<()> {
+    if let Some(gate) = authorize
+        && sm.filters_enabled
+    {
+        for filter in sm.smart_filters.iter().filter(|filter| filter.visible) {
+            gate(&filter.command, &filter.params)?;
+        }
     }
     Ok(())
 }
@@ -441,9 +458,23 @@ fn mask_from_selection(sel: &Surface) -> LayerMask {
 /// Appends a smart filter (from a `filter.*` command) and re-renders. A selection becomes the
 /// filter mask, as in Photoshop. Without a renderable source the filter is applied to the cached
 /// pixels (and still recorded).
-pub(crate) fn add_smart_filter(doc: &mut Document, id: LayerId, sf: photocraft_doc::SmartFilter, selection: Option<&Surface>) -> Result<()> {
+pub(crate) fn add_smart_filter(
+    doc: &mut Document,
+    id: LayerId,
+    sf: photocraft_doc::SmartFilter,
+    selection: Option<&Surface>,
+    authorize: Option<fn(&str, &Value) -> Result<()>>,
+) -> Result<()> {
     let canvas = doc.bounds();
-    let renderable = source_bytes(&doc.metadata, &smart(doc, id)?.source).is_some();
+    let source = &smart(doc, id)?.source;
+    // The append may run on a worker after the control request's temporary session gate was
+    // restored. Its captured authority still guards the stored source before any disk read.
+    authorize_source_with(authorize, "layer.smartFilter.setParams", doc, source)?;
+    authorize_filter_stack(authorize, smart(doc, id)?)?;
+    if let Some(gate) = authorize {
+        gate(&sf.command, &sf.params)?;
+    }
+    let renderable = source_bytes(&doc.metadata, source).is_some();
     let sm = smart_mut(doc, id)?;
     if renderable {
         if let Some(sel) = selection
@@ -826,10 +857,39 @@ fn update_all(s: &mut Session) -> Result<Value> {
 
 // ---------- smart filter editing ----------
 
+/// Check a dialog's target before a live preview can resolve its linked source. Automation
+/// authorization belongs to the live session; preview worker sessions have no filesystem gate.
+pub fn check_filter_edit(s: &Session, id: LayerId) -> Result<()> {
+    let doc = &s.active().ok_or(EngineError::NoDocument)?.doc;
+    crate::commands::check_pixels_unlocked(doc, id)?;
+    let sm = smart(doc, id)?;
+    check_renderable_filters(sm)?;
+    authorize_source(s, "layer.smartFilter.setParams", doc, &sm.source)?;
+    authorize_filter_stack(s.authorize, sm)?;
+    if source_bytes(&doc.metadata, &sm.source).is_none() {
+        return Err(other("the Smart Object source is unavailable; relink it before editing its filters"));
+    }
+    Ok(())
+}
+
+pub(crate) fn check_renderable_filters(sm: &SmartObject) -> Result<()> {
+    if sm.filters_enabled
+        && sm.smart_filters.iter().any(|filter| filter.visible && (filter.command == UNSUPPORTED_FILTER || crate::commands::find(&filter.command).is_none()))
+    {
+        return Err(other("this Smart Object contains a visible unsupported filter; hide it before editing the stack to preserve the cached appearance"));
+    }
+    Ok(())
+}
+
 fn edit_filters(s: &mut Session, p: &Value, label: &str, f: impl FnOnce(&mut SmartObject) -> Result<()>) -> Result<Value> {
     let id = layer_param(s, p)?;
+    let doc = &s.active().ok_or(EngineError::NoDocument)?.doc;
+    authorize_source(s, "layer.smartFilter.setParams", doc, &smart(doc, id)?.source)?;
+    let authorize = s.authorize;
     s.edit(label, |doc, _| {
+        crate::commands::check_pixels_unlocked(doc, id)?;
         f(smart_mut(doc, id)?)?;
+        authorize_filter_stack(authorize, smart(doc, id)?)?;
         refresh_or_fail(doc, id)?;
         Ok(json!({"layer": id.0}))
     })
@@ -842,7 +902,9 @@ fn filter_index(cmd: &str, p: &Value, sm: &SmartObject) -> Result<usize> {
     }
     match p.get("index") {
         None => Ok(n - 1),
-        Some(v) => v.as_u64().map(|i| i as usize).filter(|i| *i < n).ok_or_else(|| bad(cmd, format!("`index` must be 0..{n} (0 = bottom filter)"))),
+        Some(v) => {
+            v.as_u64().and_then(|i| usize::try_from(i).ok()).filter(|i| *i < n).ok_or_else(|| bad(cmd, format!("`index` must be 0..{n} (0 = bottom filter)")))
+        }
     }
 }
 
@@ -859,6 +921,9 @@ fn set_filter_visible(s: &mut Session, p: &Value) -> Result<Value> {
 fn set_filter_params(s: &mut Session, p: &Value) -> Result<Value> {
     const CMD: &str = "layer.smartFilter.setParams";
     let new = p.get("params").cloned().ok_or_else(|| bad(CMD, "pass `params` (merged into the filter's parameters)"))?;
+    let mode = s.active().ok_or(EngineError::NoDocument)?.doc.mode;
+    let id = layer_param(s, p)?;
+    check_filter_edit(s, id)?;
     edit_filters(s, p, "Edit Smart Filter", |sm| {
         let i = filter_index(CMD, p, sm)?;
         let f = &mut sm.smart_filters[i];
@@ -868,6 +933,12 @@ fn set_filter_params(s: &mut Session, p: &Value) -> Result<Value> {
         match (&mut f.params, new) {
             (Value::Object(old), Value::Object(n)) => old.extend(n),
             (slot, n) => *slot = n,
+        }
+        if let Some(kind) = f.command.strip_prefix("image.adjustments.").filter(|kind| crate::smart_adjust_cmds::supported(kind)) {
+            if !f.params.is_object() {
+                return Err(bad(CMD, "adjustment parameters must be an object"));
+            }
+            f.params = crate::smart_adjust_cmds::parameters(kind, &f.params, mode)?;
         }
         Ok(())
     })

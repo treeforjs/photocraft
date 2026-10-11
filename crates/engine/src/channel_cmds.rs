@@ -583,7 +583,7 @@ fn routed(id: &str) -> bool {
 }
 
 /// Fill in `"target"` from the targeted channel (or Quick Mask mode) when the caller gave none.
-pub(crate) fn inject_target(s: &Session, id: &str, params: Value) -> Value {
+pub fn inject_target(s: &Session, id: &str, params: Value) -> Value {
     if !routed(id) || params.get("target").is_some() {
         return params;
     }

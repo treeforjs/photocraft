@@ -119,6 +119,7 @@ mod tests {
             command: "image.mode.indexedColor".into(),
             params: json!({"colors": colors}),
             k: 1,
+            preview_authorize: Default::default(),
         }
     }
 

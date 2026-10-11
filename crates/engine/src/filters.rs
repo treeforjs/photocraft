@@ -218,6 +218,7 @@ pub(crate) fn run_filter(s: &mut Session, id: &str, p: &Value) -> Result<Value> 
     let id = id.to_string();
     let p = p.clone();
     let layer_id = layer.0;
+    let authorize = s.authorize;
     // A background job when started with `Session::start` (#210): the filter runs on a worker,
     // checking for cancellation before every tile.
     crate::jobs::edit_job(
@@ -262,7 +263,7 @@ pub(crate) fn run_filter(s: &mut Session, id: &str, p: &Value) -> Result<Value> 
                     // Non-destructive: record the filter and re-render the smart object from its source.
                     let sf =
                         SmartFilter { command: id.clone(), params: params.clone(), blend: photocraft_color::BlendMode::Normal, opacity: 1.0, visible: true };
-                    return crate::smart_cmds::add_smart_filter(doc, layer, sf, selection.as_ref()).map(|()| fp);
+                    return crate::smart_cmds::add_smart_filter(doc, layer, sf, selection.as_ref(), authorize).map(|()| fp);
                 }
                 _ => return Err(EngineError::Other("not a pixel layer".into())),
             };

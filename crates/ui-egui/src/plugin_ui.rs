@@ -60,6 +60,9 @@ pub fn menu(app: &mut PhotocraftApp, id: &str, params: &Value) -> Option<Result<
         p.insert("id".into(), json!(pid));
         return Some(app.run("plugin.run", Value::Object(p)));
     }
+    if !crate::smart_ui::prepare_creation_dialog(app, "plugin.run") {
+        return Some(Err(app.ui.status.clone()));
+    }
     let mut fixed = Map::new();
     fixed.insert("id".into(), json!(pid));
     let d = crate::filter_dialog::open_with_spec(app, "plugin.run", &m.name, &m.params_notation(), fixed);

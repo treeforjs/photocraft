@@ -242,6 +242,7 @@ fn run_on_layer(s: &mut Session, cmd: &str, label: &str, p: &Value, moves: bool,
     if let Value::Object(m) = &mut params {
         m.remove("layer");
     }
+    let authorize = s.authorize;
     s.edit(label, |doc: &mut Document, _| {
         let canvas = doc.bounds();
         let selection = doc.selection.clone();
@@ -249,7 +250,7 @@ fn run_on_layer(s: &mut Session, cmd: &str, label: &str, p: &Value, moves: bool,
         let l = doc.layer_mut(id).ok_or(EngineError::NoLayer(id))?;
         if let LayerContent::Smart(_) = l.content {
             let sf = SmartFilter { command: cmd.to_string(), params: params.clone(), blend: photocraft_color::BlendMode::Normal, opacity: 1.0, visible: true };
-            return crate::smart_cmds::add_smart_filter(doc, id, sf, selection.as_ref());
+            return crate::smart_cmds::add_smart_filter(doc, id, sf, selection.as_ref(), authorize);
         }
         if moves {
             float_background(l);

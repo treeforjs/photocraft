@@ -217,12 +217,24 @@ fn screen_point(app: &PhotocraftApp, x: f64, y: f64) -> [f32; 2] {
 /// The `dialog` id of the shell's own dialog (`workspace_ui`) in `ui.inspect` and `ui.dialog.*`.
 const SHELL_DIALOG: &str = "shell";
 
+/// These fields route canvas previews and are assigned by the shell, never by a client.
+fn dialog_routing_field(field: &str) -> bool {
+    matches!(field, "__command" | "__filter" | "__smartFilter" | "__smartCreation")
+}
+
 pub fn handle(app: &mut PhotocraftApp, ctx: &egui::Context, req: &ControlRequest) -> Outcome {
     let saved = app.session.authorize;
+    let first_new_dialog = app.ui.next_id;
     if let Some(gate) = app.services.automation_authorize {
         app.session.authorize = Some(gate);
     }
     let outcome = dispatch(app, ctx, req);
+    let authority = crate::smart_ui::effective_preview_authority(app);
+    if authority.0.is_some() {
+        for dialog in app.ui.dialogs.iter_mut().filter(|dialog| dialog.id >= first_new_dialog) {
+            dialog.preview_authorize = authority;
+        }
+    }
     app.session.authorize = saved;
     outcome
 }
@@ -266,7 +278,18 @@ fn dispatch(app: &mut PhotocraftApp, ctx: &egui::Context, req: &ControlRequest) 
             if req.method == "engine.execute" && photocraft_engine::commands::find(id).is_some() {
                 return run_waiting(app, wait, |app| app.run(id, params));
             }
-            run_waiting(app, wait, |app| crate::menus::invoke(app, ctx, id, params))
+            if params.as_object().is_none_or(|params| params.is_empty())
+                && let Err(error) = crate::smart_ui::authorize_creation_preview(app, id, &params)
+            {
+                return err(error);
+            }
+            run_waiting(app, wait, |app| {
+                let result = crate::menus::invoke(app, ctx, id, params)?;
+                if let Some(dialog) = result.get("dialog").and_then(Value::as_u64) {
+                    crate::smart_ui::bind_creation_preview(app, id, dialog);
+                }
+                Ok(result)
+            })
         }
         "engine.commands" => wrap(app.run("command.list", json!({}))),
         // Background jobs (#210): running ones with progress, then the last few that ended.
@@ -547,9 +570,32 @@ fn dispatch(app: &mut PhotocraftApp, ctx: &egui::Context, req: &ControlRequest) 
             wrap(applied)
         }
         "ui.dialog.open" => {
+            if let Some(field) = p.get("fields").and_then(Value::as_object).and_then(|fields| fields.keys().find(|field| dialog_routing_field(field))) {
+                return err(format!("dialog routing field `{field}` is read-only"));
+            }
             let kind = match s("kind").unwrap_or("") {
                 "newDocument" | "NewDocument" => DialogKind::NewDocument,
                 "about" | "About" => DialogKind::About,
+                "smartFilter" => {
+                    if !app.ui.dialogs.is_empty() {
+                        return err("close the current dialog before editing a Smart Filter");
+                    }
+                    let layer = match p.get("layer") {
+                        None => app.session.active().and_then(|st| st.active_layer),
+                        Some(value) => value.as_u64().map(photocraft_doc::LayerId),
+                    };
+                    let Some(layer) = layer else { return err("need a valid Smart Object layer") };
+                    let Some(index) = u("index").and_then(|i| usize::try_from(i).ok()) else { return err("need an integer filter index") };
+                    let sm = app.session.active().and_then(|st| st.doc.layer(layer)).and_then(|layer| match &layer.content {
+                        photocraft_doc::LayerContent::Smart(sm) => Some(sm.clone()),
+                        _ => None,
+                    });
+                    let Some(sm) = sm else { return err("the layer is not a Smart Object") };
+                    return match crate::smart_ui::open_editor_dialog(app, ctx, layer.0, &sm, index) {
+                        Some(id) => ok(json!({"dialog": id})),
+                        None => err("this Smart Filter has no parameter dialog"),
+                    };
+                }
                 "layerStyle" | "LayerStyle" => {
                     return match crate::layer_style::open(app, s("effect")) {
                         Some(id) => ok(json!({"dialog": id})),
@@ -593,8 +639,13 @@ fn dispatch(app: &mut PhotocraftApp, ctx: &egui::Context, req: &ControlRequest) 
                 }
                 "command" | "Command" => {
                     let Some(cmd) = s("command") else { return err("command dialogs need `command`") };
+                    if let Err(error) = crate::smart_ui::authorize_creation_preview(app, cmd, &json!({})) {
+                        return err(error);
+                    }
                     let label = photocraft_engine::commands::find(cmd).map(|c| c.label).unwrap_or(cmd);
-                    return ok(json!({"dialog": crate::dialogs::open_command_dialog(app, cmd, label)}));
+                    let dialog = crate::dialogs::open_command_dialog(app, cmd, label);
+                    crate::smart_ui::bind_creation_preview(app, cmd, dialog);
+                    return ok(json!({"dialog": dialog}));
                 }
                 other => return err(format!("unknown dialog kind `{other}`")),
             };
@@ -634,10 +685,21 @@ fn dispatch(app: &mut PhotocraftApp, ctx: &egui::Context, req: &ControlRequest) 
         },
         "ui.dialog.set" => {
             let (Some(id), Some(field)) = (u("dialog"), s("field")) else { return err("need `dialog` and `field`") };
+            if dialog_routing_field(field) {
+                return err(format!("dialog routing field `{field}` is read-only"));
+            }
             let value = p.get("value").cloned().unwrap_or(Value::Null);
+            let Some(mut fields) = app.ui.dialogs.iter().find(|dialog| dialog.id == id).map(|dialog| dialog.fields.clone()) else {
+                return err(format!("no dialog {id}"));
+            };
+            fields.insert(field.to_string(), value);
+            if let Err(error) = crate::smart_ui::authorize_dialog_preview(app, &fields) {
+                return err(error);
+            }
+            crate::smart_ui::capture_dialog_preview_authority(app, id);
             match app.ui.dialog_mut(id) {
                 Some(d) => {
-                    d.fields.insert(field.to_string(), value);
+                    d.fields = fields;
                     ok(Value::Null)
                 }
                 None => err(format!("no dialog {id}")),
@@ -1713,6 +1775,448 @@ mod tests {
         app.run("edit.fill", json!({"color": "#ff0000"})).unwrap();
         let id = app.run("layer.smartObjects.convertToSmartObject", json!({})).unwrap()["layer"].as_u64().unwrap();
         (app, egui::Context::default(), photocraft_doc::LayerId(id))
+    }
+
+    fn deny_adjustment_preview_path(_: &str, params: &Value) -> photocraft_engine::Result<()> {
+        if params.get("path").is_some() { Err(photocraft_engine::EngineError::Other("adjustment preview source denied".into())) } else { Ok(()) }
+    }
+
+    fn link_preview_source(app: &mut PhotocraftApp, layer: photocraft_doc::LayerId) {
+        app.session
+            .edit("Unavailable linked preview fixture", |doc, _| {
+                let photocraft_doc::LayerContent::Smart(smart) = &mut doc.layer_mut(layer).unwrap().content else { panic!("smart fixture") };
+                smart.source = photocraft_doc::SmartSource::Linked { path: "/__photocraft_denied_preview__/source.pcraft".into() };
+                Ok(())
+            })
+            .unwrap();
+        app.services.automation_authorize = Some(deny_adjustment_preview_path);
+    }
+
+    #[test]
+    fn smart_adjustment_creation_dialogs_authorize_sources_before_scheduling_previews() {
+        for command in ["image.adjustments.levels", "image.adjustments.curves", "image.adjustments.shadowsHighlights"] {
+            let (mut app, ctx, layer) = smart_control_app();
+            link_preview_source(&mut app, layer);
+            let before = app.session.active().unwrap().doc.clone();
+            let revision = app.session.active().unwrap().revision;
+            for (method, params) in [("ui.dialog.open", json!({"kind": "command", "command": command})), ("ui.menu.invoke", json!({"command": command}))] {
+                let response = call(&mut app, &ctx, method, params);
+                assert_eq!(response["ok"], false, "{command} via {method}: {response}");
+                assert!(response["error"].as_str().unwrap().contains("adjustment preview source denied"), "{response}");
+                assert!(app.ui.dialogs.is_empty(), "an unauthorized preview must never be scheduled");
+                assert_eq!(*app.session.active().unwrap().doc, *before);
+                assert_eq!(app.session.active().unwrap().revision, revision);
+                assert!(app.session.authorize.is_none(), "the request gate is restored");
+            }
+        }
+    }
+
+    #[test]
+    fn generic_smart_filter_creation_dialogs_authorize_and_bind_sources() {
+        const GAUSSIAN: &str = "filter.blur.gaussianBlur";
+        let (mut app, ctx, layer) = smart_control_app();
+        link_preview_source(&mut app, layer);
+        let before = app.session.active().unwrap().doc.clone();
+        let revision = app.session.active().unwrap().revision;
+        for (method, params) in [("ui.dialog.open", json!({"kind": "command", "command": GAUSSIAN})), ("ui.menu.invoke", json!({"command": GAUSSIAN}))] {
+            let response = call(&mut app, &ctx, method, params);
+            assert_eq!(response["ok"], false, "{method}: {response}");
+            assert!(response["error"].as_str().unwrap().contains("adjustment preview source denied"), "{response}");
+            assert!(app.ui.dialogs.is_empty());
+        }
+        app.automation_input = true;
+        assert!(crate::filter_dialog::open(&mut app, GAUSSIAN).is_none());
+        assert!(app.ui.status.contains("adjustment preview source denied"));
+        assert!(app.session.authorize.is_none());
+        assert_eq!(*app.session.active().unwrap().doc, *before);
+        assert_eq!(app.session.active().unwrap().revision, revision);
+
+        let (mut app, ctx, _) = smart_control_app();
+        app.services.automation_authorize = Some(deny_adjustment_preview_path);
+        app.automation_input = true;
+        // Keep the generic filter's existing Color-channel behavior; the source check must
+        // not introduce the adjustment-only Color-target rejection here.
+        app.session.execute("channel.target", json!({"channel": "red"})).unwrap();
+        let dialog = crate::filter_dialog::open(&mut app, GAUSSIAN).unwrap();
+        let fields = app.ui.dialog_mut(dialog).unwrap().fields.clone();
+        assert!(fields.contains_key("__smartCreation"));
+        assert!(crate::smart_ui::validate_editor(&app, &fields).is_ok());
+        assert_eq!(call(&mut app, &ctx, "ui.dialog.set", json!({"dialog": dialog, "field": "radius", "value": 2.5}))["ok"], true);
+        app.session.active_mut().unwrap().channel_view.target = photocraft_engine::channel_cmds::ChannelTarget::Composite;
+        assert!(crate::smart_ui::validate_editor(&app, &fields).is_err(), "generic previews must retain the approved target");
+        crate::dialogs::cancel(&mut app, dialog).unwrap();
+
+        // Generated plug-in dialogs use the same guarded creation path, retaining their
+        // manifest fields and fixed plug-in id while binding the source target.
+        assert!(crate::smart_ui::prepare_creation_dialog(&mut app, "plugin.run"));
+        let fixed = serde_json::Map::from_iter([("id".into(), json!("test.preview-plugin"))]);
+        let dialog = crate::filter_dialog::open_with_spec(&mut app, "plugin.run", "Preview plug-in", r#"{"amount":0..10=1}"#, fixed);
+        let fields = &app.ui.dialog_mut(dialog).unwrap().fields;
+        assert!(fields.contains_key("__smartCreation"));
+        assert_eq!(fields["id"], "test.preview-plugin");
+        assert_eq!(fields["amount"], 1.0);
+    }
+
+    #[test]
+    fn generic_smart_filter_preview_authorizes_explicit_layer_before_field_changes() {
+        let (mut app, ctx, embedded) = smart_control_app();
+        let linked = app
+            .session
+            .edit("Linked generic preview target", |doc, _| {
+                let mut sibling = doc.layer(embedded).unwrap().duplicate();
+                let photocraft_doc::LayerContent::Smart(smart) = &mut sibling.content else { panic!("smart fixture") };
+                smart.source = photocraft_doc::SmartSource::Linked { path: "/__photocraft_denied_preview__/generic.pcraft".into() };
+                let id = sibling.id;
+                doc.layers.push(sibling);
+                Ok(id)
+            })
+            .unwrap();
+        app.services.automation_authorize = Some(deny_adjustment_preview_path);
+        for command in ["filter.blur.gaussianBlur", photocraft_engine::lens_cmds::LENS, photocraft_engine::distort_cmds::LIQUIFY] {
+            let response = call(&mut app, &ctx, "ui.dialog.open", json!({"kind": "command", "command": command}));
+            assert_eq!(response["ok"], true, "{command}: {response}");
+            let dialog = response["result"]["dialog"].as_u64().unwrap();
+            let before = app.ui.dialog_mut(dialog).unwrap().fields.clone();
+            let response = call(&mut app, &ctx, "ui.dialog.set", json!({"dialog": dialog, "field": "layer", "value": linked.0}));
+            assert_eq!(response["ok"], false, "{command}: {response}");
+            assert!(response["error"].as_str().unwrap().contains("adjustment preview source denied"), "{response}");
+            assert_eq!(app.ui.dialog_mut(dialog).unwrap().fields, before);
+            crate::dialogs::cancel(&mut app, dialog).unwrap();
+        }
+
+        app.session.select_layer(linked).unwrap();
+        app.session.authorize = Some(deny_adjustment_preview_path);
+        for command in ["filter.blur.gaussianBlur", "plugin.run", photocraft_engine::lens_cmds::LENS, photocraft_engine::distort_cmds::LIQUIFY] {
+            assert!(crate::smart_ui::authorize_creation_preview(&app, command, &json!({"layer": embedded.0})).is_ok(), "authorize the requested layer");
+            assert!(
+                crate::smart_ui::authorize_creation_preview(&app, command, &json!({"layer": linked.0}))
+                    .unwrap_err()
+                    .contains("adjustment preview source denied")
+            );
+        }
+    }
+
+    #[test]
+    fn smart_filter_preview_exempts_channel_targets_only_for_drivers_that_route_them() {
+        use photocraft_engine::{distort_cmds, lens_cmds};
+        let (mut app, _, layer) = smart_control_app();
+        link_preview_source(&mut app, layer);
+        app.session.authorize = Some(deny_adjustment_preview_path);
+        for target in [json!("mask"), json!("quickMask"), json!({"channel": 0})] {
+            let params = json!({"target": target});
+            for command in ["filter.blur.gaussianBlur", "plugin.run", "image.adjustments.levels"] {
+                assert!(crate::smart_ui::authorize_creation_preview(&app, command, &params).is_ok(), "{command}: {params}");
+            }
+            for command in [
+                distort_cmds::LIQUIFY,
+                distort_cmds::PUPPET,
+                distort_cmds::PUPPET_SMART,
+                distort_cmds::PERSPECTIVE,
+                distort_cmds::PERSPECTIVE_SMART,
+                lens_cmds::LENS,
+                lens_cmds::WIDE,
+                lens_cmds::RAW,
+            ] {
+                let error = crate::smart_ui::authorize_creation_preview(&app, command, &params).unwrap_err();
+                assert!(error.contains("adjustment preview source denied"), "{command}: {params}: {error}");
+            }
+        }
+    }
+
+    #[test]
+    fn direct_camera_raw_smart_filter_reedit_authorizes_before_source_reads() {
+        let (mut app, ctx, layer) = smart_control_app();
+        app.session.execute(photocraft_engine::lens_cmds::RAW, json!({})).unwrap();
+        link_preview_source(&mut app, layer);
+        let before = app.session.active().unwrap().doc.clone();
+        let revision = app.session.active().unwrap().revision;
+        app.automation_input = true;
+        let error = crate::camera_raw_ui::open_smart_filter(&mut app, &ctx, layer, 0).unwrap_err();
+        assert!(error.contains("adjustment preview source denied"), "{error}");
+        assert!(app.camera_raw.is_none());
+        assert!(app.session.authorize.is_none(), "synthetic input's temporary gate is restored");
+        let response =
+            call(&mut app, &ctx, "ui.menu.invoke", json!({"command": "filter.cameraRaw", "params": {"smartFilter": {"layer": layer.0, "index": 0}}}));
+        assert_eq!(response["ok"], false, "{response}");
+        assert!(response["error"].as_str().unwrap().contains("adjustment preview source denied"), "{response}");
+        assert!(app.camera_raw.is_none());
+        assert!(app.session.authorize.is_none());
+        assert_eq!(*app.session.active().unwrap().doc, *before);
+        assert_eq!(app.session.active().unwrap().revision, revision);
+    }
+
+    #[test]
+    fn smart_adjustment_creation_dialogs_do_not_resolve_sources_for_channel_targets() {
+        use photocraft_doc::{AlphaChannel, LayerMask};
+        for command in ["image.adjustments.levels", "image.adjustments.curves", "image.adjustments.shadowsHighlights"] {
+            for target in ["mask", "alpha", "quickMask"] {
+                let (mut app, ctx, layer) = smart_control_app();
+                app.session
+                    .edit("Channel preview fixture", |doc, _| {
+                        let mut surface = photocraft_raster::Surface::new(photocraft_color::PixelFormat::GRAY8);
+                        surface.fill_rect(doc.bounds(), &[0.25]);
+                        match target {
+                            "mask" => doc.layer_mut(layer).unwrap().mask = Some(LayerMask { surface, ..LayerMask::reveal_all() }),
+                            "alpha" => doc.channels.push(AlphaChannel::new("Preview alpha", surface)),
+                            _ => doc.quick_mask = Some(AlphaChannel::new("Preview Quick Mask", surface)),
+                        }
+                        Ok(())
+                    })
+                    .unwrap();
+                if target == "mask" {
+                    app.ui.mask_target = true;
+                } else if target == "alpha" {
+                    app.session.execute("channel.target", json!({"channel": 0})).unwrap();
+                }
+                link_preview_source(&mut app, layer);
+                let before = app.session.active().unwrap().doc.clone();
+                for (method, params) in [("ui.dialog.open", json!({"kind": "command", "command": command})), ("ui.menu.invoke", json!({"command": command}))] {
+                    let response = call(&mut app, &ctx, method, params);
+                    assert_eq!(response["ok"], true, "{command}, {target}, {method}: {response}");
+                    let dialog = response["result"]["dialog"].as_u64().unwrap();
+                    assert_eq!(call(&mut app, &ctx, "ui.dialog.cancel", json!({"dialog": dialog}))["ok"], true);
+                    assert_eq!(*app.session.active().unwrap().doc, *before);
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn smart_adjustment_creation_dialogs_refuse_single_color_channels() {
+        let (mut app, ctx, _) = smart_control_app();
+        app.session.execute("channel.target", json!({"channel": "red"})).unwrap();
+        for (method, params) in [
+            ("ui.dialog.open", json!({"kind": "command", "command": "image.adjustments.levels"})),
+            ("ui.menu.invoke", json!({"command": "image.adjustments.levels"})),
+        ] {
+            let response = call(&mut app, &ctx, method, params);
+            assert_eq!(response["ok"], false, "{response}");
+            assert!(response["error"].as_str().unwrap().contains("composite color channel"), "{response}");
+            assert!(app.ui.dialogs.is_empty());
+        }
+    }
+
+    #[test]
+    fn smart_adjustment_dialog_field_changes_cannot_retarget_an_unauthorized_source() {
+        use photocraft_doc::{LayerContent, SmartSource};
+        let (mut app, ctx, embedded) = smart_control_app();
+        app.session.execute("image.adjustments.levels", json!({"gamma": 1.4})).unwrap();
+        let linked = app
+            .session
+            .edit("Linked sibling fixture", |doc, _| {
+                let mut sibling = doc.layer(embedded).unwrap().duplicate();
+                let LayerContent::Smart(smart) = &mut sibling.content else { panic!("smart fixture") };
+                smart.source = SmartSource::Linked { path: "/__photocraft_denied_preview__/sibling.pcraft".into() };
+                let id = sibling.id;
+                doc.layers.push(sibling);
+                Ok(id)
+            })
+            .unwrap();
+        app.services.automation_authorize = Some(deny_adjustment_preview_path);
+        let response = call(&mut app, &ctx, "ui.dialog.open", json!({"kind": "smartFilter", "layer": embedded.0, "index": 0}));
+        assert_eq!(response["ok"], true, "{response}");
+        let dialog = response["result"]["dialog"].as_u64().unwrap();
+        let before = app.ui.dialog_mut(dialog).unwrap().fields.clone();
+        let mut binding = before["__smartFilter"].clone();
+        binding["layer"] = json!(linked.0);
+        let response = call(&mut app, &ctx, "ui.dialog.set", json!({"dialog": dialog, "field": "__smartFilter", "value": binding}));
+        assert_eq!(response["ok"], false, "{response}");
+        assert!(response["error"].as_str().unwrap().contains("routing field"), "{response}");
+        assert_eq!(app.ui.dialog_mut(dialog).unwrap().fields, before, "rejection keeps the original approved binding");
+        assert_eq!(call(&mut app, &ctx, "ui.dialog.set", json!({"dialog": dialog, "field": "gamma", "value": 0.8}))["ok"], true);
+        assert_eq!(call(&mut app, &ctx, "ui.dialog.set", json!({"dialog": dialog, "field": "__preview", "value": false}))["ok"], true);
+        assert_eq!(call(&mut app, &ctx, "ui.dialog.set", json!({"dialog": dialog, "field": "__preview", "value": true}))["ok"], true);
+        assert_eq!(call(&mut app, &ctx, "ui.dialog.cancel", json!({"dialog": dialog}))["ok"], true);
+
+        app.session.select_layer(linked).unwrap();
+        let response = call(&mut app, &ctx, "ui.dialog.open", json!({"kind": "command", "command": "view.newGuide"}));
+        let dialog = response["result"]["dialog"].as_u64().unwrap();
+        let before = app.ui.dialog_mut(dialog).unwrap().fields.clone();
+        let response = call(&mut app, &ctx, "ui.dialog.set", json!({"dialog": dialog, "field": "__command", "value": "image.adjustments.curves"}));
+        assert_eq!(response["ok"], false, "{response}");
+        assert!(response["error"].as_str().unwrap().contains("routing field"), "{response}");
+        assert_eq!(app.ui.dialog_mut(dialog).unwrap().fields, before, "an unrelated dialog cannot become an unchecked Smart preview");
+    }
+
+    #[test]
+    fn dialog_routing_fields_are_read_only_at_open_and_set() {
+        let mut app = PhotocraftApp::new(photocraft_engine::Session::new(), crate::Services::default());
+        let ctx = egui::Context::default();
+        for kind in ["about", "newDocument"] {
+            for fields in [
+                json!({"__command": "file.open", "__filter": true, "__preview": true, "path": "/unauthorized/document.pcraft"}),
+                json!({"__filter": true}),
+                json!({"__smartFilter": {"layer": 1, "index": 0}}),
+                json!({"__smartCreation": {"layer": 1}}),
+            ] {
+                let response = call(&mut app, &ctx, "ui.dialog.open", json!({"kind": kind, "fields": fields}));
+                assert_eq!(response["ok"], false, "{kind}: {response}");
+                assert!(response["error"].as_str().unwrap().contains("routing field"));
+                assert!(app.ui.dialogs.is_empty(), "reject before a dialog can schedule a preview");
+            }
+        }
+        let response = call(&mut app, &ctx, "ui.dialog.open", json!({"kind": "newDocument", "fields": {"width": 120, "height": 80, "__preview": true}}));
+        assert_eq!(response["ok"], true, "normal document settings remain writable: {response}");
+        let dialog = response["result"]["dialog"].as_u64().unwrap();
+        let before = app.ui.dialog_mut(dialog).unwrap().fields.clone();
+        for field in ["__command", "__filter", "__smartFilter", "__smartCreation"] {
+            let response = call(&mut app, &ctx, "ui.dialog.set", json!({"dialog": dialog, "field": field, "value": null}));
+            assert_eq!(response["ok"], false, "{field}: {response}");
+            assert_eq!(app.ui.dialog_mut(dialog).unwrap().fields, before);
+        }
+        assert_eq!(call(&mut app, &ctx, "ui.dialog.set", json!({"dialog": dialog, "field": "width", "value": 150}))["ok"], true);
+        assert_eq!(call(&mut app, &ctx, "ui.dialog.set", json!({"dialog": dialog, "field": "__preview", "value": false}))["ok"], true);
+        assert_eq!(app.ui.dialog_mut(dialog).unwrap().fields["width"], 150);
+        assert_eq!(app.ui.dialog_mut(dialog).unwrap().fields["__preview"], false);
+    }
+
+    #[test]
+    fn smart_adjustment_creation_bindings_refuse_layer_channel_and_mask_target_switches() {
+        for method in ["ui.dialog.open", "ui.menu.invoke"] {
+            let (mut app, ctx, embedded) = smart_control_app();
+            let linked = app
+                .session
+                .edit("Linked target fixture", |doc, _| {
+                    let mut sibling = doc.layer(embedded).unwrap().duplicate();
+                    let photocraft_doc::LayerContent::Smart(smart) = &mut sibling.content else { panic!("smart fixture") };
+                    smart.source = photocraft_doc::SmartSource::Linked { path: "/__photocraft_denied_preview__/sibling.pcraft".into() };
+                    sibling.mask = Some(photocraft_doc::LayerMask::reveal_all());
+                    let id = sibling.id;
+                    doc.layers.push(sibling);
+                    Ok(id)
+                })
+                .unwrap();
+            app.services.automation_authorize = Some(deny_adjustment_preview_path);
+            let open_params = json!({"kind": "command", "command": "image.adjustments.levels"});
+            let response = call(&mut app, &ctx, method, open_params.clone());
+            assert_eq!(response["ok"], true, "{response}");
+            let dialog = response["result"]["dialog"].as_u64().unwrap();
+            let fields = app.ui.dialog_mut(dialog).unwrap().fields.clone();
+            app.session.select_layer(linked).unwrap();
+            assert!(crate::smart_ui::validate_editor(&app, &fields).is_err(), "preview must not follow a new linked layer");
+            assert_eq!(call(&mut app, &ctx, "ui.dialog.cancel", json!({"dialog": dialog}))["ok"], true);
+
+            app.ui.mask_target = true;
+            let response = call(&mut app, &ctx, method, open_params.clone());
+            assert_eq!(response["ok"], true, "the layer mask does not require the linked source: {response}");
+            let dialog = response["result"]["dialog"].as_u64().unwrap();
+            let fields = app.ui.dialog_mut(dialog).unwrap().fields.clone();
+            assert!(crate::smart_ui::validate_editor(&app, &fields).is_ok());
+            app.ui.mask_target = false;
+            assert!(crate::smart_ui::validate_editor(&app, &fields).is_err(), "switching from mask to pixels must invalidate the preview");
+            assert_eq!(call(&mut app, &ctx, "ui.dialog.cancel", json!({"dialog": dialog}))["ok"], true);
+
+            app.session.execute("channel.new", json!({"name": "Preview alpha", "fill": "white"})).unwrap();
+            let response = call(&mut app, &ctx, method, open_params);
+            assert_eq!(response["ok"], true, "alpha editing does not require the linked source: {response}");
+            let dialog = response["result"]["dialog"].as_u64().unwrap();
+            let fields = app.ui.dialog_mut(dialog).unwrap().fields.clone();
+            assert!(crate::smart_ui::validate_editor(&app, &fields).is_ok());
+            app.session.active_mut().unwrap().channel_view.target = photocraft_engine::channel_cmds::ChannelTarget::Composite;
+            assert!(crate::smart_ui::validate_editor(&app, &fields).is_err(), "channel binding is checked even without a revision bump");
+        }
+    }
+
+    #[test]
+    fn native_smart_adjustment_openers_use_synthetic_authority_and_preserve_manual_access() {
+        use photocraft_doc::{LayerContent, SmartSource};
+        use std::io::Write as _;
+
+        fn existing_authority(_: &str, params: &Value) -> photocraft_engine::Result<()> {
+            if params.get("path").is_some() { Err(photocraft_engine::EngineError::Other("existing preview authority denied".into())) } else { Ok(()) }
+        }
+
+        let (mut app, ctx, layer) = smart_control_app();
+        app.session.execute("image.adjustments.levels", json!({"gamma": 1.4})).unwrap();
+        let source = match &app.session.active().unwrap().doc.layer(layer).unwrap().content {
+            LayerContent::Smart(smart) => match &smart.source {
+                SmartSource::Embedded { bytes, .. } => bytes.clone(),
+                _ => panic!("embedded fixture"),
+            },
+            _ => panic!("smart fixture"),
+        };
+        let path = std::env::temp_dir().join(format!("pc-smart-preview-authority-{}-{}.pcraft", std::process::id(), layer.0));
+        std::fs::File::create_new(&path).unwrap().write_all(&source).unwrap();
+        app.session
+            .edit("Available linked source fixture", |doc, _| {
+                let LayerContent::Smart(smart) = &mut doc.layer_mut(layer).unwrap().content else { panic!("smart fixture") };
+                smart.source = SmartSource::Linked { path: path.to_string_lossy().into_owned() };
+                Ok(())
+            })
+            .unwrap();
+        let smart = match &app.session.active().unwrap().doc.layer(layer).unwrap().content {
+            LayerContent::Smart(smart) => smart.clone(),
+            _ => panic!("smart fixture"),
+        };
+        app.services.automation_authorize = Some(deny_adjustment_preview_path);
+        app.automation_input = true;
+        for command in ["image.adjustments.levels", "image.adjustments.curves", "image.adjustments.shadowsHighlights"] {
+            let result = if crate::adjust_dialog::has_dialog(command) {
+                crate::adjust_dialog::open(&mut app, command)
+            } else {
+                crate::filter_dialog::open(&mut app, command)
+            };
+            assert!(result.is_none(), "synthetic native opener must authorize {command}");
+            assert!(app.ui.dialogs.is_empty());
+            assert!(app.ui.status.contains("adjustment preview source denied"));
+            assert!(app.session.authorize.is_none(), "a temporary gate must be restored");
+        }
+        assert!(crate::smart_ui::open_editor_dialog(&mut app, &ctx, layer.0, &smart, 0).is_none());
+        assert!(app.ui.status.contains("adjustment preview source denied"));
+        assert!(app.session.authorize.is_none());
+
+        app.session.authorize = Some(existing_authority);
+        assert!(crate::adjust_dialog::open(&mut app, "image.adjustments.levels").is_none());
+        assert!(app.ui.status.contains("existing preview authority denied"), "an installed caller gate takes precedence");
+        assert!(app.session.authorize.unwrap()("probe", &json!({"path": "probe"})).unwrap_err().to_string().contains("existing preview authority denied"));
+        app.session.authorize = None;
+
+        app.automation_input = false;
+        for command in ["image.adjustments.levels", "image.adjustments.curves", "image.adjustments.shadowsHighlights"] {
+            let dialog = if crate::adjust_dialog::has_dialog(command) {
+                crate::adjust_dialog::open(&mut app, command)
+            } else {
+                crate::filter_dialog::open(&mut app, command)
+            }
+            .unwrap();
+            let fields = app.ui.dialog_mut(dialog).unwrap().fields.clone();
+            assert!(fields.contains_key("__smartCreation"), "manual previews retain the same immutable target binding");
+            assert!(crate::smart_ui::validate_editor(&app, &fields).is_ok());
+            crate::dialogs::cancel(&mut app, dialog).unwrap();
+        }
+        let dialog = crate::smart_ui::open_editor_dialog(&mut app, &ctx, layer.0, &smart, 0).unwrap();
+        assert!(!app.ui.dialog_mut(dialog).unwrap().fields.contains_key("__smartCreation"));
+        crate::dialogs::cancel(&mut app, dialog).unwrap();
+        std::fs::remove_file(path).unwrap();
+    }
+
+    #[test]
+    fn native_smart_filter_reediting_checks_the_explicit_target_without_changing_selection() {
+        use photocraft_doc::{LayerContent, SmartSource};
+        let (mut app, ctx, embedded) = smart_control_app();
+        app.session.execute("image.adjustments.curves", json!({"points": [[0, 0], [128, 180], [255, 255]]})).unwrap();
+        let (linked, smart) = app
+            .session
+            .edit("Unrelated active linked source", |doc, active| {
+                let mut sibling = doc.layer(embedded).unwrap().duplicate();
+                let LayerContent::Smart(smart) = &mut sibling.content else { panic!("smart fixture") };
+                let embedded_smart = smart.clone();
+                smart.source = SmartSource::Linked { path: "/__photocraft_denied_preview__/unrelated.pcraft".into() };
+                let id = sibling.id;
+                doc.layers.push(sibling);
+                *active = Some(id);
+                Ok((id, embedded_smart))
+            })
+            .unwrap();
+        app.services.automation_authorize = Some(deny_adjustment_preview_path);
+        app.automation_input = true;
+        let dialog = crate::smart_ui::open_editor_dialog(&mut app, &ctx, embedded.0, &smart, 0).unwrap();
+        let fields = app.ui.dialog_mut(dialog).unwrap().fields.clone();
+        assert_eq!(fields["__smartFilter"]["layer"], embedded.0);
+        assert!(!fields.contains_key("__smartCreation"), "an edit must not bind to the unrelated active layer");
+        assert_eq!(app.session.active().unwrap().active_layer, Some(linked));
+        assert!(crate::smart_ui::validate_editor(&app, &fields).is_ok());
+        assert!(app.session.authorize.is_none());
     }
 
     #[test]

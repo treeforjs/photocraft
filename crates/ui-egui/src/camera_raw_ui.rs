@@ -446,6 +446,7 @@ pub fn open(app: &mut PhotocraftApp, ctx: &egui::Context) -> Result<(), String> 
 /// a Camera Raw smart filter does in Photoshop.
 pub fn open_smart_filter(app: &mut PhotocraftApp, ctx: &egui::Context, layer: LayerId, index: usize) -> Result<(), String> {
     use photocraft_engine::lens_cmds::{RAW, raw_params};
+    crate::smart_ui::authorize_filter_preview(app, layer)?;
     let st = app.session.active().ok_or("no document")?;
     let Some(photocraft_doc::LayerContent::Smart(sm)) = st.doc.layer(layer).map(|l| &l.content) else {
         return Err("the layer is not a smart object".into());

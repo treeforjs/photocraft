@@ -193,12 +193,25 @@ pub fn pill_tab(ui: &mut Ui, label: &str, selected: bool) -> Response {
 
 /// Monospace numeric field with a dimmed unit suffix, Photoshop style. Drag to scrub.
 pub fn value_field(ui: &mut Ui, value: &mut f32, range: std::ops::RangeInclusive<f32>, suffix: &str, width: f32) -> Response {
-    value_field_in(ui, value, range, suffix, width, 0.0).0
+    value_field_in(ui, value, range, suffix, width, 0.0, false).0
+}
+
+/// A numeric field that keeps hundredth-unit display and keyboard steps even in a wide range.
+pub(crate) fn value_field_fine(ui: &mut Ui, value: &mut f32, range: std::ops::RangeInclusive<f32>, suffix: &str, width: f32) -> Response {
+    value_field_in(ui, value, range, suffix, width, 0.0, true).0
 }
 
 /// A [`value_field`] that leaves `trailing` points free inside its box, right of the suffix, and
 /// returns the box with the number's response.
-fn value_field_in(ui: &mut Ui, value: &mut f32, range: std::ops::RangeInclusive<f32>, suffix: &str, width: f32, trailing: f32) -> (Response, Rect) {
+fn value_field_in(
+    ui: &mut Ui,
+    value: &mut f32,
+    range: std::ops::RangeInclusive<f32>,
+    suffix: &str,
+    width: f32,
+    trailing: f32,
+    force_fine: bool,
+) -> (Response, Rect) {
     let t = Tokens::get(ui.ctx());
     let (rect, slot) = ui.allocate_exact_size(vec2(width, 24.0), Sense::hover());
     surface(ui, rect, t.field, false);
@@ -208,7 +221,7 @@ fn value_field_in(ui: &mut Ui, value: &mut f32, range: std::ops::RangeInclusive<
     let suffix_w = if suffix.is_empty() { 0.0 } else { 16.0 };
     let field = Rect::from_min_max(rect.min + vec2(4.0, 2.0), rect.max - vec2(4.0 + suffix_w + trailing, 2.0));
     // Small ranges (gamma 0.01–9.99, 0–1 centres) need two decimals and a finer drag, like Photoshop.
-    let fine = range.end() - range.start() <= 10.0;
+    let fine = force_fine || range.end() - range.start() <= 10.0;
     let (lo, hi) = (*range.start(), *range.end());
     let (step, grid) = arrow_step(ui, slot.id, if fine { 0.01 } else { 1.0 });
     // new_child (not scope_builder): a scope would move the parent cursor back to the child rect.
@@ -271,7 +284,7 @@ pub struct PopupFieldResponse {
 pub fn popup_value_field(ui: &mut Ui, name: &str, value: &mut f32, range: std::ops::RangeInclusive<f32>, suffix: &str, width: f32) -> PopupFieldResponse {
     let t = Tokens::get(ui.ctx());
     let (lo, hi) = (*range.start(), *range.end());
-    let (field, rect) = value_field_in(ui, value, range.clone(), suffix, width, POPUP_ARROW_W);
+    let (field, rect) = value_field_in(ui, value, range.clone(), suffix, width, POPUP_ARROW_W, false);
     let arrow = Rect::from_min_max(pos2(rect.right() - POPUP_ARROW_W - 2.0, rect.top() + 2.0), rect.max - vec2(2.0, 2.0));
     let resp = ui.interact(arrow, field.id.with("popup-slider"), Sense::click_and_drag());
     let name = name.trim_end_matches([':', '：']).to_string();

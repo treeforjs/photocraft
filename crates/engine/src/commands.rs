@@ -1079,7 +1079,7 @@ fn build() -> Vec<CommandSpec> {
                 _ => None,
             },
             params,
-            enabled: has_pixel_or_channel,
+            enabled: if crate::smart_adjust_cmds::supported(kind) { crate::smart_adjust_cmds::enabled } else { has_pixel_or_channel },
             run: |s, p| {
                 let kind = p.get("__kind").and_then(Value::as_str).unwrap_or("invert").to_string();
                 let eyedropped = if kind == "curves" { crate::adjust_params::curves_eyedropper_from_params(s, p)? } else { None };
@@ -1088,6 +1088,11 @@ fn build() -> Vec<CommandSpec> {
                     None => crate::adjust_params::from_params(&kind, p, None, doc_mode(s))?,
                 };
                 let label = adj.label().to_string();
+                if crate::channel_cmds::target_of(p) == crate::channel_cmds::Target::Pixels
+                    && let Some(result) = crate::smart_adjust_cmds::apply(s, &kind, &crate::adjust_params::to_params(&adj), &label)
+                {
+                    return result;
+                }
                 destructive_adjust(s, &label, adj, p)
             },
             journal: true,

@@ -380,6 +380,22 @@ pub struct Dialog {
     pub kind: DialogKind,
     /// Field values by name. Dialog widgets read and write these; so can automation.
     pub fields: serde_json::Map<String, serde_json::Value>,
+    /// Runtime authority for delayed previews; clients cannot replace it through JSON fields.
+    #[serde(skip)]
+    pub(crate) preview_authorize: PreviewAuthority,
+}
+
+#[derive(Clone, Copy, Debug, Default)]
+pub(crate) struct PreviewAuthority(pub Option<fn(&str, &serde_json::Value) -> photocraft_engine::Result<()>>);
+
+impl PartialEq for PreviewAuthority {
+    fn eq(&self, other: &Self) -> bool {
+        match (self.0, other.0) {
+            (Some(a), Some(b)) => std::ptr::fn_addr_eq(a, b),
+            (None, None) => true,
+            _ => false,
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -1069,7 +1085,7 @@ impl UiState {
 
     pub fn open_dialog(&mut self, kind: DialogKind, fields: serde_json::Map<String, serde_json::Value>) -> u64 {
         let id = self.alloc_id();
-        self.dialogs.push(Dialog { id, kind, fields });
+        self.dialogs.push(Dialog { id, kind, fields, preview_authorize: Default::default() });
         id
     }
 

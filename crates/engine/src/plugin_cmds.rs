@@ -70,6 +70,7 @@ fn run(s: &mut Session, p: &Value) -> Result<Value> {
     let layer = crate::commands::layer_param(s, p)?;
     let label = plugin.manifest().name.clone();
     let id = plugin.id().to_string();
+    let authorize = s.authorize;
     s.edit(&label, |doc, _| {
         let selection = doc.selection.clone();
         let canvas = doc.bounds();
@@ -91,7 +92,7 @@ fn run(s: &mut Session, p: &Value) -> Result<Value> {
                     opacity: 1.0,
                     visible: true,
                 };
-                crate::smart_cmds::add_smart_filter(doc, layer, sf, selection.as_ref())
+                crate::smart_cmds::add_smart_filter(doc, layer, sf, selection.as_ref(), authorize)
             }
             other => Err(EngineError::Other(format!("plug-in filters need a pixel layer (active layer is {} {} layer)", other.article(), other.kind_name()))),
         }

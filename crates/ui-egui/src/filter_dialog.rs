@@ -233,7 +233,19 @@ pub(crate) fn remember(app: &mut PhotocraftApp, command: &str, fields: &Map<Stri
 }
 
 pub fn open(app: &mut PhotocraftApp, command: &str) -> Option<u64> {
+    open_inner(app, command, true)
+}
+
+/// The explicit Smart Filter target was checked by `smart_ui`, independently of the active layer.
+pub(crate) fn open_for_smart_filter(app: &mut PhotocraftApp, command: &str) -> Option<u64> {
+    open_inner(app, command, false)
+}
+
+fn open_inner(app: &mut PhotocraftApp, command: &str, creation: bool) -> Option<u64> {
     let spec = photocraft_engine::commands::find(command)?;
+    if creation && !crate::smart_ui::prepare_creation_dialog(app, command) {
+        return None;
+    }
     let mut fields = Map::new();
     fields.insert("__command".into(), json!(command));
     fields.insert("__label".into(), json!(spec.label));
@@ -261,7 +273,11 @@ pub fn open(app: &mut PhotocraftApp, command: &str) -> Option<u64> {
         };
         fields.insert(p.key, v);
     }
-    restore_remembered(app, command, spec.params, &mut fields);
+    // Omitted stored Smart Filter parameters mean command defaults, never values used
+    // in another dialog. Remembered settings apply only when creating a new operation.
+    if creation {
+        restore_remembered(app, command, spec.params, &mut fields);
+    }
     if command == "image.rotation.arbitrary" {
         straighten_defaults(app, &mut fields);
     }
@@ -275,6 +291,9 @@ pub fn open(app: &mut PhotocraftApp, command: &str) -> Option<u64> {
         fields.insert("__docs".into(), json!(names));
     }
     let id = app.ui.open_dialog(crate::state::DialogKind::Command, fields);
+    if creation {
+        crate::smart_ui::bind_creation_preview(app, command, id);
+    }
     Some(id)
 }
 
@@ -292,6 +311,7 @@ fn straighten_defaults(app: &PhotocraftApp, fields: &mut Map<String, Value>) {
 
 /// A filter dialog with live preview for `command` whose parameters follow `spec` (registry
 /// notation) instead of the command's own; `fixed` params (e.g. a plug-in id) are passed through.
+/// The plug-in menu caller checks creation authority before invoking this builder.
 pub fn open_with_spec(app: &mut PhotocraftApp, command: &str, label: &str, spec: &str, fixed: Map<String, Value>) -> u64 {
     let mut fields = fixed;
     fields.insert("__command".into(), json!(command));
@@ -310,7 +330,9 @@ pub fn open_with_spec(app: &mut PhotocraftApp, command: &str, label: &str, spec:
         };
         fields.insert(p.key, v);
     }
-    app.ui.open_dialog(crate::state::DialogKind::Command, fields)
+    let id = app.ui.open_dialog(crate::state::DialogKind::Command, fields);
+    crate::smart_ui::bind_creation_preview(app, command, id);
+    id
 }
 
 pub(crate) fn label(key: &str) -> String {
@@ -372,26 +394,40 @@ pub fn body(ui: &mut egui::Ui, f: &mut Map<String, Value>) {
                 } else {
                     ""
                 };
-                if uses_logarithmic_slider(min, max) {
-                    // Keep one numeric field for direct entry and one log-scaled slider for
-                    // wide ranges. slider_row would add a second, linear slider (#146).
+                let fine_clip = cmd == "image.adjustments.shadowsHighlights" && matches!(p.key.as_str(), "blackClip" | "whiteClip");
+                let changed = if uses_logarithmic_slider(min, max) || fine_clip {
+                    // Keep a fine clip-percentage field, or one log-scaled slider for wide
+                    // positive ranges. slider_row would add a second linear slider (#146).
+                    let mut changed = false;
                     ui.horizontal(|ui| {
                         ui.label(egui::RichText::new(label(&p.key)).color(t.text_dim));
                         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                            crate::widgets::value_field(ui, &mut v, min..=max, unit, 74.0);
+                            changed = if fine_clip {
+                                crate::widgets::value_field_fine(ui, &mut v, min..=max, "%", 74.0).changed()
+                            } else {
+                                crate::widgets::value_field(ui, &mut v, min..=max, unit, 74.0).changed()
+                            };
                         });
                     });
-                    let mut lv = v.clamp(min, max).ln();
-                    if crate::widgets::slider(ui, &mut lv, min.ln()..=max.ln(), None).changed() {
-                        v = lv.exp();
+                    if fine_clip {
+                        changed |= crate::widgets::slider(ui, &mut v, min..=max, None).changed();
+                    } else {
+                        let mut lv = v.clamp(min, max).ln();
+                        if crate::widgets::slider(ui, &mut lv, min.ln()..=max.ln(), None).changed() {
+                            v = lv.exp();
+                            changed = true;
+                        }
                     }
                     ui.add_space(4.0);
+                    changed
                 } else {
-                    crate::widgets::slider_row(ui, &label(&p.key), &mut v, min..=max, unit, None);
+                    crate::widgets::slider_row(ui, &label(&p.key), &mut v, min..=max, unit, None).changed()
+                };
+                // Drawing a dialog must not round stored parameters or change a default such
+                // as 0.01% clipping. Preserve the entered precision when a control is edited.
+                if changed {
+                    f.insert(p.key, json!(v));
                 }
-                // Small ranges (0–1 thresholds and centres) keep the two decimals their field shows.
-                let scale = if max - min <= 10.0 { 100.0 } else { 10.0 };
-                f.insert(p.key, json!((v * scale).round() / scale));
             }
             Kind::Choice(options) => {
                 ui.horizontal(|ui| {
@@ -516,14 +552,46 @@ pub fn preview_document_with(
     k: u32,
     cancel: Option<&photocraft_engine::jobs::JobCtx>,
 ) -> Option<Document> {
-    let proxy = crate::proxy::proxy_document(doc, k);
+    preview_document_authorized(doc, active, command, params, k, cancel, Default::default())
+}
+
+/// Delayed UI previews execute under the authority captured when the dialog was controlled.
+pub(crate) fn preview_document_authorized(
+    doc: &Document,
+    active: Option<photocraft_doc::LayerId>,
+    command: &str,
+    params: &Value,
+    k: u32,
+    cancel: Option<&photocraft_engine::jobs::JobCtx>,
+    authorize: crate::state::PreviewAuthority,
+) -> Option<Document> {
+    let k = crate::smart_adjust_preview::factor(doc, active, command, params, k);
+    let mut proxy = crate::proxy::proxy_document(doc, k);
+    crate::smart_adjust_preview::prepare(&mut proxy, active, command, params, k);
     let mut s = photocraft_engine::Session::new();
+    s.authorize = authorize.0;
     s.set_inline_job_ctx(cancel.cloned());
     s.add_document(proxy, None);
     if let Some(id) = active {
         s.select_layer(id).ok()?;
     }
     let mut p = params.clone();
+    if command == "layer.smartFilter.setParams" {
+        let target = p.get("layer").and_then(Value::as_u64).map(photocraft_doc::LayerId).or(active);
+        let kind = target.and_then(|id| doc.layer(id)).and_then(|layer| match &layer.content {
+            photocraft_doc::LayerContent::Smart(sm) => {
+                p.get("index").and_then(Value::as_u64).and_then(|i| usize::try_from(i).ok()).and_then(|i| sm.smart_filters.get(i)).map(|f| f.command.as_str())
+            }
+            _ => None,
+        });
+        if let Some(kind) = kind
+            && let Some(inner) = p.get_mut("params")
+        {
+            crate::smart_adjust_preview::scale_edit_params(kind, inner, k);
+        }
+    } else {
+        crate::smart_adjust_preview::scale_params(command, &mut p, k);
+    }
     if k > 1
         && let Some(o) = p.as_object_mut()
     {
@@ -558,6 +626,7 @@ pub struct FilterPreviewKey {
     pub command: String,
     pub params: Value,
     pub k: u32,
+    pub(crate) preview_authorize: crate::state::PreviewAuthority,
 }
 
 #[cfg(test)]
@@ -641,6 +710,24 @@ mod tests {
         let params = params_of(&fields);
         assert_eq!(params["colors"].as_u64(), Some(17));
         assert_eq!(params["amount"].as_f64(), Some(37.5));
+    }
+
+    #[test]
+    fn shadows_highlights_idle_frames_preserve_default_and_custom_precision() {
+        for (black, white) in [(0.01, 0.01), (0.0125, 0.0275)] {
+            let mut fields = Map::new();
+            fields.insert("__command".into(), json!("image.adjustments.shadowsHighlights"));
+            fields.insert("blackClip".into(), json!(black));
+            fields.insert("whiteClip".into(), json!(white));
+            fields.insert("shadowRadius".into(), json!(30.12345));
+            let ctx = egui::Context::default();
+            for _ in 0..3 {
+                ctx.run_ui(Default::default(), |ui| body(ui, &mut fields)).textures_delta.clear();
+            }
+            assert_eq!(fields["blackClip"], json!(black));
+            assert_eq!(fields["whiteClip"], json!(white));
+            assert_eq!(fields["shadowRadius"], json!(30.12345));
+        }
     }
 
     #[test]

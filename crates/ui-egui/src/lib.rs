@@ -134,6 +134,7 @@ pub mod shortcut_dispatch;
 pub mod shortcuts;
 mod sizing;
 pub mod slice_ui;
+mod smart_adjust_preview;
 pub mod smart_ui;
 pub mod snap_ui;
 pub(crate) mod solid_fill_ui;

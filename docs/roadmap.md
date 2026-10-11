@@ -49,6 +49,28 @@ remaining gaps in #1606 stay tracked with per-sample corpus ceilings.
 
 ## Honest parity assessment (2026-10-05)
 
+2026-10-11 parity wave 1: Image › Adjustments › Levels, Curves and Shadows/Highlights
+can now create nondestructive Smart Filters. Double-click their rows to re-edit the stored
+settings with a live replacement preview; OK is one undo step and Cancel changes nothing.
+Synthetic tests cover 8/16/32-bit processing, native saves, history, selection masks, channel
+routing, inherited locks and invalid edits. Reduced previews scale the Smart Object placement
+and filter mask; stacks containing other spatial filters use full-resolution previews.
+Enabled stacks containing visible unsupported filters block this adjustment-creation and
+parameter-editing workflow to protect the imported cached appearance; other existing stack
+actions retain their behavior.
+RGB Levels/Curves and default Shadows/Highlights round-trip as live PSD filters; custom
+Shadows/Highlights and CMYK/Lab channel settings still warn on PSD export. Hue/Saturation
+Smart Filters, the remaining filter math differences, and third-party acceptance of generated
+PSDs remain open. See [workflow and limits](smart-adjustments.md). Corpus floors and overall
+parity estimates are unchanged.
+
+On 2026-10-11, a synthetic 24 MP Smart Object Levels re-edit measured **0.520 s full size
+versus 0.230 s at a 4× reduced preview** in release (three-run medians, four Rayon threads,
+Linux x86_64 container; opt-level 3, LTO off, 16 codegen units). The installer’s developer
+optimization profile measured 0.661 s versus 0.487 s. These compare two paths in this
+implementation, not an earlier version or a proprietary editor; reduced previews remain
+approximate and full-resolution commit behavior is unchanged.
+
 This is the reference answer to "how close are we to Photoshop parity, really". Agents: read it
 before picking work. Update it (with dated measurements) when the numbers move; don't restate the
 menu-parity number in its place.
