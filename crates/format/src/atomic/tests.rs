@@ -191,6 +191,18 @@ fn staging_file_is_private_before_permissions_are_copied() {
 
 #[cfg(unix)]
 #[test]
+fn directory_target_permissions_never_expose_staged_document_bytes() {
+    use std::os::unix::fs::PermissionsExt;
+    let d = TempDir::new("directory-permissions");
+    let tmp = d.0.join("doc.psd.tmp");
+    std::fs::set_permissions(&d.0, std::fs::Permissions::from_mode(0o755)).unwrap();
+    RealFs.write_new(&tmp, ORIGINAL).unwrap();
+    assert!(RealFs.copy_permissions(&d.0, &tmp).is_err());
+    assert_eq!(std::fs::metadata(&tmp).unwrap().permissions().mode() & 0o077, 0);
+}
+
+#[cfg(unix)]
+#[test]
 fn keeps_the_original_file_mode() {
     use std::os::unix::fs::PermissionsExt;
     let d = TempDir::new("mode");

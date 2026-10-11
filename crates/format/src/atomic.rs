@@ -82,8 +82,11 @@ impl AtomicFs for RealFs {
         }
     }
     fn copy_permissions(&self, from: &Path, to: &Path) -> io::Result<()> {
-        let perms = std::fs::metadata(from)?.permissions();
-        std::fs::set_permissions(to, perms)
+        let metadata = std::fs::metadata(from)?;
+        if !metadata.is_file() {
+            return Err(io::Error::new(io::ErrorKind::InvalidInput, "the destination is not a regular file"));
+        }
+        std::fs::set_permissions(to, metadata.permissions())
     }
 }
 
