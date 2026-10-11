@@ -76,6 +76,31 @@ fn example_invert_loads_and_reports_its_manifest() {
 }
 
 #[test]
+fn canvas_at_coordinate_limits_does_not_overflow_band_edges() {
+    let manifest = r#"{"id":"test.edges","name":"Edges","kind":"filter","area":"canvas"}"#;
+    let p = Plugin::load(&module(manifest, 1, "(i32.const 0)", ""), Limits::default()).unwrap();
+    let s = Surface::with_default(PixelFormat::RGBA8, &[0.25, 0.5, 0.75, 1.0]);
+    for (x, y) in [(i32::MAX - 1, 0), (0, i32::MAX - 1), (i32::MIN, i32::MIN)] {
+        let canvas = Rect::new(x, y, x + 1, y + 1);
+        let out = p.apply(&s, canvas, None, &json!({})).unwrap();
+        assert_eq!(out.pixel(x, y), s.pixel(x, y));
+    }
+}
+
+#[test]
+fn clipped_overlap_at_coordinate_limits_preserves_pixel_alignment() {
+    let manifest = r#"{"id":"test.overlap","name":"Overlap","kind":"filter","area":"canvas","overlap":2}"#;
+    let p = Plugin::load(&module(manifest, 1, "(i32.const 0)", ""), Limits::default()).unwrap();
+    for (x, y) in [(i32::MIN, i32::MIN), (i32::MAX - 1, i32::MAX - 1)] {
+        let mut s = Surface::new(PixelFormat::RGBA8);
+        s.write_pixel(x, y, &[0.25, 0.5, 0.75, 1.0]);
+        let canvas = Rect::new(x, y, x + 1, y + 1);
+        let out = p.apply(&s, canvas, None, &json!({})).unwrap();
+        assert_eq!(out.pixel(x, y), s.pixel(x, y));
+    }
+}
+
+#[test]
 fn example_invert_inverts_colour_at_every_depth() {
     let p = Plugin::load(INVERT, Limits::default()).unwrap();
     for sample in SampleType::ALL {

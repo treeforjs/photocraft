@@ -116,7 +116,8 @@ impl Plugin {
         for ty in t0.ty..=t1.ty {
             let mut tx = t0.tx;
             while tx <= t1.tx {
-                let r = Rect::new(tx * TILE_SIZE, ty * TILE_SIZE, (tx + across).min(t1.tx + 1) * TILE_SIZE, (ty + 1) * TILE_SIZE);
+                // The final tile can straddle i32::MAX even though every output pixel fits.
+                let r = Rect::new(tx * TILE_SIZE, ty * TILE_SIZE, (tx + across).min(t1.tx + 1).saturating_mul(TILE_SIZE), (ty + 1).saturating_mul(TILE_SIZE));
                 bands.push(r.intersect(&area));
                 tx += across;
             }
@@ -176,7 +177,10 @@ impl Plugin {
         run.map_err(|_| Error::Trap("the runtime panicked".into()))??;
         // Keep the band (drop the overlap margins), sanitise and blend by the selection.
         let (bw, bh) = (band.width() as usize, band.height() as usize);
-        let ov = c.ov as usize;
+        // Inflating at a coordinate limit clips the overlap on that side. Crop using the
+        // actual input rectangle, rather than assuming both margins kept their full width.
+        let ox = band.x0.abs_diff(input.x0) as usize;
+        let oy = band.y0.abs_diff(input.y0) as usize;
         let mut out = vec![0.0f32; bw * bh * n];
         let sel_row = c.selection.map(|s| s.format().channels());
         let mut sel = Vec::new();
@@ -187,7 +191,7 @@ impl Plugin {
                 sel = s.read_region(r).chunks_exact(sn.max(1)).map(|p| p.first().copied().unwrap_or(0.0).clamp(0.0, 1.0)).collect();
             }
             for col in 0..bw {
-                let si = ((row + ov) * (bw + 2 * ov) + col + ov) * n;
+                let si = ((row + oy) * iw as usize + col + ox) * n;
                 let di = (row * bw + col) * n;
                 let k = if c.selection.is_some() { sel.get(col).copied().unwrap_or(0.0) } else { 1.0 };
                 for ch in 0..n {
