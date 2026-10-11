@@ -247,6 +247,54 @@ jobs:
           path: dist/release/*
           if-no-files-found: error
 
+  ubuntu:
+    name: Ubuntu ${{ matrix.ubuntu }} installed desktop (x86_64)
+    needs: linux
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    container: ubuntu:${{ matrix.ubuntu }}
+    strategy:
+      fail-fast: false
+      matrix:
+        ubuntu: ["24.04", "26.04"]
+    steps:
+      - name: Install display and validation tools
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends ca-certificates git jq dbus-x11 xvfb xauth \
+            mesa-vulkan-drivers libegl-mesa0 desktop-file-utils shared-mime-info
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: release-linux-x86_64
+          path: dist/linux
+      - name: Install the released Debian package
+        run: |
+          apt-get install -y --no-install-recommends ./dist/linux/*.deb
+          desktop-file-validate /usr/share/applications/ai.storyteller.photocraft.desktop
+          test -r /usr/share/icons/hicolor/256x256/apps/ai.storyteller.photocraft.png
+          photocraft --version
+          photocraft-cli --version
+      - name: Render and save as an ordinary desktop user
+        run: |
+          useradd --create-home photocraft-smoke
+          runuser -u photocraft-smoke -- env LIBGL_ALWAYS_SOFTWARE=1 \
+            PHOTOCRAFT_SMOKE_ARTIFACTS=/tmp/photocraft-smoke-artifacts/auto \
+            xvfb-run -a -s '-screen 0 1600x1000x24' dbus-run-session -- \
+            bash packaging/linux/smoke-test.sh /usr/bin/photocraft /usr/bin/photocraft-cli
+      - name: Check the OpenGL fallback
+        run: |
+          runuser -u photocraft-smoke -- env LIBGL_ALWAYS_SOFTWARE=1 WGPU_BACKEND=gl \
+            PHOTOCRAFT_SMOKE_ARTIFACTS=/tmp/photocraft-smoke-artifacts/gl \
+            xvfb-run -a -s '-screen 0 1600x1000x24' dbus-run-session -- \
+            bash packaging/linux/smoke-test.sh /usr/bin/photocraft /usr/bin/photocraft-cli
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ubuntu-${{ matrix.ubuntu }}-smoke
+          path: /tmp/photocraft-smoke-artifacts/
+          if-no-files-found: warn
+
   flatpak:
     name: Flatpak ${{ matrix.arch }}
     needs: [version, linux]
@@ -374,7 +422,7 @@ jobs:
 
   release:
     name: Draft GitHub Release
-    needs: [version, macos, windows, linux, flatpak, freebsd, web]
+    needs: [version, macos, windows, linux, ubuntu, flatpak, freebsd, web]
     runs-on: ubuntu-latest
     environment: release
     permissions:

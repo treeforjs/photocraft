@@ -22,6 +22,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       ACTIONLINT_VERSION: 1.7.12
+      NFPM_VERSION: 2.47.0
     steps:
       - uses: actions/checkout@v4
       - name: Install tools
@@ -30,6 +31,9 @@ jobs:
           sudo apt-get install -y --no-install-recommends shellcheck desktop-file-utils appstream libxml2-utils python3-yaml
           curl -fsSL "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz" \
             | tar -xz -C "$RUNNER_TEMP" actionlint
+          curl -fsSL -o "$RUNNER_TEMP/nfpm.deb" \
+            "https://github.com/goreleaser/nfpm/releases/download/v${NFPM_VERSION}/nfpm_${NFPM_VERSION}_amd64.deb"
+          sudo dpkg -i "$RUNNER_TEMP/nfpm.deb"
       - name: actionlint
         run: |
           "$RUNNER_TEMP/actionlint" -color
@@ -37,6 +41,8 @@ jobs:
         run: shellcheck packaging/*.sh packaging/*/*.sh packaging/linux/AppRun
       - name: AppImage AppRun desktop integration
         run: bash packaging/linux/apprun-test.sh
+      - name: Linux package staging and permissions
+        run: bash packaging/linux/package-test.sh
       - name: PowerShell
         shell: pwsh
         run: |

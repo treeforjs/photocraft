@@ -5,6 +5,11 @@
 - Rust stable (1.95+). Add the web target with `rustup target add wasm32-unknown-unknown`.
 - macOS, Windows or Linux. Linux needs `libxkbcommon-dev libwayland-dev libx11-dev libxrandr-dev libxi-dev libgl1-mesa-dev libgtk-3-dev`.
 
+For Ubuntu 24.04/26.04 LTS, see the [Ubuntu guide](ubuntu.md) for source-build
+dependencies, `.deb` installation and the desktop smoke check.
+For Windows 11 x64, see [Windows graphics setup](windows-gpu.md) for NVIDIA RTX
+PRO Blackwell, GeForce RTX and Intel driver selection and graphics recovery.
+
 ### Windows source builds
 
 Use the Rust MSVC toolchain and install Visual Studio or Microsoft C++ Build Tools with the

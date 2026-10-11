@@ -177,6 +177,19 @@ holds both binaries, `ai.storyteller.photocraft.desktop`, hicolor icons from 16 
 plus a scalable SVG, AppStream metainfo, and a shared-mime-info file for `.pcraft`, `.psb` and
 `.qoi`.
 
+The staging tree has explicit system-readable permissions even when built from a
+private checkout. `.deb` dependencies use the greatest required GLIBC symbol
+version from both binaries (with the official 2.35 floor), including when using
+`--skip-build`. `packaging/linux/package-test.sh` checks staging permissions and
+the generated Debian metadata without compiling the application.
+
+Before publishing, the release workflow installs the x86_64 `.deb` in Ubuntu
+24.04 and 26.04 containers. `packaging/linux/smoke-test.sh` exercises window
+rendering, save/reopen and the CLI under Xvfb as an ordinary user, using Mesa
+software rendering, with both automatic backend selection and forced OpenGL.
+Screenshots and logs are retained as CI artifacts. See the
+[Ubuntu guide](ubuntu.md) for installation and local smoke-test commands.
+
 Why these formats:
 
 - **AppImage** runs on any distribution without installing anything. The
@@ -232,7 +245,7 @@ Why these formats:
   sources (`cargo-sources.json` from `flatpak-cargo-generator.py`) and adds 20+ minutes per
   architecture. Build it by hand with the commands in the manifest's header.
 
-All Linux binaries are built on Ubuntu 22.04 and need **glibc ≥ 2.35**: Ubuntu 22.04+,
+Official Linux binaries are built on Ubuntu 22.04 and need **glibc ≥ 2.35**: Ubuntu 22.04+,
 Debian 12+, Fedora 36+, RHEL 10, openSUSE Tumbleweed. They link only glibc and libgcc_s. X11,
 Wayland, xkbcommon, Vulkan and EGL are loaded at runtime from the system, which is also where
 the GPU driver has to come from. That's why the .deb and .rpm declare them as dependencies

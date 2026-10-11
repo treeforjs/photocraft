@@ -9,11 +9,14 @@
 #
 # Usage: packaging/linux/package.sh [--skip-build] [--formats "appimage deb rpm tar"]
 #
-# Needs: cargo; nfpm for deb/rpm (https://nfpm.goreleaser.com); appimagetool for the AppImage
+# Needs: cargo; nfpm and readelf for deb/rpm (https://nfpm.goreleaser.com); appimagetool for the AppImage
 # (downloaded into $CARGO_TARGET_DIR if missing). Build on an old distro (CI: Ubuntu 22.04,
 # glibc 2.35) so the binaries run on newer ones. Optional: desktop-file-validate, appstreamcli,
 # zsyncmake (the zsync package) for the AppImage's .zsync.
 set -euo pipefail
+# The result is installed system-wide. A private developer umask must not make
+# the staged icons, desktop entry or tarball binaries unreadable to other users.
+umask 022
 # shellcheck source=../env.sh
 . "$(dirname "${BASH_SOURCE[0]}")/../env.sh"
 HERE="$ROOT/packaging/linux"
@@ -62,6 +65,10 @@ mkdir -p "$STAGE/usr/share/icons"
 cp -R "$ROOT/assets/app-icon/hicolor" "$STAGE/usr/share/icons/"
 mkdir -p "$STAGE/usr/share/doc/photocraft"
 copy_docs "$STAGE/usr/share/doc/photocraft"
+# A checkout itself may have been created with umask 077; cp keeps those source
+# permissions even after resetting the packaging umask. Normalize only the copy.
+find "$STAGE/usr/share" -type d -exec chmod 755 {} +
+find "$STAGE/usr/share" -type f -exec chmod 644 {} +
 
 if command -v desktop-file-validate >/dev/null; then
   desktop-file-validate "$STAGE/usr/share/applications/$APP_ID.desktop"
@@ -83,6 +90,17 @@ fi
 # ---- .deb / .rpm --------------------------------------------------------------------------------
 if has deb || has rpm; then
   command -v nfpm >/dev/null || { echo "error: nfpm not found (https://nfpm.goreleaser.com/install/)" >&2; exit 1; }
+  command -v readelf >/dev/null || { echo "error: readelf not found (install binutils)" >&2; exit 1; }
+  # Official binaries are built on Ubuntu 22.04. Local builds on newer Ubuntu
+  # may need newer glibc symbols: do not advertise them as installable on 22.04.
+  # Inspect both binaries, including --skip-build, rather than guessing from the
+  # packaging host (which need not be the machine that compiled them).
+  LC_ALL=C readelf --version-info "$BIN/photocraft" "$BIN/photocraft-cli" >"$WORK/elf-versions"
+  PHOTOCRAFT_GLIBC_MIN="$(
+    { printf '2.35\n'; sed -n 's/.*Name: GLIBC_\([0-9][0-9.]*\).*/\1/p' "$WORK/elf-versions"; } |
+      sort -Vu | tail -n 1
+  )"
+  export PHOTOCRAFT_GLIBC_MIN
   export VERSION
   export NFPM_ARCH="$DEB_ARCH"
   # nfpm expands env vars in fields like `version` and `arch`, but not in `contents[].src`.
@@ -102,8 +120,8 @@ if has appimage; then
   # app_id to our icon instead of the generic Wayland logo (#593; opt-out env in the
   # script header). Logic is covered by packaging/linux/apprun-test.sh.
   install -Dm755 "$HERE/AppRun" "$APPDIR/AppRun"
-  cp "$HERE/$APP_ID.desktop" "$APPDIR/$APP_ID.desktop"
-  cp "$ROOT/assets/app-icon/hicolor/256x256/apps/$APP_ID.png" "$APPDIR/$APP_ID.png"
+  install -m644 "$HERE/$APP_ID.desktop" "$APPDIR/$APP_ID.desktop"
+  install -m644 "$ROOT/assets/app-icon/hicolor/256x256/apps/$APP_ID.png" "$APPDIR/$APP_ID.png"
   ln -s "$APP_ID.png" "$APPDIR/.DirIcon"
 
   TOOL="${APPIMAGETOOL:-$(command -v appimagetool || true)}"
