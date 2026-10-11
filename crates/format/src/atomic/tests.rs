@@ -180,14 +180,27 @@ fn read_only_folder_errors_clearly_and_never_writes_in_place() {
 
 #[cfg(unix)]
 #[test]
+fn staging_file_is_private_before_permissions_are_copied() {
+    use std::os::unix::fs::PermissionsExt;
+    let d = TempDir::new("private-staging");
+    let tmp = d.0.join("doc.psd.tmp");
+    RealFs.write_new(&tmp, ORIGINAL).unwrap();
+    assert_eq!(std::fs::read(&tmp).unwrap(), ORIGINAL);
+    assert_eq!(std::fs::metadata(&tmp).unwrap().permissions().mode() & 0o077, 0);
+}
+
+#[cfg(unix)]
+#[test]
 fn keeps_the_original_file_mode() {
     use std::os::unix::fs::PermissionsExt;
     let d = TempDir::new("mode");
     let p = d.0.join("doc.psd");
     std::fs::write(&p, ORIGINAL).unwrap();
-    std::fs::set_permissions(&p, std::fs::Permissions::from_mode(0o600)).unwrap();
-    atomic_write(&p, b"new").unwrap();
-    assert_eq!(std::fs::metadata(&p).unwrap().permissions().mode() & 0o777, 0o600);
+    for mode in [0o600, 0o640, 0o644] {
+        std::fs::set_permissions(&p, std::fs::Permissions::from_mode(mode)).unwrap();
+        atomic_write(&p, b"new").unwrap();
+        assert_eq!(std::fs::metadata(&p).unwrap().permissions().mode() & 0o777, mode);
+    }
 }
 
 #[cfg(unix)]

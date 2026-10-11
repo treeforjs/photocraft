@@ -13,6 +13,8 @@
 //!   if it does anyway, the save fails with a clear error. It never falls back to writing the
 //!   destination in place.
 //! - **Unwritable folder:** the save fails with a clear error instead of writing in place.
+//! - **Unix permissions:** temporary files are private (0600) from creation. Replacements keep
+//!   the original file's mode; newly created documents remain private.
 //! - **Network shares (macOS):** `sync_all` asks for a full flush to the disk's platters
 //!   (`F_FULLFSYNC`), which SMB shares and some virtual file systems refuse while a plain `fsync`
 //!   works. [`sync_file`] falls back to the plain one there (#1336).
@@ -49,7 +51,16 @@ pub struct RealFs;
 
 impl AtomicFs for RealFs {
     fn write_new(&self, tmp: &Path, bytes: &[u8]) -> io::Result<()> {
-        let mut f = std::fs::OpenOptions::new().write(true).create_new(true).open(tmp)?;
+        let mut options = std::fs::OpenOptions::new();
+        options.write(true).create_new(true);
+        // The destination's permissions are copied only after writing. Keep the staging file
+        // private from creation so a 0600 document is never exposed under the process umask.
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::OpenOptionsExt;
+            options.mode(0o600);
+        }
+        let mut f = options.open(tmp)?;
         f.write_all(bytes)?;
         sync_file(&f)
     }
