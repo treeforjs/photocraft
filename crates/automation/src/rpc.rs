@@ -51,8 +51,15 @@ fn bad(msg: impl Into<String>) -> AutomationError {
     AutomationError::BadRequest(msg.into())
 }
 
-fn index_of(p: &Value) -> Option<usize> {
-    p.get("index").and_then(Value::as_u64).map(|i| i as usize)
+fn index_of(p: &Value) -> Result<Option<usize>, AutomationError> {
+    match p.get("index") {
+        None | Some(Value::Null) => Ok(None),
+        Some(value) => value
+            .as_u64()
+            .and_then(|index| usize::try_from(index).ok())
+            .map(Some)
+            .ok_or_else(|| bad("index must be a non-negative integer that fits this platform")),
+    }
 }
 
 fn str_of<'a>(p: &'a Value, k: &str) -> Option<&'a str> {
@@ -64,6 +71,9 @@ impl Headless {
     pub fn handle(&mut self, method: &str, params: Value) -> Result<Value, AutomationError> {
         self.sync_jobs();
         let p = if params.is_null() { json!({}) } else { params };
+        if !p.is_object() {
+            return Err(bad("params must be a JSON object"));
+        }
         match method {
             "engine.execute" => {
                 let id = str_of(&p, "command").ok_or_else(|| bad("engine.execute needs `command`"))?;
@@ -105,9 +115,9 @@ impl Headless {
                     opts.encode.webp_lossless = false;
                 }
                 let path = str_of(&p, "path").map(PathBuf::from);
-                self.save(index_of(&p), path.as_deref(), str_of(&p, "format"), &opts)
+                self.save(index_of(&p)?, path.as_deref(), str_of(&p, "format"), &opts)
             }
-            "doc.inspect" => self.inspect(index_of(&p)),
+            "doc.inspect" => self.inspect(index_of(&p)?),
             "doc.render" => {
                 let max = match p.get("maxSide") {
                     None => 1024,
@@ -115,7 +125,7 @@ impl Headless {
                         value.as_u64().and_then(|value| u32::try_from(value).ok()).ok_or_else(|| bad("maxSide must be an unsigned 32-bit integer"))?
                     }
                 };
-                let png = self.render_png(index_of(&p), max)?;
+                let png = self.render_png(index_of(&p)?, max)?;
                 match str_of(&p, "path") {
                     Some(path) => {
                         self.write_render(&PathBuf::from(path), &png)?;
@@ -128,10 +138,10 @@ impl Headless {
                 }
             }
             "doc.select" => {
-                let i = index_of(&p).ok_or_else(|| bad("doc.select needs `index`"))?;
+                let i = index_of(&p)?.ok_or_else(|| bad("doc.select needs `index`"))?;
                 self.select(i)
             }
-            "doc.close" => self.close(index_of(&p)),
+            "doc.close" => self.close(index_of(&p)?),
             "batch" => self.batch(&p),
             "methods" => Ok(json!(METHODS)),
             other => Err(bad(format!("unknown method `{other}` (try `methods`)"))),
@@ -331,6 +341,32 @@ mod tests {
         assert!(!replies[3]["ok"].as_bool().unwrap());
         assert!(replies[3]["error"].as_str().unwrap().contains("unknown method"));
         assert_eq!(replies[4]["id"], Value::Null);
+    }
+
+    #[test]
+    fn malformed_document_indexes_never_fall_back_to_the_active_document() {
+        let mut h = Headless::new();
+        h.handle("doc.new", json!({"width": 2, "height": 3, "name": "First"})).unwrap();
+        h.handle("doc.new", json!({"width": 4, "height": 5, "name": "Active"})).unwrap();
+        let before = h.session_list();
+        for index in [json!(-1), json!(0.5), json!("0"), json!(false), json!([]), json!({}), json!(u64::MAX)] {
+            for method in ["doc.close", "doc.select", "doc.inspect", "doc.render", "doc.save"] {
+                let error = h.handle(method, json!({"index": index})).unwrap_err();
+                assert!(error.to_string().contains("index"), "{method} {index}: {error}");
+                assert_eq!(h.session_list(), before, "{method} {index} changed the session");
+            }
+        }
+        for params in [json!(false), json!(0), json!("index"), json!([])] {
+            assert!(h.handle("doc.close", params).is_err());
+            assert_eq!(h.session_list(), before);
+        }
+        // Valid explicit indexes still address inactive documents; omission uses the active one.
+        h.handle("doc.close", json!({"index": 0})).unwrap();
+        assert_eq!(h.session.documents().len(), 1);
+        assert_eq!(h.session.active().unwrap().doc.name, "Active");
+        assert_eq!(h.handle("doc.inspect", json!({"index": null})).unwrap(), h.handle("doc.inspect", json!({})).unwrap());
+        h.handle("doc.close", json!({})).unwrap();
+        assert!(h.session.documents().is_empty());
     }
 
     /// Regression: after a panic while the session lock was held, every later request

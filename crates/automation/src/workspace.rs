@@ -64,10 +64,11 @@ impl AuthorizedWorkspace {
         let leaf = relative.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
         let parent = relative.parent().map(Path::to_path_buf).unwrap_or_default();
         let tmp = parent.join(photocraft_format::atomic::temp_name(&leaf));
-        let mut options = OpenOptions::new();
-        options.write(true).create_new(true);
-        let written = root.dir.open_with(&tmp, &options).and_then(|mut file| {
+        let written = create_staging_file(&root.dir, &tmp).and_then(|mut file| {
             file.write_all(bytes)?;
+            // Match atomic_write: preserve an existing target's permissions after the bytes
+            // are written. A new file, or a failed permission copy, keeps the private mode.
+            copy_file_permissions(&root.dir, &relative, &file);
             // Falls back to a plain fsync on shares that refuse a full flush (#1336).
             photocraft_format::atomic::sync_file(&file.into_std())
         });
@@ -85,6 +86,28 @@ impl AuthorizedWorkspace {
             }
         }
         Ok(())
+    }
+}
+
+fn create_staging_file(dir: &Dir, path: &Path) -> std::io::Result<cap_std::fs::File> {
+    let mut options = OpenOptions::new();
+    options.write(true).create_new(true);
+    // Restrict access at creation, before any private document bytes reach the file.
+    #[cfg(unix)]
+    {
+        use cap_std::fs::OpenOptionsExt;
+        options.mode(0o600);
+    }
+    dir.open_with(path, &options)
+}
+
+fn copy_file_permissions(dir: &Dir, path: &Path, file: &cap_std::fs::File) {
+    // Inheriting a directory's usual 0755 mode would expose the staged bytes before the
+    // rename fails. Only regular files provide a meaningful replacement mode.
+    if let Ok(metadata) = dir.metadata(path)
+        && metadata.is_file()
+    {
+        let _ = file.set_permissions(metadata.permissions());
     }
 }
 
@@ -416,6 +439,57 @@ mod tests {
         std::fs::create_dir_all(inside.join("adir")).unwrap();
         assert!(workspace.write("adir", b"x").is_err());
         assert!(inside.join("adir").is_dir());
+        assert!(temp_files(&inside).is_empty());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn staging_files_are_private_before_writing_document_bytes() {
+        use cap_std::fs::PermissionsExt;
+        let (inside, _, workspace) = roots("private-staging");
+        let root = workspace.write.as_ref().unwrap();
+        let mut staged = create_staging_file(&root.dir, Path::new("staged.tmp")).unwrap();
+        assert_eq!(staged.metadata().unwrap().permissions().mode() & 0o777, 0o600);
+        staged.write_all(b"private document").unwrap();
+        assert_eq!(staged.metadata().unwrap().permissions().mode() & 0o777, 0o600);
+        drop(staged);
+        std::fs::remove_file(inside.join("staged.tmp")).unwrap();
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn write_preserves_existing_permissions_and_keeps_new_files_private() {
+        use std::os::unix::fs::PermissionsExt;
+        let (inside, _, workspace) = roots("write-permissions");
+        let target = inside.join("private.psd");
+        std::fs::write(&target, b"original").unwrap();
+        for mode in [0o600, 0o640, 0o400] {
+            std::fs::set_permissions(&target, std::fs::Permissions::from_mode(mode)).unwrap();
+            workspace.write("private.psd", b"replacement").unwrap();
+            assert_eq!(std::fs::metadata(&target).unwrap().permissions().mode() & 0o777, mode);
+            assert_eq!(std::fs::read(&target).unwrap(), b"replacement");
+        }
+        workspace.write("new.psd", b"new document").unwrap();
+        assert_eq!(std::fs::metadata(inside.join("new.psd")).unwrap().permissions().mode() & 0o777, 0o600);
+        assert!(temp_files(&inside).is_empty());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn directory_targets_do_not_expose_staged_document_bytes() {
+        use std::os::unix::fs::PermissionsExt;
+        let (inside, _, workspace) = roots("directory-permissions");
+        std::fs::create_dir(inside.join("target")).unwrap();
+        std::fs::set_permissions(inside.join("target"), std::fs::Permissions::from_mode(0o755)).unwrap();
+        let root = workspace.write.as_ref().unwrap();
+        let mut staged = create_staging_file(&root.dir, Path::new("staged.tmp")).unwrap();
+        staged.write_all(b"private document").unwrap();
+        copy_file_permissions(&root.dir, Path::new("target"), &staged);
+        assert_eq!(std::fs::metadata(inside.join("staged.tmp")).unwrap().permissions().mode() & 0o777, 0o600);
+        drop(staged);
+        std::fs::remove_file(inside.join("staged.tmp")).unwrap();
+        assert!(workspace.write("target", b"private document").is_err());
+        assert!(inside.join("target").is_dir());
         assert!(temp_files(&inside).is_empty());
     }
 
