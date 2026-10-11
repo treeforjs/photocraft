@@ -46,7 +46,10 @@ fn polygon(pts: impl IntoIterator<Item = Point>) -> Option<SubPath> {
 pub(crate) fn shape(r: &mut Reader, shape: ObjId, b: [f64; 4], world: Affine) -> Option<(Path, bool)> {
     let [x0, y0, x1, y1] = b;
     let (w, h) = (x1 - x0, y1 - y0);
-    let (cx, cy, rx, ry) = ((x0 + x1) / 2.0, (y0 + y1) / 2.0, w / 2.0, h / 2.0);
+    if !b.iter().all(|v| v.is_finite()) || !w.is_finite() || !h.is_finite() || w < 0.0 || h < 0.0 {
+        return None;
+    }
+    let (cx, cy, rx, ry) = (x0 / 2.0 + x1 / 2.0, y0 / 2.0 + y1 / 2.0, w / 2.0, h / 2.0);
     let on_ellipse = |a: f64, f: f64| pt(cx + f * rx * a.cos(), cy + f * ry * a.sin());
     let class = r.s.class(shape)?;
     let sub = match &class.0.to_be_bytes() {
@@ -116,12 +119,13 @@ pub(crate) fn shape(r: &mut Reader, shape: ObjId, b: [f64; 4], world: Affine) ->
         }
         b"ShPi" => {
             let start = num(r, shape, b"AngS").unwrap_or(0.0);
-            let mut end = num(r, shape, b"AngE").unwrap_or(TAU);
-            while end < start {
-                end += TAU;
-            }
+            let end = num(r, shape, b"AngE").unwrap_or(TAU);
+            // Repeatedly adding a turn can take forever for hostile finite angles, and
+            // stops advancing once the angle's floating-point spacing exceeds a turn.
+            let span = if end >= start { (end - start).min(TAU) } else { (end.rem_euclid(TAU) - start.rem_euclid(TAU)).rem_euclid(TAU) };
+            let start = start.rem_euclid(TAU);
             let inner = num(r, shape, b"IRad").unwrap_or(0.0).clamp(0.0, 1.0);
-            pie(cx, cy, rx, ry, start, end.min(start + TAU), inner)
+            pie(cx, cy, rx, ry, start, start + span, inner)
         }
         b"ShpT" => {
             let p = num(r, shape, b"Pos ").unwrap_or(0.5);

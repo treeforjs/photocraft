@@ -185,6 +185,113 @@ mod preview {
     }
 }
 
+mod model {
+    use crate::model::{Document, Kind, Path};
+    use crate::synth::{self, F, Method, tag};
+    use crate::{Limits, read};
+
+    fn document(nodes: Vec<F>) -> Document {
+        let spread = vec![(tag(b"Chld"), F::Shared(nodes))];
+        let root = F::Obj(tag(b"DocR"), vec![(tag(b"Chld"), F::Objs(tag(b"Sprd"), vec![spread]))]);
+        let stream = synth::stream(&[(tag(b"DocR"), root)]);
+        let file = synth::container(&[("doc.dat", &stream, Method::Stored)], None);
+        read(&file, Limits::default()).unwrap()
+    }
+
+    fn shape(class: &[u8; 4], bounds: [f64; 4], params: Vec<(crate::stream::Tag, F)>) -> F {
+        F::Def(1, vec![tag(b"ShpN")], vec![(tag(b"ShpB"), F::F64s(bounds.to_vec())), (tag(b"Shpe"), F::Obj(tag(class), params))])
+    }
+
+    fn path(doc: &Document) -> &Path {
+        let Kind::Shape { path, .. } = &doc.spreads[0].nodes[0].kind else { panic!("expected a shape") };
+        path
+    }
+
+    #[test]
+    fn compound_reference_cycle_is_reported() {
+        let compound = F::Def(1, vec![tag(b"Comp")], vec![(tag(b"Chld"), F::Shared(vec![F::Ref(1)]))]);
+        let doc = document(vec![compound]);
+        assert!(path(&doc).subpaths.is_empty());
+        assert!(doc.warnings.iter().any(|w| w.contains("compound")));
+    }
+
+    #[test]
+    fn repeated_compound_operands_are_not_cycles() {
+        let rectangle = shape(b"ShNR", [0.0, 0.0, 10.0, 10.0], Vec::new());
+        let compound = F::Def(2, vec![tag(b"Comp")], vec![(tag(b"Chld"), F::Shared(vec![rectangle, F::Ref(1)]))]);
+        let doc = document(vec![compound]);
+        assert_eq!(path(&doc).subpaths.len(), 2);
+        assert!(doc.warnings.is_empty());
+    }
+
+    #[test]
+    fn cyclic_compound_keeps_readable_operands() {
+        let rectangle = shape(b"ShNR", [0.0, 0.0, 10.0, 10.0], Vec::new());
+        let compound = F::Def(2, vec![tag(b"Comp")], vec![(tag(b"Chld"), F::Shared(vec![rectangle, F::Ref(2)]))]);
+        let doc = document(vec![compound]);
+        assert_eq!(path(&doc).subpaths.len(), 1);
+        assert!(doc.warnings.iter().any(|w| w.contains("contains itself")));
+    }
+
+    #[test]
+    fn deeply_nested_compounds_are_reported() {
+        let mut operand = shape(b"ShNR", [0.0, 0.0, 10.0, 10.0], Vec::new());
+        for id in 2..=131 {
+            operand = F::Def(id, vec![tag(b"Comp")], vec![(tag(b"Chld"), F::Shared(vec![operand]))]);
+        }
+        let doc = document(vec![operand]);
+        assert!(path(&doc).subpaths.is_empty());
+        assert!(doc.warnings.iter().any(|w| w.contains("nested deeper")));
+    }
+
+    #[test]
+    fn branching_compound_references_have_a_total_budget() {
+        let mut operand = F::Def(1, vec![tag(b"Comp")], Vec::new());
+        // A small shared-object graph expands into millions of operand visits without a budget.
+        for id in 2..=22 {
+            operand = F::Def(id, vec![tag(b"Comp")], vec![(tag(b"Chld"), F::Shared(vec![operand, F::Ref(id - 1)]))]);
+        }
+        let doc = document(vec![operand]);
+        assert!(doc.warnings.iter().any(|w| w.contains("500000 operands")));
+    }
+
+    #[test]
+    fn callout_with_reversed_bounds_is_reported() {
+        for bounds in [[10.0, 0.0, 0.0, 10.0], [0.0, 10.0, 10.0, 0.0], [-f64::MAX, 0.0, f64::MAX, 10.0]] {
+            let doc = document(vec![shape(b"ShCR", bounds, Vec::new())]);
+            assert!(matches!(doc.spreads[0].nodes[0].kind, Kind::Unsupported));
+            assert!(!doc.warnings.is_empty());
+        }
+    }
+
+    #[test]
+    fn pie_with_extreme_finite_angles_is_bounded() {
+        for (start, end) in [(0.0, -1e300), (1e300, 0.0), (f64::MAX, -f64::MAX)] {
+            let params = vec![(tag(b"AngS"), F::F64(start)), (tag(b"AngE"), F::F64(end))];
+            let doc = document(vec![shape(b"ShPi", [0.0, 0.0, 10.0, 10.0], params)]);
+            for sub in &path(&doc).subpaths {
+                assert!(sub.segments.len() <= 9);
+                assert!(std::iter::once(&sub.start).chain(sub.segments.iter().flatten()).all(|p| p.x.is_finite() && p.y.is_finite()));
+            }
+        }
+    }
+
+    #[test]
+    fn pie_keeps_full_turns_and_wraps_negative_angles() {
+        for (start, end, expected_segments) in [(0.0, std::f64::consts::TAU, 5), (0.0, -std::f64::consts::FRAC_PI_2, 4)] {
+            let params = vec![(tag(b"AngS"), F::F64(start)), (tag(b"AngE"), F::F64(end))];
+            let doc = document(vec![shape(b"ShPi", [0.0, 0.0, 10.0, 10.0], params)]);
+            let sub = &path(&doc).subpaths[0];
+            assert_eq!(sub.segments.len(), expected_segments);
+            assert_eq!((sub.start.x, sub.start.y), (10.0, 5.0));
+            let end = sub.segments[expected_segments - 2][2];
+            let expected_y = if expected_segments == 5 { 5.0 } else { 10.0 };
+            assert!((end.y - expected_y).abs() < 1e-10);
+            assert!(doc.warnings.is_empty());
+        }
+    }
+}
+
 mod archive {
     use crate::Error;
     use crate::container::{Archive, Limits};

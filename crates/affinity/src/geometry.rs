@@ -1,15 +1,49 @@
 //! Outlines of curves (`PCvD` node lists), parametric shapes (`Shpe` objects) and compounds, in
 //! node space.
 
+use std::collections::HashSet;
+
 use crate::model::{Affine, Path, Point, Reader, SubPath};
 use crate::stream::{ObjId, Tag, Value};
 
 /// Nodes per curve object.
 const MAX_NODES: usize = 4_000_000;
+/// Compound operands are shared objects and may form a cyclic or branching graph.
+const MAX_COMPOUND_DEPTH: usize = 128;
+const MAX_OUTLINE_NODES: usize = 500_000;
+
+struct OutlineBudget {
+    active: HashSet<ObjId>,
+    remaining: usize,
+}
 
 /// The node-space outline of a curve, shape or compound node, and whether it fills even-odd.
 /// Instances (master-page or symbol copies) take the geometry of their master.
 pub(crate) fn outline(r: &mut Reader, id: ObjId, class: Tag, world: Affine) -> Option<(Path, bool)> {
+    let mut budget = OutlineBudget { active: HashSet::new(), remaining: MAX_OUTLINE_NODES };
+    outline_bounded(r, id, class, world, &mut budget)
+}
+
+fn outline_bounded(r: &mut Reader, id: ObjId, class: Tag, world: Affine, budget: &mut OutlineBudget) -> Option<(Path, bool)> {
+    if budget.active.len() >= MAX_COMPOUND_DEPTH {
+        r.warn("compound shapes nested deeper than 128 levels");
+        return None;
+    }
+    if budget.remaining == 0 {
+        r.warn("compound shapes with more than 500000 operands");
+        return None;
+    }
+    if !budget.active.insert(id) {
+        r.warn("a compound shape that contains itself");
+        return None;
+    }
+    budget.remaining -= 1;
+    let result = outline_inner(r, id, class, world, budget);
+    budget.active.remove(&id);
+    result
+}
+
+fn outline_inner(r: &mut Reader, id: ObjId, class: Tag, world: Affine, budget: &mut OutlineBudget) -> Option<(Path, bool)> {
     let s = r.s;
     match &class.0.to_be_bytes() {
         b"PCrv" | b"TxtC" => {
@@ -24,12 +58,16 @@ pub(crate) fn outline(r: &mut Reader, id: ObjId, class: Tag, world: Affine) -> O
             // added operands would differ.
             let mut path = Path::default();
             for c in s.objs(id, b"Chld") {
+                if budget.remaining == 0 {
+                    r.warn("compound shapes with more than 500000 operands");
+                    break;
+                }
                 let local = s.floats::<6>(c, b"Xfrm").map(Affine::from_xfrm).unwrap_or(Affine::IDENTITY);
                 let class = s.class(c)?;
                 if s.enumeration(c, b"ComO").is_some_and(|(op, _)| op != 0 && op != 2) {
                     r.warn("compound shapes that intersect or exclude (imported as add)");
                 }
-                if let Some((p, _)) = outline(r, c, class, local.then(world)) {
+                if let Some((p, _)) = outline_bounded(r, c, class, local.then(world), budget) {
                     path.subpaths.extend(p.transformed(local).subpaths);
                 }
             }
