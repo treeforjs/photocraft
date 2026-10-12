@@ -5,11 +5,11 @@ use photocraft_doc::{Document, LayerContent, LayerId};
 use serde_json::{Value, json};
 
 pub(crate) fn supported(command: &str) -> bool {
-    matches!(command, "image.adjustments.levels" | "image.adjustments.curves" | "image.adjustments.shadowsHighlights")
+    matches!(command, "image.adjustments.levels" | "image.adjustments.curves" | "image.adjustments.hueSaturation" | "image.adjustments.shadowsHighlights")
 }
 
 fn target(active: Option<LayerId>, command: &str, params: &Value) -> Option<LayerId> {
-    if command == "layer.smartFilter.setParams" {
+    if matches!(command, "layer.smartFilter.setParams" | crate::smart_filter_rows::BLENDING) {
         params.get("layer").and_then(Value::as_u64).map(LayerId).or(active)
     } else if supported(command) && (params.get("target").is_none() || params.get("target").and_then(Value::as_str) == Some("pixels")) {
         active
@@ -19,7 +19,8 @@ fn target(active: Option<LayerId>, command: &str, params: &Value) -> Option<Laye
 }
 
 /// Unknown and spatial filters retain a full-resolution preview: blindly reducing their
-/// parameters could change semantics. Levels/Curves and Shadows/Highlights are qualified here.
+/// parameters could change semantics. Levels/Curves, Hue/Saturation and Shadows/Highlights
+/// are qualified here.
 pub(crate) fn factor(doc: &Document, active: Option<LayerId>, command: &str, params: &Value, requested: u32) -> u32 {
     let Some(layer) = target(active, command, params).and_then(|id| doc.layer(id)) else { return requested.max(1) };
     let LayerContent::Smart(sm) = &layer.content else { return requested.max(1) };
@@ -139,6 +140,8 @@ mod tests {
             ("levels", json!({"gamma": 1.4, "red": {"gamma": 0.7}}), "gamma", json!(0.65)),
             ("curves", json!({"points": [[0, 0], [128, 180], [255, 255]], "blue": [[0, 20], [255, 235]]}), "points", json!([[0, 0], [128, 90], [255, 255]])),
             ("shadowsHighlights", json!({"shadowAmount": 65, "color": 0}), "shadowAmount", json!(10)),
+            ("hueSaturation", json!({"hue":25,"saturation":35,"reds":{"hue":40,"saturation":-20,"range":[320,340,380,410]}}), "hue", json!(-30)),
+            ("hueSaturation", json!({"colorize":true,"hue":210,"saturation":10,"blues":{"lightness":12}}), "saturation", json!(0)),
         ] {
             let mut app = app();
             app.session.execute(&format!("image.adjustments.{kind}"), initial).unwrap();
@@ -228,6 +231,37 @@ mod tests {
     }
 
     #[test]
+    fn hue_smart_preview_keeps_translated_masked_placement_and_colorize_settings() {
+        for colorize in [false, true] {
+            for k in [2, 3] {
+                let mut app = app();
+                app.session.execute("edit.transform", json!({"matrix":[1.5,0,0,1.5,12,6]})).unwrap();
+                app.session.execute("select.rect", json!({"x":12,"y":6,"width":30,"height":24})).unwrap();
+                app.session.execute("image.adjustments.hueSaturation", json!({"hue":35,"saturation":10,"colorize":colorize,"blues":{"hue":25}})).unwrap();
+                app.session.execute("select.deselect", json!({})).unwrap();
+                let st = app.session.active().unwrap();
+                let source = smart(&app).source.clone();
+                let params = json!({"layer":st.active_layer.unwrap().0,"index":0,"params":{"saturation":0,"reds":{"lightness":12}}});
+                assert_eq!(factor(&st.doc, st.active_layer, "layer.smartFilter.setParams", &params, k), k);
+                let full = crate::filter_dialog::preview_document(&st.doc, st.active_layer, "layer.smartFilter.setParams", &params, 1).unwrap();
+                let reduced = crate::filter_dialog::preview_document(&st.doc, st.active_layer, "layer.smartFilter.setParams", &params, k).unwrap();
+                let LayerContent::Smart(reduced_smart) = &reduced.layer(st.active_layer.unwrap()).unwrap().content else { panic!() };
+                assert_eq!(reduced_smart.source, source);
+                assert_eq!(reduced_smart.smart_filters[0].params["colorize"], colorize);
+                let full = photocraft_compose::flatten(&full);
+                let reduced = photocraft_compose::flatten(&reduced);
+                for (x, y) in [(0, 0), (18, 12), (30, 18), (54, 12), (84, 48)] {
+                    assert_eq!(
+                        reduced.px[(y / k * 96u32.div_ceil(k) + x / k) as usize],
+                        full.px[(y * 96 + x) as usize],
+                        "colorize={colorize}, k={k}, at {x},{y}"
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
     fn smart_adjustment_preview_scales_default_radii_and_keeps_unknown_stacks_full_size() {
         let mut app = app();
         app.session.execute("image.adjustments.shadowsHighlights", json!({})).unwrap();
@@ -307,6 +341,18 @@ mod tests {
     #[test]
     #[ignore = "24 MP preview benchmark; run explicitly on an otherwise idle machine"]
     fn smart_adjustment_large_preview_measurement() {
+        measure_large_preview("image.adjustments.levels", json!({"gamma":1.1}), json!({"gamma":0.8}));
+    }
+
+    #[test]
+    #[ignore = "24 MP Hue/Colorize preview benchmark; run explicitly on an otherwise idle machine"]
+    fn smart_hue_large_preview_measurement() {
+        for colorize in [false, true] {
+            measure_large_preview("image.adjustments.hueSaturation", json!({"hue":35,"saturation":10,"colorize":colorize}), json!({"saturation":0}));
+        }
+    }
+
+    fn measure_large_preview(command: &str, initial: Value, edit: Value) {
         let mut s = Session::new();
         s.execute("file.new", json!({"width":6000,"height":4000})).unwrap();
         s.edit("Synthetic 24 MP tones", |doc, active| {
@@ -317,11 +363,11 @@ mod tests {
         })
         .unwrap();
         s.execute("layer.smartObjects.convertToSmartObject", json!({})).unwrap();
-        s.execute("image.adjustments.levels", json!({"gamma":1.1})).unwrap();
+        s.execute(command, initial.clone()).unwrap();
         let st = s.active().unwrap();
         let k = crate::proxy::factor(&st.doc);
         assert!(st.doc.size.area() / u64::from(k * k) <= crate::proxy::PREVIEW_PIXELS);
-        let params = json!({"layer":st.active_layer.unwrap().0,"index":0,"params":{"gamma":0.8}});
+        let params = json!({"layer":st.active_layer.unwrap().0,"index":0,"params":edit});
         let mut timings = Vec::new();
         for factor in [1, k] {
             let mut elapsed = Vec::new();
@@ -337,7 +383,7 @@ mod tests {
             timings.push(elapsed[1]);
         }
         eprintln!(
-            "SMART_ADJUST_PREVIEW_24MP full_median_s={:.6} reduced_median_s={:.6} factor={} speedup={:.2}",
+            "SMART_ADJUST_PREVIEW_24MP command={command} initial={initial} full_median_s={:.6} reduced_median_s={:.6} factor={} speedup={:.2}",
             timings[0],
             timings[1],
             k,

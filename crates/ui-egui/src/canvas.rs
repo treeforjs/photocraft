@@ -131,6 +131,7 @@ pub struct Drag {
     /// every Move-tool drag with a selection does (`move_ui::moves_selected_pixels`).
     pub sel_move: Option<bool>,
     pub lasso: Option<crate::lasso_ui::Lasso>,
+    pub(crate) paint_binding: Option<crate::smart_mask_ui::StrokeBinding>,
 }
 
 impl Drag {
@@ -147,6 +148,7 @@ impl Drag {
             reposition: false,
             sel_move: None,
             lasso: None,
+            paint_binding: None,
         }
     }
 
@@ -335,6 +337,9 @@ fn live_stroke(app: &PhotocraftApp, idx: usize) -> Option<&LiveStroke> {
 /// stroke smoothing is the session brush's (the options bar's Smoothing %).
 fn stroke_params(app: &PhotocraftApp, tool: Tool, erase: bool, points: &[Vec<f64>]) -> serde_json::Value {
     let mut p = json!({ "points": points, "erase": erase, "zoom": app.point_zoom(), "target": paint_target(app) });
+    if let Some(binding) = app.drag.as_ref().and_then(|drag| drag.paint_binding.as_ref()) {
+        binding.apply(&mut p);
+    }
     if tool == Tool::Pencil {
         p["autoErase"] = json!(app.ui.tool_options.pencil_auto_erase);
     }
@@ -462,7 +467,10 @@ fn begin_live_stroke(app: &PhotocraftApp) -> Option<LiveStroke> {
         EngineStroke::Retouch(photocraft_engine::retouch_cmds::LiveRetouch::begin(&app.session, cmd, &p).ok()?)
     } else {
         let p = stroke_params(app, d.tool, d.erase, &app.stylus.stroke_points(&d.points));
-        EngineStroke::Brush(Box::new(photocraft_engine::brush_cmds::LiveStroke::begin_with(&app.session, stroke_command(d.tool), &p).ok()?))
+        let authority = d.paint_binding.as_ref().map_or_else(|| crate::smart_ui::effective_preview_authority(app), |binding| binding.authority);
+        EngineStroke::Brush(Box::new(
+            photocraft_engine::brush_cmds::LiveStroke::begin_with_authorize(&app.session, stroke_command(d.tool), &p, authority.0).ok()?,
+        ))
     };
     let n = STROKES.fetch_add(1, std::sync::atomic::Ordering::Relaxed) & 0xff_ffff;
     let damage = vec![stroke.bounds()];
@@ -475,6 +483,10 @@ fn feed_live_stroke(app: &mut PhotocraftApp) {
     // A batched move replays several samples in one frame and calls this once at the end, so the
     // per-sample calls from `tool_event` are skipped (see `canvas_view`).
     if app.defer_live_stroke {
+        return;
+    }
+    if app.drag.as_ref().and_then(|drag| drag.paint_binding.as_ref()).is_some_and(|binding| !binding.valid(app)) {
+        app.live_stroke = None;
         return;
     }
     let (Some(l), Some(d)) = (app.live_stroke.as_mut(), app.drag.as_ref()) else { return };
@@ -3605,6 +3617,12 @@ fn tool_move(app: &mut PhotocraftApp, x: f64, y: f64, pressure: f32, mods: egui:
 
 /// Tool state machine. Shared by mouse input and automation.
 pub fn tool_event(app: &mut PhotocraftApp, ev: ToolEvent, mods: egui::Modifiers) {
+    let authority = crate::smart_ui::effective_preview_authority(app);
+    if authority.0.is_some()
+        && let Some(binding) = app.drag.as_mut().and_then(|drag| drag.paint_binding.as_mut())
+    {
+        binding.authority = authority;
+    }
     if crate::symmetry_ui::pointer(app, ev, crate::workspace_ui::sticky_mods(app, mods)) {
         return;
     }
@@ -3844,7 +3862,11 @@ pub fn tool_event(app: &mut PhotocraftApp, ev: ToolEvent, mods: egui::Modifiers)
             }
             // ⌥ flips Dodge/Burn and Blur/Sharpen for this stroke.
             let tool = crate::retouch_ui::alt_flipped(tool, mods.alt);
-            app.drag = Some(Drag::new(tool, from.unwrap_or([x, y]), points, mods, erase));
+            let mut drag = Drag::new(tool, from.unwrap_or([x, y]), points, mods, erase);
+            if matches!(tool, Tool::Brush | Tool::Pencil | Tool::Eraser) {
+                drag.paint_binding = crate::smart_mask_ui::StrokeBinding::capture(app);
+            }
+            app.drag = Some(drag);
             app.trail = None;
             app.stylus.begin_stroke();
             if from.is_some() {
@@ -4024,15 +4046,27 @@ pub(crate) fn finish_gesture(app: &mut PhotocraftApp, d: Drag) {
         Tool::Type | Tool::VerticalType => crate::type_tool::pointer_up(app, d.start, [end[0], end[1]]),
         Tool::Brush | Tool::Pencil | Tool::Eraser => {
             let live = app.live_stroke.take();
+            if d.paint_binding.as_ref().is_some_and(|binding| !binding.valid(app)) {
+                app.ui.status = "The painting target changed; the stroke was cancelled".into();
+                app.ui.status_error = false;
+                return;
+            }
             let mut p = stroke_params(app, d.tool, d.erase, &app.stylus.stroke_points(&d.points));
+            if let Some(binding) = &d.paint_binding {
+                binding.apply(&mut p);
+            }
             if let Some(seed) = live.as_ref().and_then(|l| l.stroke.seed()) {
                 p["seed"] = json!(seed);
             }
             // The canvas already shows the stroke: let the commit's damage rect refresh it rather
             // than recompositing the whole document.
-            if app.run(stroke_command(d.tool), p).is_ok()
-                && let Some(l) = live
-            {
+            let previous = app.session.authorize;
+            if previous.is_none() {
+                app.session.authorize = d.paint_binding.as_ref().and_then(|binding| binding.authority.0);
+            }
+            let committed = app.run(stroke_command(d.tool), p).is_ok();
+            app.session.authorize = previous;
+            if committed && let Some(l) = live {
                 // Raw preview key 0 = the document itself (its colour display folded in).
                 shown_as_document(app, l.doc, |k| l.since(k).is_some());
             }
@@ -4070,14 +4104,12 @@ pub(crate) fn finish_gesture(app: &mut PhotocraftApp, d: Drag) {
                 let _ = app.run("select.deselect", json!({}));
             }
         }
-        Tool::Gradient => {
-            if (end[0] - d.start[0]).abs() + (end[1] - d.start[1]).abs() >= 2.0 {
-                let o = app.ui.tool_options.clone();
-                let _ = app.run(
-                    "paint.gradient",
-                    json!({"from": [d.start[0], d.start[1]], "to": [end[0], end[1]], "style": o.gradient_style, "reverse": o.gradient_reverse, "dither": o.gradient_dither, "opacity": o.fill_opacity, "mode": o.gradient_blend_mode.label(), "target": paint_target(app)}),
-                );
-            }
+        Tool::Gradient if (end[0] - d.start[0]).abs() + (end[1] - d.start[1]).abs() >= 2.0 => {
+            let o = app.ui.tool_options.clone();
+            let _ = app.run(
+                "paint.gradient",
+                json!({"from": [d.start[0], d.start[1]], "to": [end[0], end[1]], "style": o.gradient_style, "reverse": o.gradient_reverse, "dither": o.gradient_dither, "opacity": o.fill_opacity, "mode": o.gradient_blend_mode.label(), "target": paint_target(app)}),
+            );
         }
         Tool::Move => {
             let (dx, dy) = ((end[0] - d.start[0]).round(), (end[1] - d.start[1]).round());
@@ -4213,6 +4245,9 @@ pub fn paint_target(app: &PhotocraftApp) -> serde_json::Value {
         ChannelTarget::Alpha(i) if i < st.doc.channels.len() => return json!({ "channel": i }),
         ChannelTarget::Composite if st.doc.quick_mask.is_some() => return json!("quickMask"),
         _ => {}
+    }
+    if crate::smart_mask_ui::current(app).is_some() {
+        return json!(photocraft_engine::smart_mask_cmds::TARGET);
     }
     let has_mask = st.active_layer.and_then(|id| st.doc.layer(id)).is_some_and(|l| l.mask.is_some());
     // Viewing the mask (⌥-click its thumbnail, #196) paints the mask.

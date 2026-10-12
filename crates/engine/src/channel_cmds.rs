@@ -483,6 +483,7 @@ fn mask_plane(s: &Session, p: &Value, cmd: &str) -> Result<Option<Vec<f32>>> {
 pub(crate) enum Target {
     Pixels,
     Mask,
+    SmartFilterMask,
     Alpha(usize),
     QuickMask,
 }
@@ -491,6 +492,7 @@ pub(crate) fn target_of(p: &Value) -> Target {
     match p.get("target") {
         Some(Value::String(s)) => match s.as_str() {
             "mask" => Target::Mask,
+            "smartFilterMask" => Target::SmartFilterMask,
             "quickMask" => Target::QuickMask,
             _ => Target::Pixels,
         },
@@ -507,6 +509,7 @@ pub(crate) fn is_channel_target(p: &Value) -> bool {
 /// The surface a pixel command writes to and whether the layer's transparency is locked.
 pub(crate) fn target_surface<'a>(doc: &'a mut Document, layer: Option<LayerId>, p: &Value) -> Result<(&'a mut Surface, bool)> {
     match target_of(p) {
+        Target::SmartFilterMask => Err(EngineError::Other("Smart Filter masks require the prepared Brush, Pencil or Eraser path".into())),
         Target::Alpha(i) => {
             let n = doc.channels.len();
             doc.channels.get_mut(i).map(|c| (&mut c.surface, false)).ok_or_else(|| EngineError::Other(format!("no alpha channel {i} (document has {n})")))
@@ -544,6 +547,9 @@ fn edits_mask(id: &str) -> bool {
 /// The precondition of `id` when `p` targets the active layer's mask (`"target":"mask"`): the
 /// layer needs a mask. None when another precondition applies.
 pub(crate) fn mask_target_enabled(s: &Session, id: &str, p: &Value) -> Option<std::result::Result<(), String>> {
+    if let Some(enabled) = crate::smart_mask_cmds::enabled(s, id, p) {
+        return Some(enabled);
+    }
     if target_of(p) != Target::Mask || !edits_mask(id) {
         return None;
     }
@@ -606,7 +612,7 @@ pub fn inject_target(s: &Session, id: &str, params: Value) -> Value {
 
 /// The colour channel pixel commands are limited to, if a single colour channel is targeted.
 pub(crate) fn color_restriction(s: &Session, id: &str, params: &Value) -> Option<usize> {
-    if !routed(id) || is_channel_target(params) || crate::commands::is_mask_target(params) {
+    if !routed(id) || is_channel_target(params) || crate::commands::is_mask_target(params) || crate::smart_mask_cmds::is_target(params) {
         return None;
     }
     match s.active()?.channel_view.target {

@@ -8,7 +8,7 @@
 //! - `engine.commands`: list commands with enablement
 //! - `ui.inspect`: full UI state (tool, panels, views, dialogs, windows, window size); the menu
 //!   tree is `ui.menu.list`
-//! - `ui.set {tool?, panels?, dock?, dockTabs?, dockWidth?, colorPanel?, maskTarget?, vectorMaskTarget?, selectionMode?, zoom?, center?, rotation?, fit?, theme?, brushSection?, brushTab?, brushesView?, brushPicker?, brushPickerView?, brushSize?}`:
+//! - `ui.set {tool?, panels?, dock?, dockTabs?, dockWidth?, colorPanel?, maskTarget?, vectorMaskTarget?, smartFilterMaskTarget?, smartFiltersCollapsed?, selectionMode?, zoom?, center?, rotation?, fit?, theme?, brushSection?, brushTab?, brushesView?, brushPicker?, brushPickerView?, brushSize?}`:
 //!   change UI state; any other field is an error ([`UI_SET_FIELDS`])
 //! - `ui.dialog.open {kind, fields?}` (kinds: newDocument, about, layerStyle {effect?}, colorPicker {target: foreground|background}, command {command}) / `ui.dialog.set {dialog, field, value}` / `ui.dialog.confirm {dialog, wait?}` / `ui.dialog.cancel {dialog}`
 //! - `ui.dialog.apply {dialog}`: commit Preferences changes without closing the dialog
@@ -74,7 +74,7 @@ pub enum Outcome {
 /// field's value is validated before the first one is applied, so a typo, an unknown field, a
 /// bad value or a bad nested key can't reply with success while nothing — or only half of it —
 /// changed (#412).
-pub const UI_SET_FIELDS: [&str; 29] = [
+pub const UI_SET_FIELDS: [&str; 31] = [
     "tool",
     "panels",
     "dock",
@@ -83,6 +83,8 @@ pub const UI_SET_FIELDS: [&str; 29] = [
     "colorPanel",
     "maskTarget",
     "vectorMaskTarget",
+    "smartFilterMaskTarget",
+    "smartFiltersCollapsed",
     "selectionMode",
     "zoom",
     "center",
@@ -382,6 +384,11 @@ fn dispatch(app: &mut PhotocraftApp, ctx: &egui::Context, req: &ControlRequest) 
                 let panels = merged_object(&app.ui.panels, p.get("panels"), "panels")?;
                 let mask_target = bool_field(p, "maskTarget")?;
                 let vector_mask_target = bool_field(p, "vectorMaskTarget")?;
+                let smart_filter_mask_target =
+                    bool_field(p, "smartFilterMaskTarget")?.map(|enabled| crate::smart_mask_ui::requested(app, enabled)).transpose()?;
+                let smart_filters_collapsed = bool_field(p, "smartFiltersCollapsed")?
+                    .map(|collapsed| crate::smart_filter_rows::validate_collapse(app).map(|layer| (layer, collapsed)))
+                    .transpose()?;
                 let selection_mode = uint_field(p, "selectionMode")?;
                 let dock_tabs = merged_object(&app.ui.dock_tabs, p.get("dockTabs"), "dockTabs")?;
                 let dock = whole_object(&app.ui.dock, p.get("dock"), "dock")?;
@@ -497,10 +504,22 @@ fn dispatch(app: &mut PhotocraftApp, ctx: &egui::Context, req: &ControlRequest) 
                 if let Some(m) = mask_target {
                     app.ui.mask_target = m;
                     app.ui.vector_mask_target &= !m;
+                    if m {
+                        app.ui.smart_filter_mask_target = None;
+                    }
                 }
                 if let Some(m) = vector_mask_target {
                     app.ui.vector_mask_target = m;
                     app.ui.mask_target &= !m;
+                    if m {
+                        app.ui.smart_filter_mask_target = None;
+                    }
+                }
+                if let Some(target) = smart_filter_mask_target {
+                    crate::smart_mask_ui::set(app, target);
+                }
+                if let Some((layer, collapsed)) = smart_filters_collapsed {
+                    crate::smart_filter_rows::set_collapsed(app, layer, collapsed)?;
                 }
                 // Selection tools' options-bar mode: 0 New, 1 Add, 2 Subtract, 3 Intersect.
                 if let Some(m) = selection_mode {
@@ -576,7 +595,7 @@ fn dispatch(app: &mut PhotocraftApp, ctx: &egui::Context, req: &ControlRequest) 
             let kind = match s("kind").unwrap_or("") {
                 "newDocument" | "NewDocument" => DialogKind::NewDocument,
                 "about" | "About" => DialogKind::About,
-                "smartFilter" => {
+                "smartFilter" | "smartFilterBlend" => {
                     if !app.ui.dialogs.is_empty() {
                         return err("close the current dialog before editing a Smart Filter");
                     }
@@ -586,6 +605,12 @@ fn dispatch(app: &mut PhotocraftApp, ctx: &egui::Context, req: &ControlRequest) 
                     };
                     let Some(layer) = layer else { return err("need a valid Smart Object layer") };
                     let Some(index) = u("index").and_then(|i| usize::try_from(i).ok()) else { return err("need an integer filter index") };
+                    if s("kind") == Some("smartFilterBlend") {
+                        return match crate::smart_filter_rows::open_blending(app, layer, index) {
+                            Ok(id) => ok(json!({"dialog": id})),
+                            Err(error) => err(error),
+                        };
+                    }
                     let sm = app.session.active().and_then(|st| st.doc.layer(layer)).and_then(|layer| match &layer.content {
                         photocraft_doc::LayerContent::Smart(sm) => Some(sm.clone()),
                         _ => None,
@@ -965,6 +990,9 @@ pub fn inspect(app: &PhotocraftApp, ctx: &egui::Context) -> Value {
         "window": {"width": screen.width(), "height": screen.height(), "pixelsPerPoint": ctx.pixels_per_point()},
         "tool": app.ui.tool,
         "toolOptions": app.ui.tool_options,
+        "smart_filter_mask_target": app.ui.smart_filter_mask_target,
+        "smart_filter_stacks": app.ui.smart_filter_stacks,
+        "smart_filter_drag": app.ui.smart_filter_drag,
         "magnetic": app.ui.magnetic,
         "textEdit": app.ui.text_edit,
         "typeTransform": app.ui.type_transform,
@@ -1794,7 +1822,7 @@ mod tests {
 
     #[test]
     fn smart_adjustment_creation_dialogs_authorize_sources_before_scheduling_previews() {
-        for command in ["image.adjustments.levels", "image.adjustments.curves", "image.adjustments.shadowsHighlights"] {
+        for command in ["image.adjustments.levels", "image.adjustments.curves", "image.adjustments.hueSaturation", "image.adjustments.shadowsHighlights"] {
             let (mut app, ctx, layer) = smart_control_app();
             link_preview_source(&mut app, layer);
             let before = app.session.active().unwrap().doc.clone();
@@ -1948,7 +1976,7 @@ mod tests {
     #[test]
     fn smart_adjustment_creation_dialogs_do_not_resolve_sources_for_channel_targets() {
         use photocraft_doc::{AlphaChannel, LayerMask};
-        for command in ["image.adjustments.levels", "image.adjustments.curves", "image.adjustments.shadowsHighlights"] {
+        for command in ["image.adjustments.levels", "image.adjustments.curves", "image.adjustments.hueSaturation", "image.adjustments.shadowsHighlights"] {
             for target in ["mask", "alpha", "quickMask"] {
                 let (mut app, ctx, layer) = smart_control_app();
                 app.session
@@ -2150,7 +2178,7 @@ mod tests {
         };
         app.services.automation_authorize = Some(deny_adjustment_preview_path);
         app.automation_input = true;
-        for command in ["image.adjustments.levels", "image.adjustments.curves", "image.adjustments.shadowsHighlights"] {
+        for command in ["image.adjustments.levels", "image.adjustments.curves", "image.adjustments.hueSaturation", "image.adjustments.shadowsHighlights"] {
             let result = if crate::adjust_dialog::has_dialog(command) {
                 crate::adjust_dialog::open(&mut app, command)
             } else {
@@ -2172,7 +2200,7 @@ mod tests {
         app.session.authorize = None;
 
         app.automation_input = false;
-        for command in ["image.adjustments.levels", "image.adjustments.curves", "image.adjustments.shadowsHighlights"] {
+        for command in ["image.adjustments.levels", "image.adjustments.curves", "image.adjustments.hueSaturation", "image.adjustments.shadowsHighlights"] {
             let dialog = if crate::adjust_dialog::has_dialog(command) {
                 crate::adjust_dialog::open(&mut app, command)
             } else {

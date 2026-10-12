@@ -473,7 +473,16 @@ pub fn filter_fx(stack: &FilterStack, layer: &str, warnings: &mut Vec<String>) -
     let mut list = Vec::new();
     for f in &stack.filters {
         match item_for_filter(f) {
-            Ok(d) => list.push(Value::Descriptor(d)),
+            Ok(d) => {
+                if !f.blend.has_psd_equivalent() {
+                    warnings.push(format!(
+                        "layer \"{layer}\": smart filter {}: {} has no PSD equivalent and was written as Normal; save as .pcraft to preserve it",
+                        f.command,
+                        f.blend.label()
+                    ));
+                }
+                list.push(Value::Descriptor(d));
+            }
             Err(e) => warnings.push(format!("layer \"{layer}\": smart filter {} was not written to PSD: {e}", f.command)),
         }
     }
@@ -874,6 +883,70 @@ mod tests {
         assert_eq!(w.len(), 4, "{w:?}");
         let back = filter_stack(&d);
         assert_eq!(back.filters, vec![stack.filters[1].clone()]);
+    }
+
+    #[test]
+    fn smart_filter_blend_export_reports_only_modes_without_psd_equivalents() {
+        for blend in BlendMode::layer_modes() {
+            let mut filter = sf("filter.blur.gaussianBlur", json!({"radius": 2.0}));
+            filter.blend = blend;
+            filter.opacity = 0.6;
+            filter.visible = false;
+            let stack = FilterStack { filters: vec![filter.clone()], ..Default::default() };
+            let mut warnings = Vec::new();
+            let descriptor = filter_fx(&stack, "Synthetic Smart Object", &mut warnings);
+            let back = filter_stack(&descriptor);
+            let mut expected = filter.clone();
+            if blend.has_psd_equivalent() {
+                assert!(warnings.is_empty(), "{blend:?}: {warnings:?}");
+            } else {
+                expected.blend = BlendMode::Normal;
+                assert_eq!(warnings.len(), 1, "{blend:?}: {warnings:?}");
+                for text in ["Synthetic Smart Object", filter.command.as_str(), blend.label(), "written as Normal", ".pcraft"] {
+                    assert!(warnings[0].contains(text), "missing {text}: {warnings:?}");
+                }
+            }
+            assert_eq!(back.filters, vec![expected], "{blend:?}");
+            assert_eq!(stack.filters, vec![filter], "export must not mutate the native model");
+        }
+    }
+
+    #[test]
+    fn unsupported_smart_blend_warning_reaches_export_without_changing_cached_appearance() {
+        use photocraft_doc::{Document, Layer, LayerContent, SmartObject, SmartSource};
+        use photocraft_geom::Size;
+        use std::sync::Arc;
+        let mut source = Document::new("synthetic source", Size::new(4, 4), ColorMode::Rgb, SampleType::U8);
+        let mut pixels = Surface::new(source.pixel_format());
+        pixels.write_region(source.bounds(), &[0.2, 0.4, 0.6, 1.0].repeat(16));
+        source.layers.push(Layer::new("source", LayerContent::Raster(pixels.clone())));
+        let bytes = Arc::new(photocraft_format::save_to_bytes(&source, &Default::default()).unwrap());
+        for blend in BlendMode::PAINT_NET_MODES {
+            let mut doc = Document::new("synthetic outer", Size::new(4, 4), ColorMode::Rgb, SampleType::U8);
+            let mut smart =
+                SmartObject::new(SmartSource::Embedded { file_name: "source.pcraft".into(), bytes: bytes.clone() }, Affine::IDENTITY, Some(pixels.clone()));
+            let mut filter = sf("filter.blur.gaussianBlur", json!({"radius": 2.0}));
+            filter.blend = blend;
+            filter.opacity = 0.6;
+            smart.smart_filters.push(filter);
+            doc.layers.push(Layer::new("Synthetic Smart Object", LayerContent::Smart(smart)));
+            let before = doc.clone();
+            let exported = crate::export(&doc, "psd", &Default::default()).unwrap();
+            assert!(
+                exported.warnings.iter().any(|warning| warning.contains(blend.label()) && warning.contains("written as Normal")),
+                "{blend:?}: {:?}",
+                exported.warnings
+            );
+            assert_eq!(doc, before, "export does not alter the native source, mode or cache");
+            let reopened = crate::import("synthetic.psd", &exported.bytes).unwrap().document;
+            let LayerContent::Smart(smart) = &reopened.layers[0].content else { panic!("export preserves Smart Object content") };
+            assert_eq!(smart.smart_filters[0].blend, BlendMode::Normal);
+            assert_eq!(
+                smart.cache.as_ref().unwrap().read_region(doc.bounds()),
+                pixels.read_region(doc.bounds()),
+                "cached appearance must survive {blend:?} metadata fallback"
+            );
+        }
     }
 
     #[test]

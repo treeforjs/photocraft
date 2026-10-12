@@ -76,7 +76,7 @@ fn depth_tolerance(depth: u64) -> f32 {
     }
 }
 
-fn cases() -> [(&'static str, Value, Value); 3] {
+fn cases() -> [(&'static str, Value, Value); 5] {
     [
         ("levels", json!({"inBlack": 15, "inWhite": 240, "gamma": 1.3, "red": {"gamma": 0.8}}), json!({"gamma": 0.72})),
         ("curves", json!({"points": [[0, 0], [128, 180], [255, 255]], "blue": [[0, 14], [255, 239]]}), json!({"points": [[0, 10], [160, 132], [255, 255]]})),
@@ -84,6 +84,16 @@ fn cases() -> [(&'static str, Value, Value); 3] {
             "shadowsHighlights",
             json!({"shadowAmount": 65, "shadowRadius": 3, "highlightAmount": 35, "highlightRadius": 2, "blackClip": 0, "whiteClip": 0, "color": 0}),
             json!({"shadowAmount": 20}),
+        ),
+        (
+            "hueSaturation",
+            json!({"hue":25,"saturation":35,"lightness":-8,"reds":{"hue":40,"saturation":-20,"range":[320,340,380,410]},"blues":{"lightness":12}}),
+            json!({"hue":-30,"saturation":15}),
+        ),
+        (
+            "hueSaturation",
+            json!({"colorize":true,"hue":210,"saturation":10,"lightness":8,"reds":{"hue":35,"range":[320,340,380,410]}}),
+            json!({"colorize":false,"hue":-25,"saturation":20}),
         ),
     ]
 }
@@ -145,6 +155,44 @@ fn create_and_reedit_match_destructive_at_every_depth_and_roundtrip_natively() {
             let reopened = photocraft_format::load_from_bytes(&bytes).unwrap();
             assert_eq!(smart(&reopened, layer), smart(&edited, layer), "{kind}, {depth}-bit native roundtrip");
             assert_eq!(pixels(&reopened), pixels(&edited));
+        }
+    }
+}
+
+#[test]
+fn neutral_hue_filter_opacity_preserves_transparency_and_source() {
+    for depth in [8, 16, 32] {
+        for mode in ["rgb", "grayscale", "cmyk", "lab"] {
+            let mut session = session_in_mode(depth, mode);
+            session
+                .edit("Partial alpha fixture", |doc, active| {
+                    let surface = doc.layer_mut(active.unwrap()).unwrap().surface_mut().unwrap();
+                    let format = surface.format();
+                    for x in 0..WIDTH {
+                        let alpha = (x + 1) as f32 / (WIDTH + 1) as f32;
+                        surface.write_pixel(x, 0, &photocraft_raster::from_rgba(&format, [0.8, 0.2, 0.4, alpha]));
+                    }
+                    Ok(())
+                })
+                .unwrap();
+            let layer = convert(&mut session);
+            let original = smart(&session.active().unwrap().doc, layer).clone();
+            session.execute("image.adjustments.hueSaturation", json!({})).unwrap();
+            let neutral = smart(&session.active().unwrap().doc, layer).cache.as_ref().unwrap().read_region(session.active().unwrap().doc.bounds());
+            for opacity in [0.0, 0.1, 0.5, 1.0] {
+                let before = session.active().unwrap().doc.clone();
+                session.execute("layer.smartFilter.blendingOptions", json!({"index":0,"blend":"normal","opacity":opacity})).unwrap();
+                let doc = &session.active().unwrap().doc;
+                let actual = smart(doc, layer);
+                let cache = actual.cache.as_ref().unwrap().read_region(doc.bounds());
+                assert!(cache.iter().zip(&neutral).all(|(a, b)| (a - b).abs() <= depth_tolerance(depth) * 2.0), "{mode}/{depth}/{opacity}");
+                assert_eq!(actual.source, original.source);
+                let after = doc.clone();
+                session.undo();
+                assert_eq!(session.active().unwrap().doc, before);
+                session.redo();
+                assert_eq!(session.active().unwrap().doc, after);
+            }
         }
     }
 }
@@ -220,6 +268,115 @@ fn shadows_highlights_default_psd_mapping_and_custom_export_warning_are_explicit
 }
 
 #[test]
+fn partial_range_and_channel_edits_keep_other_controls_and_null_resets_only_that_record() {
+    for (kind, initial, record, field, value) in [
+        (
+            "hueSaturation",
+            json!({"hue":20,"reds":{"hue":35,"saturation":-20,"lightness":12,"range":[320,340,380,410]},"blues":{"lightness":15}}),
+            "reds",
+            "hue",
+            json!(-40),
+        ),
+        (
+            "levels",
+            json!({"gamma":1.2,"red":{"inBlack":20,"inWhite":220,"gamma":1.5,"outBlack":10,"outWhite":240},"blue":{"gamma":0.8}}),
+            "red",
+            "gamma",
+            json!(0.65),
+        ),
+    ] {
+        let mut session = session(16);
+        let layer = convert(&mut session);
+        session.execute(&format!("image.adjustments.{kind}"), initial).unwrap();
+        let before = session.active().unwrap().doc.clone();
+        let original = smart(&before, layer).smart_filters[0].params.clone();
+        session.execute("layer.smartFilter.setParams", json!({"index":0,"params":{record:{field:value}}})).unwrap();
+        let edited = smart(&session.active().unwrap().doc, layer).smart_filters[0].params.clone();
+        assert!((edited[record][field].as_f64().unwrap() - value.as_f64().unwrap()).abs() < 1e-6);
+        for (key, old) in original.as_object().unwrap() {
+            if key == record {
+                for (name, old) in old.as_object().unwrap() {
+                    if name != field {
+                        assert_eq!(&edited[key][name], old, "{kind}: editing {field} must preserve {name}");
+                    }
+                }
+            } else {
+                assert_eq!(&edited[key], old, "{kind}: another record changed");
+            }
+        }
+        session.undo();
+        assert_eq!(*session.active().unwrap().doc, *before);
+        session.redo();
+        session.execute("layer.smartFilter.setParams", json!({"index":0,"params":{record:null}})).unwrap();
+        let defaults = photocraft_engine::adjust_params::from_params(kind, &json!({}), None, before.mode).unwrap();
+        let defaults = photocraft_engine::adjust_params::to_params(&defaults);
+        let reset = &smart(&session.active().unwrap().doc, layer).smart_filters[0].params;
+        assert_eq!(reset[record], defaults[record]);
+        for (key, value) in edited.as_object().unwrap() {
+            if key != record {
+                assert_eq!(&reset[key], value);
+            }
+        }
+    }
+}
+
+#[test]
+fn hue_colorize_and_all_six_ranges_roundtrip_natively_in_every_supported_color_model() {
+    for mode in ["rgb", "grayscale", "cmyk", "lab"] {
+        for depth in [8, 16] {
+            for colorize in [false, true] {
+                let mut session = session_in_mode(depth, mode);
+                let layer = convert(&mut session);
+                let source = smart(&session.active().unwrap().doc, layer).source.clone();
+                let mut params = json!({"hue":35,"saturation":10,"lightness":8,"colorize":colorize});
+                for (index, range) in photocraft_engine::adjust_params::HUE_RANGES.iter().enumerate() {
+                    let angle = index as i32 * 60;
+                    params[*range] = json!({"hue":index as i32 * 5 + 5,"saturation":-15,"lightness":7,"range":[angle-30,angle-10,angle+15,angle+40]});
+                }
+                session.execute("image.adjustments.hueSaturation", params).unwrap();
+                let original = session.active().unwrap().doc.clone();
+                let reopened = photocraft_format::load_from_bytes(&photocraft_format::save_to_bytes(&original, &Default::default()).unwrap()).unwrap();
+                assert_eq!(smart(&reopened, layer), smart(&original, layer), "{mode}/{depth}/{colorize}");
+                assert_eq!(smart(&reopened, layer).source, source);
+                assert_eq!(pixels(&reopened), pixels(&original));
+                let mut resumed = Session::new();
+                resumed.add_document(reopened, None);
+                resumed.execute("layer.smartFilter.setParams", json!({"layer":layer.0,"index":0,"params":{"colorize":!colorize}})).unwrap();
+                let changed = &smart(&resumed.active().unwrap().doc, layer).smart_filters[0].params;
+                for range in photocraft_engine::adjust_params::HUE_RANGES {
+                    assert_eq!(changed[range], smart(&original, layer).smart_filters[0].params[range]);
+                }
+                resumed.undo();
+                assert_eq!(*resumed.active().unwrap().doc, *original);
+            }
+        }
+    }
+}
+
+#[test]
+fn hue_smart_filter_psd_export_warns_and_preserves_cached_rendered_appearance() {
+    for depth in [8, 16, 32] {
+        for colorize in [false, true] {
+            let mut session = session(depth);
+            let layer = convert(&mut session);
+            session.execute("image.adjustments.hueSaturation", json!({"hue":35,"saturation":10,"lightness":8,"colorize":colorize})).unwrap();
+            let original = session.active().unwrap().doc.clone();
+            let exported = photocraft_io::export(&original, "psd", &Default::default()).unwrap();
+            assert!(
+                exported.warnings.iter().any(|warning| warning.contains("image.adjustments.hueSaturation") && warning.contains("not written to PSD")),
+                "{:?}",
+                exported.warnings
+            );
+            assert_psd_structure(&exported.bytes);
+            let reopened = photocraft_io::import("synthetic-hue.psd", &exported.bytes).unwrap().document;
+            assert!(only_smart(&reopened).1.smart_filters.is_empty(), "no invented Hue Smart Filter descriptor");
+            assert!(difference(&pixels(&reopened), &pixels(&original)) <= 2.0 / 255.0 + 1e-6, "cached appearance, {depth}/{colorize}");
+            assert_eq!(smart(&session.active().unwrap().doc, layer), smart(&original, layer), "export leaves native editing data intact");
+        }
+    }
+}
+
+#[test]
 fn selection_becomes_the_filter_mask_and_later_adjustments_preserve_it() {
     let mut session = session(16);
     let layer = convert(&mut session);
@@ -261,6 +418,9 @@ fn malformed_creation_and_merged_edits_leave_pixels_parameters_and_history_intac
         ("curves", json!({"blue": "invalid"})),
         ("shadowsHighlights", json!({"shadowAmount": "invalid"})),
         ("shadowsHighlights", json!({"shadowRadius": {"pixels": 3}})),
+        ("hueSaturation", json!({"colorize": 1})),
+        ("hueSaturation", json!({"reds": {"range": [1, 2]}})),
+        ("hueSaturation", json!({"saturation": "invalid"})),
     ];
     for (kind, invalid) in invalid {
         let mut session = session(8);

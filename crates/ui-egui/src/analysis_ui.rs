@@ -268,7 +268,8 @@ pub fn pointer(app: &mut PhotocraftApp, ev: ToolEvent, mods: egui::Modifiers) ->
             set_ruler(app, r);
         }
         (Tool::Ruler, ToolEvent::Up { .. }) => {
-            if app.ui.analysis.drag.take() == Some(Drag::RulerNew) && doc.measurement.ruler.is_some_and(|r| dist(r.start, r.end) < 0.5) {
+            let discard_empty_new = app.ui.analysis.drag.take() == Some(Drag::RulerNew) && doc.measurement.ruler.is_some_and(|r| dist(r.start, r.end) < 0.5);
+            if discard_empty_new {
                 let _ = app.run("image.analysis.rulerTool", json!({"clear": true}));
             }
         }
@@ -627,7 +628,8 @@ pub fn windows(app: &mut PhotocraftApp, ctx: &egui::Context) {
                 }
             }
             Some((id, p)) => {
-                if app.run(id, p).is_ok() {
+                let applied = app.run(id, p).is_ok();
+                if applied {
                     app.ui.analysis.log_selected.clear();
                 }
             }

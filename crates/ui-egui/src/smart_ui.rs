@@ -1,7 +1,7 @@
 //! Layers-panel pieces for smart objects: the thumbnail badge and the Smart Filters sub-rows
 //! (eye toggles; double-click a filter to re-open its dialog with the recorded parameters).
 
-use egui::{Align2, Color32, Rect, Sense, Stroke, pos2, vec2};
+use egui::{Rect, Stroke, pos2, vec2};
 use photocraft_doc::{Layer, LayerContent, SmartObject};
 use serde_json::{Value, json};
 
@@ -22,7 +22,7 @@ pub fn thumb_badge(ui: &egui::Ui, l: &Layer, thumb: Rect) {
 
 /// The display name of a smart filter (its command's label without the ellipsis). A Photoshop
 /// filter PhotoCraft doesn't implement shows its own name and is marked as kept as is.
-fn filter_label(f: &photocraft_doc::SmartFilter) -> String {
+pub(crate) fn filter_label(f: &photocraft_doc::SmartFilter) -> String {
     let command = f.command.as_str();
     if command == photocraft_engine::smart_cmds::UNSUPPORTED_FILTER {
         let name = f.params.get("name").and_then(Value::as_str).unwrap_or("Smart filter");
@@ -35,53 +35,7 @@ fn filter_label(f: &photocraft_doc::SmartFilter) -> String {
 /// Smart Filters header + one row per filter (top filter first, as in Photoshop) under a smart
 /// layer. Edits are queued in `actions` as engine commands.
 pub fn filter_rows(app: &mut PhotocraftApp, ui: &mut egui::Ui, l: &Layer, depth: usize, actions: &mut Vec<(String, Value)>) {
-    let LayerContent::Smart(sm) = &l.content else { return };
-    if sm.smart_filters.is_empty() {
-        return;
-    }
-    let t = Tokens::get(ui.ctx());
-    let indent = 30.0 + depth as f32 * 14.0 + 34.0;
-    let rows = std::iter::once(None).chain((0..sm.smart_filters.len()).rev().map(Some));
-    for index in rows {
-        let (rect, resp) = ui.allocate_exact_size(vec2(ui.available_width(), 22.0), Sense::click());
-        if resp.hovered() {
-            ui.painter().rect_filled(rect, 0.0, t.hover.gamma_multiply(0.35));
-        }
-        if t.pro {
-            ui.painter().line_segment([pos2(rect.left() + 30.0, rect.top()), pos2(rect.left() + 30.0, rect.bottom())], Stroke::new(1.0, t.separator));
-        }
-        let (name, on) = match index {
-            None => ("Smart Filters".to_string(), sm.filters_enabled),
-            Some(i) => (filter_label(&sm.smart_filters[i]), sm.smart_filters[i].visible && sm.filters_enabled),
-        };
-        let eye = Rect::from_min_size(pos2(rect.left() + 6.0, rect.center().y - 9.0), vec2(18.0, 18.0));
-        let eye_resp = ui.interact(eye, ui.id().with(("sf-eye", l.id.0, index)), Sense::click());
-        let shown = match index {
-            None => sm.filters_enabled,
-            Some(i) => sm.smart_filters[i].visible,
-        };
-        if shown {
-            icons::paint(ui, eye, "eye", 12.0, t.icon);
-        }
-        if eye_resp.clicked() {
-            actions.push(match index {
-                None => ("layer.smartFilter.disableSmartFilters".into(), json!({"layer": l.id.0})),
-                Some(i) => ("layer.smartFilter.setVisible".into(), json!({"layer": l.id.0, "index": i})),
-            });
-        }
-        let x = rect.left() + indent + if index.is_none() { 0.0 } else { 16.0 };
-        if index.is_none() {
-            let sw = Rect::from_center_size(pos2(x - 12.0, rect.center().y), vec2(14.0, 10.0));
-            ui.painter().rect_filled(sw, 1.0, if sm.filter_mask.as_ref().is_some_and(|m| m.enabled) { Color32::from_gray(200) } else { Color32::WHITE });
-            ui.painter().rect_stroke(sw, 1.0, Stroke::new(1.0, t.field_border), egui::StrokeKind::Inside);
-        }
-        ui.painter().text(pos2(x, rect.center().y), Align2::LEFT_CENTER, name, egui::FontId::proportional(11.5), if on { t.text_dim } else { t.text_faint });
-        if let Some(i) = index
-            && resp.double_clicked()
-        {
-            open_editor(app, ui.ctx(), l.id.0, sm, i);
-        }
-    }
+    crate::smart_filter_rows::rows(app, ui, l, depth, actions);
 }
 
 /// Re-opens a smart filter's dialog with its recorded parameters; OK runs
@@ -213,6 +167,7 @@ pub fn validate_editor(app: &PhotocraftApp, fields: &serde_json::Map<String, Val
                 && binding.get("layer").and_then(Value::as_u64) == st.active_layer.map(|layer| layer.0)
                 && binding.get("channel") == Some(&json!(st.channel_view.target))
                 && binding.get("maskTarget").and_then(Value::as_bool) == Some(app.ui.mask_target)
+                && binding.get("smartFilterMaskTarget") == Some(&json!(app.ui.smart_filter_mask_target))
         });
         if !valid {
             return Err("the document or target changed; reopen the adjustment dialog".into());
@@ -240,6 +195,7 @@ pub(crate) fn bind_creation_preview(app: &mut PhotocraftApp, command: &str, dial
         "layer": active.and_then(|st| st.active_layer).map(|layer| layer.0),
         "channel": active.map(|st| st.channel_view.target),
         "maskTarget": app.ui.mask_target,
+        "smartFilterMaskTarget": app.ui.smart_filter_mask_target,
     });
     if let Some(dialog) = app.ui.dialog_mut(dialog) {
         dialog.fields.insert("__smartCreation".into(), binding);
@@ -253,6 +209,9 @@ pub(crate) fn authorize_creation_preview(app: &PhotocraftApp, command: &str, par
         return Ok(());
     }
     let params = photocraft_engine::channel_cmds::inject_target(&app.session, command, app.with_mask_target(command, params.clone()));
+    if photocraft_engine::smart_mask_cmds::is_target(&params) {
+        return Err("Smart Filter masks currently support Brush, Pencil and Eraser".into());
+    }
     let channel_target = match params.get("target") {
         Some(Value::String(target)) => matches!(target.as_str(), "mask" | "quickMask"),
         Some(Value::Object(target)) => target.get("channel").and_then(Value::as_u64).is_some(),
@@ -285,7 +244,7 @@ pub(crate) fn authorize_dialog_preview(app: &PhotocraftApp, fields: &serde_json:
     if let Some(authorize) = app.session.authorize {
         authorize(&command, &params).map_err(|error| error.to_string())?;
     }
-    if command == "layer.smartFilter.setParams" {
+    if matches!(command.as_str(), "layer.smartFilter.setParams" | crate::smart_filter_rows::BLENDING) {
         let layer = match params.get("layer") {
             Some(value) => value.as_u64().map(photocraft_doc::LayerId),
             None => app.session.active().and_then(|st| st.active_layer),
@@ -300,6 +259,12 @@ pub(crate) fn authorize_dialog_preview(app: &PhotocraftApp, fields: &serde_json:
 /// The command a confirmed filter dialog runs: smart-filter edits update the recorded filter.
 pub fn confirm_command(fields: &serde_json::Map<String, Value>, command: String, params: Value) -> (String, Value) {
     match fields.get("__smartFilter") {
+        Some(sf) if command == crate::smart_filter_rows::BLENDING => {
+            let mut params = params.as_object().cloned().unwrap_or_default();
+            params.insert("layer".into(), sf["layer"].clone());
+            params.insert("index".into(), sf["index"].clone());
+            (command, Value::Object(params))
+        }
         Some(sf) => ("layer.smartFilter.setParams".into(), json!({"layer": sf["layer"], "index": sf["index"], "params": params})),
         None => (command, params),
     }

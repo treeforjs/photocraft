@@ -3,6 +3,40 @@ use serde_json::json;
 
 use super::*;
 
+#[test]
+fn neutral_hue_keeps_native_inks_hdr_and_mask_defaults_exactly() {
+    let mut ranges = photocraft_doc::adjust::HueRange::defaults();
+    ranges[0].bounds = [320.0, 340.0, 380.0, 410.0];
+    let neutral = Adjustment::HueSaturation { hue: 0.0, saturation: 0.0, lightness: 0.0, colorize: false, ranges };
+    for format in [
+        PixelFormat::RGBA8,
+        PixelFormat::RGBA16,
+        PixelFormat::RGBA32F,
+        PixelFormat::CMYKA8,
+        PixelFormat::new(ColorMode::Cmyk, SampleType::U16, true),
+        PixelFormat::new(ColorMode::Lab, SampleType::U16, true),
+    ] {
+        let mut source = Surface::new(format);
+        let values = if format.mode == ColorMode::Cmyk { vec![0.2, 0.3, 0.4, 0.7, 0.5] } else { vec![2.5, -0.2, 0.4, 0.5] };
+        source.write_pixel(-3, 7, &values);
+        for selection in [None, Some(Surface::with_default(PixelFormat::GRAY8, &[0.25]))] {
+            let mut adjusted = source.clone();
+            adjust_surface(&mut adjusted, &neutral, selection.as_ref(), format.mode);
+            assert_eq!(adjusted, source, "{format:?}");
+        }
+    }
+    let mut mask = Surface::with_default(PixelFormat::new(ColorMode::Grayscale, SampleType::F32, false), &[0.3]);
+    mask.write_pixel(3, 7, &[0.6]);
+    let original = mask.clone();
+    adjust_mask(&mut mask, &neutral, None);
+    assert_eq!(mask, original);
+    let mut colorize = neutral;
+    if let Adjustment::HueSaturation { colorize, .. } = &mut colorize {
+        *colorize = true;
+    }
+    assert!(!identity_hue(&colorize), "Colorize at zero saturation still desaturates the input");
+}
+
 /// The single pass over the content bounds that the tiled `adjust_surface` replaced (#1772).
 fn one_pass(s: &Surface, adj: &Adjustment, selection: Option<&Surface>, mode: ColorMode) -> Surface {
     let mut s = s.clone();

@@ -382,6 +382,14 @@ pub fn handle(app: &mut PhotocraftApp, ctx: &egui::Context) {
     // brush keys [ ] ⇧[ ⇧] (`tools.decreaseBrushSize`…) are commands, dispatched above with any
     // Keyboard Shortcuts override.
     let pressed = |k: Key| ctx.input_mut(|i| i.consume_key(Modifiers::NONE, k));
+    if app.ui.smart_filter_drag.is_some() && pressed(Key::Escape) {
+        app.ui.smart_filter_drag = None;
+        return;
+    }
+    if app.drag.as_ref().and_then(|drag| drag.paint_binding.as_ref()).is_some_and(crate::smart_mask_ui::StrokeBinding::is_smart_mask) && pressed(Key::Escape) {
+        crate::smart_mask_ui::cancel_stroke(app);
+        return;
+    }
     // Enter / Escape commit or cancel in-progress tool state (polygonal lasso, crop).
     if crate::lasso_ui::active(app) {
         let mods = ctx.input(|i| i.modifiers);

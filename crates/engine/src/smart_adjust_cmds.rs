@@ -7,7 +7,7 @@ use serde_json::{Value, json};
 use crate::{EngineError, Result, Session};
 
 pub(crate) fn supported(kind: &str) -> bool {
-    matches!(kind, "levels" | "curves" | "shadowsHighlights")
+    matches!(kind, "levels" | "curves" | "hueSaturation" | "shadowsHighlights")
 }
 
 /// Reject malformed settings before history or the rendered cache changes. Store normalized
@@ -18,6 +18,32 @@ pub(crate) fn parameters(kind: &str, params: &Value, mode: ColorMode) -> Result<
     }
     let adj = crate::adjust_params::from_params(kind, params, None, mode)?;
     Ok(crate::adjust_params::to_params(&adj))
+}
+
+/// Channel/range records are edited one control at a time. Replacing a whole record with
+/// that patch would silently reset its other controls. Merge one known record level only;
+/// arrays and explicit nulls replace the old value and keep the parser's reset semantics.
+pub(crate) fn merge_parameters(kind: &str, stored: &Value, patch: &Value, mode: ColorMode) -> Result<Value> {
+    let fields = patch
+        .as_object()
+        .ok_or_else(|| EngineError::BadParams { cmd: "layer.smartFilter.setParams".into(), msg: "adjustment parameters must be an object".into() })?;
+    let records: &[&str] = match kind {
+        "hueSaturation" => &crate::adjust_params::HUE_RANGES,
+        "levels" => &["red", "green", "blue", "cyan", "magenta", "yellow", "black", "lightness", "a", "b"],
+        _ => &[],
+    };
+    let mut merged = stored.as_object().cloned().unwrap_or_default();
+    for (key, value) in fields {
+        if records.contains(&key.as_str())
+            && let Some(old) = merged.get_mut(key).and_then(Value::as_object_mut)
+            && let Some(new) = value.as_object()
+        {
+            old.extend(new.clone());
+        } else {
+            merged.insert(key.clone(), value.clone());
+        }
+    }
+    parameters(kind, &Value::Object(merged), mode)
 }
 
 pub(crate) fn enabled(s: &Session) -> std::result::Result<(), String> {

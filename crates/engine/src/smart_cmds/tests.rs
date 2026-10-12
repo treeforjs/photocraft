@@ -201,6 +201,14 @@ fn filter_stack_order_blend_disable_and_clear() {
     assert!(max_diff(&flat(&s), &original) < 1e-6);
     assert_eq!(active_smart(&s).smart_filters[1].blend, BlendMode::Multiply);
     assert!(s.execute("layer.smartFilter.blendingOptions", json!({"blend": "nope"})).is_err());
+    let before_invalid = s.active().unwrap().clone();
+    for params in [json!({"blend":1}), json!({"opacity":"half"}), json!({"opacity":null}), json!({"index":u64::MAX})] {
+        assert!(s.execute("layer.smartFilter.blendingOptions", params).is_err());
+        assert_eq!(s.active().unwrap().doc, before_invalid.doc);
+        assert_eq!(s.active().unwrap().history.past_len(), before_invalid.history.past_len());
+    }
+    assert!(s.execute("layer.smartFilter.move", json!({"index":0,"to":u64::MAX})).is_err());
+    assert_eq!(s.active().unwrap().doc, before_invalid.doc);
     s.undo();
     s.undo();
     s.execute("layer.smartFilter.disableSmartFilters", json!({})).unwrap();
@@ -214,6 +222,70 @@ fn filter_stack_order_blend_disable_and_clear() {
     s.execute("layer.smartFilter.clearSmartFilters", json!({})).unwrap();
     assert_eq!(flat(&s), original);
     assert!(!s.is_enabled("layer.smartFilter.clearSmartFilters"));
+}
+
+#[test]
+fn normal_filter_blending_interpolates_coverage_instead_of_stacking_two_images() {
+    for fmt in [PixelFormat::RGBA8, PixelFormat::RGBA16, PixelFormat::RGBA32F] {
+        let mut base = Surface::new(fmt);
+        let mut top = Surface::new(fmt);
+        base.write_pixel(0, 0, &[0.8, 0.2, 0.4, 0.5]);
+        top.write_pixel(0, 0, &[0.2, 0.6, 0.8, 0.25]);
+        let b = base.pixel(0, 0);
+        let t = top.pixel(0, 0);
+        let tolerance = if fmt.sample == photocraft_color::SampleType::U8 { 1.0 / 255.0 } else { 2.0 / 65535.0 };
+        for opacity in [0.0, 0.1, 0.5, 1.0] {
+            let identity = blend_surfaces(&base, &base, BlendMode::Normal, opacity).pixel(0, 0);
+            assert!(identity.iter().zip(&b).all(|(a, b)| (a - b).abs() <= tolerance), "{fmt:?}, {opacity}: {identity:?}");
+            let actual = blend_surfaces(&base, &top, BlendMode::Normal, opacity).pixel(0, 0);
+            let alpha = b[3] * (1.0 - opacity) + t[3] * opacity;
+            assert!((actual[3] - alpha).abs() <= tolerance, "{fmt:?}, {opacity}: {actual:?}");
+            for c in 0..3 {
+                let expected = (b[c] * b[3] * (1.0 - opacity) + t[c] * t[3] * opacity) / alpha;
+                assert!((actual[c] - expected).abs() <= tolerance, "{fmt:?}, {opacity}: {actual:?}");
+            }
+        }
+        // An offset/warp may move coverage into a formerly transparent pixel. Its color
+        // must not be darkened by an undefined transparent backdrop in Multiply mode.
+        let empty = Surface::new(fmt);
+        let actual = blend_surfaces(&empty, &top, BlendMode::Multiply, 0.5).pixel(0, 0);
+        assert!((actual[3] - t[3] * 0.5).abs() <= tolerance);
+        assert!(actual[..3].iter().zip(&t[..3]).all(|(a, b)| (a - b).abs() <= tolerance));
+    }
+    let mut hdr = Surface::new(PixelFormat::RGBA32F);
+    hdr.write_pixel(0, 0, &[2.5, -0.25, 0.4, 0.5]);
+    assert_eq!(blend_surfaces(&hdr, &hdr, BlendMode::Normal, 0.5).pixel(0, 0), hdr.pixel(0, 0));
+}
+
+#[test]
+fn non_normal_filter_blending_uses_source_over_coverage() {
+    for fmt in [PixelFormat::RGBA8, PixelFormat::RGBA16, PixelFormat::RGBA32F] {
+        let tolerance = if fmt.sample == photocraft_color::SampleType::U8 { 1.0 / 255.0 } else { 2.0 / 65535.0 };
+        for (backdrop_alpha, source_alpha) in [(0.5, 0.25), (0.0, 0.5), (0.5, 0.0)] {
+            let mut base = Surface::new(fmt);
+            let mut top = Surface::new(fmt);
+            base.write_pixel(0, 0, &[0.8, 0.2, 0.4, backdrop_alpha]);
+            top.write_pixel(0, 0, &[0.2, 0.6, 0.8, source_alpha]);
+            let b = base.pixel(0, 0);
+            let t = top.pixel(0, 0);
+            for mode in [BlendMode::Multiply, BlendMode::Screen] {
+                for opacity in [0.0, 0.1, 0.5, 1.0] {
+                    let actual = blend_surfaces(&base, &top, mode, opacity).pixel(0, 0);
+                    let source = t[3] * opacity;
+                    let alpha = source + b[3] * (1.0 - source);
+                    assert!((actual[3] - alpha).abs() <= tolerance, "{fmt:?}, {mode:?}, {opacity}: {actual:?}");
+                    if alpha > 0.0 {
+                        for c in 0..3 {
+                            let mixed = if mode == BlendMode::Multiply { b[c] * t[c] } else { b[c] + t[c] - b[c] * t[c] };
+                            // W3C compositing: source-only, backdrop-only, and their blended overlap.
+                            let expected = (source * (1.0 - b[3]) * t[c] + b[3] * (1.0 - source) * b[c] + source * b[3] * mixed) / alpha;
+                            assert!((actual[c] - expected).abs() <= tolerance, "{fmt:?}, {mode:?}, {opacity}: {actual:?}");
+                        }
+                    }
+                }
+            }
+        }
+    }
 }
 
 /// Issue #466: an explicit `layer` target is checked instead of the active layer, which stays

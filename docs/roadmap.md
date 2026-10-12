@@ -59,10 +59,25 @@ Enabled stacks containing visible unsupported filters block this adjustment-crea
 parameter-editing workflow to protect the imported cached appearance; other existing stack
 actions retain their behavior.
 RGB Levels/Curves and default Shadows/Highlights round-trip as live PSD filters; custom
-Shadows/Highlights and CMYK/Lab channel settings still warn on PSD export. Hue/Saturation
-Smart Filters, the remaining filter math differences, and third-party acceptance of generated
-PSDs remain open. See [workflow and limits](smart-adjustments.md). Corpus floors and overall
+Shadows/Highlights and CMYK/Lab channel settings still warn on PSD export. The remaining
+filter math differences and third-party acceptance of generated PSDs remain open.
+See [workflow and limits](smart-adjustments.md). Corpus floors and overall
 parity estimates are unchanged.
+
+2026-10-12 continuation: Hue/Saturation and Colorize now use the same native Smart Filter
+creation, re-edit, preview, cancel, history and save/reopen workflow. All six hue ranges are
+retained, including while Colorize is enabled. Partial range/channel patches preserve
+unrelated controls, and Colorize honors saturation below 25% on CPU and GPU. A generated
+PSD keeps the rendered cache and warns that live Hue/Saturation settings are omitted;
+the adjustment-layer `hue2` block is not treated as proof of a Smart Filter descriptor.
+Brush, Pencil and Eraser now paint the stack's filter mask with a cancellable live
+preview and one undo step. The first stroke coherently refreshes a stale linked or
+imported cache; local dabs preserve HDR samples and the original source. Stack rows
+have collapse, a real mask thumbnail, blending preview, same-layer drag reordering
+and context actions. Nonzero mask feather is explicitly refused until feather-aware
+painting lands, and density/feather PSD interchange remains open.
+The broader remaining work and the limits of the available reference evidence are tracked
+in [the full parity plan](full-parity-plan.md).
 
 On 2026-10-11, a synthetic 24 MP Smart Object Levels re-edit measured **0.520 s full size
 versus 0.230 s at a 4× reduced preview** in release (three-run medians, four Rayon threads,

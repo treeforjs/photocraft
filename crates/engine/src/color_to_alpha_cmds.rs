@@ -65,9 +65,10 @@ fn validate(p: &Value) -> Result<()> {
             crate::commands::parse_hex(s).ok_or_else(|| bad(format!("`color` must be \"#rrggbb\", not {s:?}")))?;
         }
         Some(Value::Array(a)) if (3..=4).contains(&a.len()) => {
-            if !a.iter().all(|v| v.as_f64().is_some_and(|x| x.is_finite() && (0.0..=1.0).contains(&x))) {
-                return Err(bad("`color` as an array must hold 3 or 4 numbers in 0..1"));
-            }
+            a.iter()
+                .all(|v| v.as_f64().is_some_and(|x| x.is_finite() && (0.0..=1.0).contains(&x)))
+                .then_some(())
+                .ok_or_else(|| bad("`color` as an array must hold 3 or 4 numbers in 0..1"))?;
         }
         Some(_) => return Err(bad("`color` must be \"#rrggbb\" or [r, g, b] in 0..1")),
     }

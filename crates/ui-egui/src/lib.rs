@@ -135,6 +135,8 @@ pub mod shortcuts;
 mod sizing;
 pub mod slice_ui;
 mod smart_adjust_preview;
+pub mod smart_filter_rows;
+pub mod smart_mask_ui;
 pub mod smart_ui;
 pub mod snap_ui;
 pub(crate) mod solid_fill_ui;
@@ -1383,6 +1385,7 @@ impl PhotocraftApp {
     /// ⌘I then inverts the mask, as in Photoshop (#780). A targeted alpha channel or Quick Mask
     /// mode wins, as the engine routes those itself.
     pub fn with_mask_target(&self, id: &str, params: Value) -> Value {
+        let params = smart_mask_ui::with_target(self, id, params);
         if !self.ui.mask_target || !photocraft_engine::channel_cmds::follows_target(id) || params.get("target").is_some() {
             return params;
         }
@@ -1403,15 +1406,20 @@ impl PhotocraftApp {
     /// Viewing a layer mask (#196) targets it; a vector-mask target needs a vector mask on the
     /// active layer (a shape layer's path is its content, not a mask).
     fn sync_mask_targets(&mut self) {
+        smart_mask_ui::sync(self);
+        smart_filter_rows::sync(self);
         let Some(st) = self.session.active() else { return };
         if photocraft_engine::mask_view_cmds::current(st).is_some() {
             self.ui.mask_target = true;
             self.ui.vector_mask_target = false;
         }
+        if self.ui.mask_target || self.ui.vector_mask_target {
+            self.ui.smart_filter_mask_target = None;
+        }
         if self.ui.vector_mask_target && !mask_thumbs_ui::has_vector_mask(st) {
             self.ui.vector_mask_target = false;
         }
-        if self.ui.mask_target && !st.active_layer.and_then(|id| st.doc.layer(id)).is_some_and(|l| l.mask.is_some()) {
+        if self.ui.mask_target && st.active_layer.and_then(|id| st.doc.layer(id)).is_none_or(|l| l.mask.is_none()) {
             self.ui.mask_target = false;
         }
     }
@@ -1430,6 +1438,9 @@ impl PhotocraftApp {
             let mut pending: Vec<_> = documents.iter().flat_map(|st| &st.doc.layers).collect();
             while let Some(layer) = pending.pop() {
                 live.insert((layer.id, mask_thumbs_ui::THUMB_LAYER));
+                if matches!(&layer.content, photocraft_doc::LayerContent::Smart(smart) if !smart.smart_filters.is_empty()) {
+                    live.insert((layer.id, smart_mask_ui::THUMB));
+                }
                 if layer.mask.is_some() {
                     live.insert((layer.id, mask_thumbs_ui::THUMB_MASK));
                 }
@@ -1826,6 +1837,9 @@ mod move_auto_select_tests;
 mod mask_thumb_refresh_tests;
 
 #[cfg(test)]
+mod smart_mask_tests;
+
+#[cfg(test)]
 mod new_doc_remember_tests;
 
 #[cfg(test)]
@@ -2061,3 +2075,6 @@ mod channel_tint_tests {
         assert_eq!(channel_tint(Rgb, 0, 77, false), Color32::from_gray(77));
     }
 }
+
+#[cfg(test)]
+mod smart_filter_rows_tests;

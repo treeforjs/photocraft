@@ -878,6 +878,16 @@ pub struct UiState {
     /// tools edit it (#196). Never set together with `mask_target`.
     #[serde(default)]
     pub vector_mask_target: bool,
+    /// Smart Filter mask selected on a specific document and layer. This transient selection
+    /// is inspectable but is never restored from persisted UI settings.
+    #[serde(default, skip_deserializing)]
+    pub smart_filter_mask_target: Option<crate::smart_mask_ui::Target>,
+    /// Per-document Smart Filter stack disclosure state. View-only and inspectable.
+    #[serde(default, skip_deserializing)]
+    pub smart_filter_stacks: Vec<crate::smart_filter_rows::StackView>,
+    /// A drag binds to the original stack revision; it cannot retarget another layer.
+    #[serde(default, skip_deserializing)]
+    pub smart_filter_drag: Option<crate::smart_filter_rows::FilterDrag>,
     /// Brush Preset picker opened by a right-click on the canvas or the options-bar brush chip:
     /// its screen position (points).
     #[serde(default)]
@@ -1020,6 +1030,9 @@ impl Default for UiState {
             symmetry_transform: None,
             mask_target: false,
             vector_mask_target: false,
+            smart_filter_mask_target: None,
+            smart_filter_stacks: Vec::new(),
+            smart_filter_drag: None,
             brush_picker: None,
             brush_picker_list: crate::brush_picker::list_state(),
             layer_menu: None,

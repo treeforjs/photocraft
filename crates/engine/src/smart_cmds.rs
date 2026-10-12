@@ -289,8 +289,13 @@ pub fn stack_image(file_name: &str, bytes: &[u8], fmt: PixelFormat, mode: photoc
 
 // ---------- rendering ----------
 
-/// `top` blended over `base` with `mode` at `opacity` (a smart filter's blending options).
+/// Normal filter opacity interpolates the original and filtered alternatives, preserving
+/// neutral adjustments on translucent pixels. Other modes retain source-over coverage,
+/// including filtered pixels extending beyond the input (verified by the PSD Screen oracle).
 fn blend_surfaces(base: &Surface, top: &Surface, mode: BlendMode, opacity: f32) -> Surface {
+    if opacity <= 0.0 {
+        return base.clone();
+    }
     let fmt = base.format();
     let area = base.content_bounds().union(&top.content_bounds());
     let mut out = base.clone();
@@ -301,8 +306,23 @@ fn blend_surfaces(base: &Surface, top: &Surface, mode: BlendMode, opacity: f32) 
     let (b, t) = (base.read_region(area), top.read_region(area));
     let mut o = vec![0.0f32; b.len()];
     for ((bp, tp), op) in b.chunks_exact(n).zip(t.chunks_exact(n)).zip(o.chunks_exact_mut(n)) {
-        let rgba = photocraft_color::blend::composite(mode, photocraft_raster::to_rgba(&fmt, bp), photocraft_raster::to_rgba(&fmt, tp), opacity);
-        photocraft_raster::from_rgba_into(&fmt, rgba, op);
+        if mode == BlendMode::Normal {
+            // Keep native channels (including CMYK/Lab and HDR values) lossless at endpoints.
+            let color_channels = fmt.mode.color_channels();
+            let ab = if fmt.alpha { bp[color_channels] } else { 1.0 };
+            let at = if fmt.alpha { tp[color_channels] } else { 1.0 };
+            let alpha = ab + (at - ab) * opacity;
+            for c in 0..color_channels {
+                let premultiplied = bp[c] * ab + (tp[c] * at - bp[c] * ab) * opacity;
+                op[c] = if alpha > 0.0 { premultiplied / alpha } else { 0.0 };
+            }
+            if fmt.alpha {
+                op[color_channels] = alpha;
+            }
+        } else {
+            let rgba = photocraft_color::blend::composite(mode, photocraft_raster::to_rgba(&fmt, bp), photocraft_raster::to_rgba(&fmt, tp), opacity);
+            photocraft_raster::from_rgba_into(&fmt, rgba, op);
+        }
     }
     out.write_region(area, &o);
     out.prune();
@@ -310,13 +330,21 @@ fn blend_surfaces(base: &Surface, top: &Surface, mode: BlendMode, opacity: f32) 
 }
 
 /// Mixes `filtered` over `base` through the filter mask (premultiplied, any channel layout).
-fn mask_mix(base: &Surface, filtered: &Surface, mask: &LayerMask) -> Surface {
-    let fmt = base.format();
+pub(crate) fn mask_mix(base: &Surface, filtered: &Surface, mask: &LayerMask) -> Surface {
     let area = base.content_bounds().union(&filtered.content_bounds());
     let mut out = filtered.clone();
+    mask_mix_region(base, filtered, mask, &mut out, area);
+    out.prune();
+    out
+}
+
+/// The same mix used by a full render, restricted to a changed mask region. Live painting
+/// preserves every cache tile outside this region and never prunes/scans the whole surface.
+pub(crate) fn mask_mix_region(base: &Surface, filtered: &Surface, mask: &LayerMask, out: &mut Surface, area: Rect) {
     if area.is_empty() {
-        return out;
+        return;
     }
+    let fmt = base.format();
     let n = fmt.channels();
     let (b, f) = (base.read_region(area), filtered.read_region(area));
     let mut k = Vec::new();
@@ -335,12 +363,15 @@ fn mask_mix(base: &Surface, filtered: &Surface, mask: &LayerMask) -> Surface {
         op[a] = oa;
         for c in 0..a {
             let pm = bp[c] * bp[a] + (fp[c] * fp[a] - bp[c] * bp[a]) * m;
-            op[c] = if oa > 0.0 { (pm / oa).clamp(0.0, 1.0) } else { 0.0 };
+            op[c] = if oa > 0.0 {
+                let value = pm / oa;
+                if fmt.sample == photocraft_color::SampleType::F32 { value } else { value.clamp(0.0, 1.0) }
+            } else {
+                0.0
+            };
         }
     }
     out.write_region(area, &o);
-    out.prune();
-    out
 }
 
 /// Runs the smart filter stack on the placed (unfiltered) content.
@@ -857,8 +888,24 @@ fn update_all(s: &mut Session) -> Result<Value> {
 
 // ---------- smart filter editing ----------
 
-/// Check a dialog's target before a live preview can resolve its linked source. Automation
-/// authorization belongs to the live session; preview worker sessions have no filesystem gate.
+/// Prepare the two alternatives a filter mask mixes. Check source and stored-filter inputs
+/// under the captured request authority before the first source read, then render each once.
+pub(crate) fn prepare_mask_pixels(s: &Session, id: LayerId, authorize: Option<fn(&str, &Value) -> Result<()>>) -> Result<(Surface, Surface)> {
+    let doc = &s.active().ok_or(EngineError::NoDocument)?.doc;
+    crate::commands::check_pixels_unlocked(doc, id)?;
+    let sm = smart(doc, id)?;
+    check_renderable_filters(sm)?;
+    authorize_source_with(authorize, "layer.smartFilter.setParams", doc, &sm.source)?;
+    authorize_filter_stack(authorize, sm)?;
+    let base = render_below_filter(doc, sm, 0)?.ok_or_else(|| other("the Smart Object source is unavailable; relink it before painting its filter mask"))?;
+    let mut unmasked = sm.clone();
+    unmasked.filter_mask = None;
+    let filtered = apply_smart_filters(&base, &unmasked, doc.bounds());
+    Ok((base, filtered))
+}
+
+/// Check a dialog's target before a live preview can resolve its linked source. The live
+/// session supplies the current authority; delayed preview sessions retain its captured gate.
 pub fn check_filter_edit(s: &Session, id: LayerId) -> Result<()> {
     let doc = &s.active().ok_or(EngineError::NoDocument)?.doc;
     crate::commands::check_pixels_unlocked(doc, id)?;
@@ -930,15 +977,13 @@ fn set_filter_params(s: &mut Session, p: &Value) -> Result<Value> {
         if f.command == photocraft_io::smart_map::UNSUPPORTED_FILTER {
             return Err(bad(CMD, "this smart filter isn't implemented in PhotoCraft: it is kept as is (it can be hidden, moved or deleted)"));
         }
-        match (&mut f.params, new) {
-            (Value::Object(old), Value::Object(n)) => old.extend(n),
-            (slot, n) => *slot = n,
-        }
         if let Some(kind) = f.command.strip_prefix("image.adjustments.").filter(|kind| crate::smart_adjust_cmds::supported(kind)) {
-            if !f.params.is_object() {
-                return Err(bad(CMD, "adjustment parameters must be an object"));
+            f.params = crate::smart_adjust_cmds::merge_parameters(kind, &f.params, &new, mode)?;
+        } else {
+            match (&mut f.params, new) {
+                (Value::Object(old), Value::Object(n)) => old.extend(n),
+                (slot, n) => *slot = n,
             }
-            f.params = crate::smart_adjust_cmds::parameters(kind, &f.params, mode)?;
         }
         Ok(())
     })
@@ -946,11 +991,20 @@ fn set_filter_params(s: &mut Session, p: &Value) -> Result<Value> {
 
 fn blending_options(s: &mut Session, p: &Value) -> Result<Value> {
     const CMD: &str = "layer.smartFilter.blendingOptions";
-    let blend = match p.get("blend").and_then(Value::as_str) {
-        Some(b) => Some(blend_from_str(b).filter(|m| *m != BlendMode::PassThrough).ok_or_else(|| bad(CMD, format!("unknown blend mode `{b}`")))?),
+    let blend = match p.get("blend") {
+        Some(value) => {
+            let b = value.as_str().ok_or_else(|| bad(CMD, "`blend` must be a blend-mode name"))?;
+            Some(blend_from_str(b).filter(|m| *m != BlendMode::PassThrough).ok_or_else(|| bad(CMD, format!("unknown blend mode `{b}`")))?)
+        }
         None => None,
     };
-    let opacity = p.get("opacity").and_then(Value::as_f64).map(|o| if o > 1.0 { o / 100.0 } else { o } as f32);
+    let opacity = p
+        .get("opacity")
+        .map(|value| -> Result<f32> {
+            let o = value.as_f64().filter(|o| o.is_finite()).ok_or_else(|| bad(CMD, "`opacity` must be a finite number"))?;
+            Ok(if o > 1.0 { o / 100.0 } else { o } as f32)
+        })
+        .transpose()?;
     edit_filters(s, p, "Smart Filter Blending Options", |sm| {
         let i = filter_index(CMD, p, sm)?;
         let f = &mut sm.smart_filters[i];
@@ -977,7 +1031,12 @@ fn move_filter(s: &mut Session, p: &Value) -> Result<Value> {
     edit_filters(s, p, "Move Smart Filter", |sm| {
         let i = filter_index(CMD, p, sm)?;
         let n = sm.smart_filters.len();
-        let to = p.get("to").and_then(Value::as_u64).map(|t| t as usize).filter(|t| *t < n).ok_or_else(|| bad(CMD, format!("`to` must be 0..{n}")))?;
+        let to = p
+            .get("to")
+            .and_then(Value::as_u64)
+            .and_then(|t| usize::try_from(t).ok())
+            .filter(|t| *t < n)
+            .ok_or_else(|| bad(CMD, format!("`to` must be 0..{n}")))?;
         let f = sm.smart_filters.remove(i);
         sm.smart_filters.insert(to, f);
         Ok(())

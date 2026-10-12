@@ -348,6 +348,19 @@ pub(crate) fn invoke_unguarded(app: &mut PhotocraftApp, ctx: &egui::Context, id:
                 crate::export_dialog::quick_export_layer_png(app, layer)
             }
         }
+        "layer.smartFilter.blendingOptions" if params.as_object().is_none_or(|o| o.is_empty()) => {
+            let layer = app.session.active().and_then(|state| state.active_layer).ok_or("no active layer")?;
+            let index = app
+                .session
+                .active()
+                .and_then(|state| state.doc.layer(layer))
+                .and_then(|layer| match &layer.content {
+                    photocraft_doc::LayerContent::Smart(smart) => smart.smart_filters.len().checked_sub(1),
+                    _ => None,
+                })
+                .ok_or("select a Smart Object with Smart Filters")?;
+            crate::smart_filter_rows::open_blending(app, layer, index).map(|dialog| json!({"dialog": dialog}))
+        }
         "layer.layerStyle.blendingOptions" if params.as_object().is_none_or(|o| o.is_empty()) => {
             crate::layer_style::open(app, Some(crate::layer_style::BLENDING)).map(|d| json!({"dialog": d})).ok_or_else(|| "no active layer".to_string())
         }

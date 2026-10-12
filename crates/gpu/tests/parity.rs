@@ -220,6 +220,8 @@ fn adjustments() -> Vec<Adjustment> {
         },
         Adjustment::HueSaturation { hue: 40.0, saturation: 30.0, lightness: -10.0, colorize: false, ranges: HueRange::defaults() },
         Adjustment::HueSaturation { hue: 200.0, saturation: 50.0, lightness: 20.0, colorize: true, ranges: HueRange::defaults() },
+        Adjustment::HueSaturation { hue: 0.0, saturation: 0.0, lightness: 0.0, colorize: true, ranges: HueRange::defaults() },
+        Adjustment::HueSaturation { hue: 120.0, saturation: 10.0, lightness: 0.0, colorize: true, ranges: HueRange::defaults() },
         Adjustment::HueSaturation { hue: -10.0, saturation: 10.0, lightness: 5.0, colorize: false, ranges: hue_ranges() },
         Adjustment::Vibrance { vibrance: 50.0, saturation: -20.0 },
         Adjustment::Vibrance { vibrance: -60.0, saturation: 0.0 },
@@ -294,6 +296,7 @@ fn adjustment_layers() {
             check(&mut g, &d, &format!("{} {mode:?}", adj.label()));
         }
     }
+    eprintln!("GPU adjustment parity rendered {} cases through both full and paged compositors", 6 + adjustments().len() * 2);
 }
 
 #[test]

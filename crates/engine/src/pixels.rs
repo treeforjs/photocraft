@@ -12,6 +12,9 @@ use photocraft_raster::{Surface, from_rgba, to_rgba};
 /// than four full-layer copies, and the result is the same as one pass over the whole region.
 pub fn adjust_surface(s: &mut Surface, adj: &Adjustment, selection: Option<&Surface>, mode: photocraft_color::ColorMode) {
     use rayon::prelude::*;
+    if identity_hue(adj) {
+        return;
+    }
     let r = s.content_bounds();
     if r.is_empty() {
         return;
@@ -41,6 +44,9 @@ mod tests;
 /// the mask's default value), and without a selection the default changes too, since a mask
 /// reaches past the canvas: Invert turns a reveal-all mask into a hide-all one (#780).
 pub fn adjust_mask(s: &mut Surface, adj: &Adjustment, selection: Option<&Surface>) {
+    if identity_hue(adj) {
+        return;
+    }
     let mode = photocraft_color::ColorMode::Grayscale;
     if let Some(sel) = selection {
         let r = sel.content_bounds();
@@ -60,6 +66,14 @@ pub fn adjust_mask(s: &mut Surface, adj: &Adjustment, selection: Option<&Surface
     }
     out.prune();
     *s = out;
+}
+
+/// A neutral Hue/Saturation command must keep the native samples, not round-trip them
+/// through RGB. That conversion can change CMYK ink separation and clip HDR values even
+/// though none of the controls requests an adjustment. Custom range bounds alone are inert.
+fn identity_hue(adj: &Adjustment) -> bool {
+    matches!(adj, Adjustment::HueSaturation { hue, saturation, lightness, colorize: false, ranges }
+        if *hue == 0.0 && *saturation == 0.0 && *lightness == 0.0 && ranges.iter().all(|range| range.is_neutral()))
 }
 
 /// `s`'s pixels over `r` (untouched ones included) with `adj` applied through the selection, encoded.

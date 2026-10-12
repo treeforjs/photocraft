@@ -256,6 +256,7 @@ fn params_contain_ambient_path(id: &str, params: &Value) -> bool {
         | "layer.smartObjects.convertToLayers"
         | "image.adjustments.levels"
         | "image.adjustments.curves"
+        | "image.adjustments.hueSaturation"
         | "image.adjustments.shadowsHighlights" => &["path"],
         id if id.starts_with("layer.smartFilter.") => &["path"],
         "image.mode.rgb" | "image.mode.grayscale" | "image.mode.cmyk" | "image.mode.lab" => &["profile"],
@@ -615,7 +616,7 @@ mod tests {
         };
         use serde_json::json;
 
-        let adjustments = ["image.adjustments.levels", "image.adjustments.curves", "image.adjustments.shadowsHighlights"];
+        let adjustments = ["image.adjustments.levels", "image.adjustments.curves", "image.adjustments.hueSaturation", "image.adjustments.shadowsHighlights"];
         for id in adjustments
             .into_iter()
             .chain(photocraft_engine::commands::command_specs().iter().map(|spec| spec.id).filter(|id| id.starts_with("layer.smartFilter.")))

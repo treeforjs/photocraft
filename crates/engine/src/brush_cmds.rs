@@ -230,7 +230,7 @@ fn damage_json(s: &mut Session, dmg: Rect) -> Value {
 /// The target layer (`None` for a channel), brush and zoom of a stroke. On a mask or channel the
 /// eraser paints the background colour (Photoshop).
 fn stroke_target(s: &Session, p: &Value, brush: BrushSettings) -> Result<(Option<photocraft_doc::LayerId>, BrushSettings, f32)> {
-    let gray = is_mask_target(p) || crate::channel_cmds::is_channel_target(p);
+    let gray = is_mask_target(p) || crate::channel_cmds::is_channel_target(p) || crate::smart_mask_cmds::is_target(p);
     let id = if crate::channel_cmds::is_channel_target(p) { None } else { Some(layer_id(s, p)?) };
     let brush = if gray && brush.erase { BrushSettings { erase: false, color: s.tools.background, ..brush } } else { brush };
     Ok((id, brush, num(p, "zoom").unwrap_or(1.0)))
@@ -246,14 +246,15 @@ fn erase_locked(brush: &mut BrushSettings, lock: bool, bg: [f32; 4]) {
 }
 
 /// Stroke with a resolved brush onto the target layer (pixels or mask).
-fn stroke_with(s: &mut Session, p: &Value, label: &str, brush: BrushSettings, pts: Vec<StrokePoint>, auto_erase: bool) -> Result<Value> {
+fn stroke_with(s: &mut Session, p: &Value, command: &str, label: &str, brush: BrushSettings, pts: Vec<StrokePoint>, auto_erase: bool) -> Result<Value> {
     let bg = s.tools.background;
     let fg = brush.color;
     let symmetry = s.active().and_then(|st| st.symmetry.clone());
     let (id, brush, zoom) = stroke_target(s, p, brush)?;
+    let mut smart_mask = crate::smart_mask_cmds::Prepared::begin(s, command, p, s.authorize)?;
     let dmg = s.edit(label, |doc, _| {
         let sel = doc.selection.clone();
-        let (surf, lock) = crate::channel_cmds::target_surface(doc, id, p)?;
+        let (surf, lock) = crate::smart_mask_cmds::stroke_surface(smart_mask.as_ref(), doc, id, p)?;
         let mut brush = brush;
         erase_locked(&mut brush, lock, bg);
         if auto_erase {
@@ -283,7 +284,10 @@ fn stroke_with(s: &mut Session, p: &Value, label: &str, brush: BrushSettings, pt
         } else {
             render_stroke(surf, &brush, &pts, sel.as_ref(), lock, zoom)
         };
-        Ok(damage)
+        match smart_mask.as_mut() {
+            Some(prepared) => prepared.refresh(doc, damage),
+            None => Ok(damage),
+        }
     })?;
     Ok(damage_json(s, dmg))
 }
@@ -328,7 +332,7 @@ pub fn paint_stroke(s: &mut Session, p: &Value) -> Result<Value> {
     let pts = parse_points(p, "paint.stroke")?;
     let brush = with_blend_mode(resolve_brush(s, p, "paint.stroke")?, p);
     let label = if brush.erase { "Eraser" } else { "Brush Tool" };
-    stroke_with(s, p, label, brush, pts, false)
+    stroke_with(s, p, "paint.stroke", label, brush, pts, false)
 }
 
 /// A `paint.stroke` rendered while it is drawn, onto a copy of the active document, so the canvas
@@ -351,6 +355,7 @@ pub struct LiveStroke {
     lock: bool,
     layer: Option<photocraft_doc::LayerId>,
     params: Value,
+    smart_mask: Option<crate::smart_mask_cmds::Prepared>,
     /// Where the doc shows the stroke's end as finishing it would draw it (see `push`).
     tail: Rect,
 }
@@ -364,7 +369,13 @@ impl LiveStroke {
     /// Start a live stroke of `cmd`: `paint.stroke` (the Brush and Eraser) or `paint.pencil`.
     /// Committing `cmd` with the same params and `"seed": live.seed` gives the same pixels.
     pub fn begin_with(s: &Session, cmd: &str, p: &Value) -> Result<Self> {
-        has_paintable(s).map_err(EngineError::Other)?;
+        Self::begin_with_authorize(s, cmd, p, s.authorize)
+    }
+
+    /// A shell may capture a request's authority before delayed pointer input starts a stroke.
+    /// Smart mask preparation checks it before any source or stored filter input is read.
+    pub fn begin_with_authorize(s: &Session, cmd: &str, p: &Value, authorize: Option<fn(&str, &Value) -> Result<()>>) -> Result<Self> {
+        crate::smart_mask_cmds::enabled(s, cmd, p).unwrap_or_else(|| has_paintable(s)).map_err(EngineError::Other)?;
         let pts = parse_points(p, cmd)?;
         let pencil = match cmd {
             "paint.stroke" => false,
@@ -372,11 +383,12 @@ impl LiveStroke {
             other => return Err(bad(other, "live strokes are `paint.stroke` or `paint.pencil`")),
         };
         let brush = if pencil { pencil_brush(s, p)? } else { with_blend_mode(resolve_brush(s, p, cmd)?, p) };
+        let smart_mask = crate::smart_mask_cmds::Prepared::begin(s, cmd, p, authorize)?;
         let (seed, fg) = (brush.seed, brush.color);
         let (layer, mut brush, zoom) = stroke_target(s, p, brush)?;
         let mut doc = (*s.active().ok_or(EngineError::NoDocument)?.doc).clone();
         let sel = doc.selection.clone();
-        let (surf, lock) = crate::channel_cmds::target_surface(&mut doc, layer, p)?;
+        let (surf, lock) = crate::smart_mask_cmds::stroke_surface(smart_mask.as_ref(), &mut doc, layer, p)?;
         erase_locked(&mut brush, lock, s.tools.background);
         if pencil && flag(p, "autoErase", false) {
             apply_auto_erase(&mut brush, surf, pts.first(), fg, s.tools.background);
@@ -400,6 +412,7 @@ impl LiveStroke {
             lock,
             layer,
             params: p.clone(),
+            smart_mask,
             tail: Rect::EMPTY,
         };
         live.push(&pts)?;
@@ -408,7 +421,8 @@ impl LiveStroke {
 
     /// Everything the stroke has touched so far.
     pub fn bounds(&self) -> Rect {
-        let bounds = self.renderer.bounds().union(&self.tail);
+        let initial = self.smart_mask.as_ref().map_or(Rect::EMPTY, crate::smart_mask_cmds::Prepared::initial_damage);
+        let bounds = self.renderer.bounds().union(&self.tail).union(&initial);
         self.mirrors.iter().zip(&self.mirror_distinct).filter(|(_, distinct)| **distinct).fold(bounds, |b, (r, _)| b.union(&r.bounds()))
     }
 
@@ -432,7 +446,7 @@ impl LiveStroke {
                 mirror.push(&reflected);
             }
         }
-        let (surf, _) = crate::channel_cmds::target_surface(std::sync::Arc::make_mut(&mut self.doc), self.layer, &self.params)?;
+        let (surf, _) = crate::smart_mask_cmds::stroke_surface(self.smart_mask.as_ref(), std::sync::Arc::make_mut(&mut self.doc), self.layer, &self.params)?;
         if self.mirror_distinct.iter().any(|d| *d) {
             // Merge every finished pass once, both here and on commit, including shared axes.
             let old = self.tail;
@@ -460,7 +474,7 @@ impl LiveStroke {
                 std::iter::once(original_preview.bounds()).chain(copies.iter().map(StrokeRenderer::bounds)).filter(|r| !r.is_empty()).collect();
             let damage = original_preview.composite_union_many(&copies, &self.pre, surf, self.sel.as_ref(), self.lock);
             self.tail = bounds;
-            return Ok(damage.union(&bounds));
+            return self.refresh_mask(damage.union(&bounds));
         }
         let mut dmg = Rect::EMPTY;
         let old = std::mem::replace(&mut self.tail, Rect::EMPTY);
@@ -475,7 +489,14 @@ impl LiveStroke {
             self.tail = tail.composite(&self.pre, surf, self.sel.as_ref(), self.lock, false);
             dmg = dmg.union(&self.tail);
         }
-        Ok(dmg)
+        self.refresh_mask(dmg)
+    }
+
+    fn refresh_mask(&mut self, damage: Rect) -> Result<Rect> {
+        match self.smart_mask.as_mut() {
+            Some(prepared) => prepared.refresh(std::sync::Arc::make_mut(&mut self.doc), damage),
+            None => Ok(damage),
+        }
     }
 }
 
@@ -483,7 +504,7 @@ fn pencil(s: &mut Session, p: &Value) -> Result<Value> {
     let pts = parse_points(p, "paint.pencil")?;
     let brush = pencil_brush(s, p)?;
     let label = if brush.erase { "Eraser" } else { "Pencil" };
-    stroke_with(s, p, label, brush, pts, flag(p, "autoErase", false))
+    stroke_with(s, p, "paint.pencil", label, brush, pts, flag(p, "autoErase", false))
 }
 
 fn pct(p: &Value, k: &str, d: f32) -> f32 {
@@ -865,7 +886,7 @@ pub fn specs() -> Vec<CommandSpec> {
         spec!(
             "paint.pencil",
             "Pencil",
-            r##"{"points":[[x,y,pressure?,tiltX?,tiltY?,rotation?,timeMs?,wheel?],…],"brush":{…}?,"preset":name?,"size":0.5..5000 px?,"opacity":0..1?,"color":"#rrggbb"?=foreground,"mode":"normal|multiply|screen|…"="normal","erase":bool?,"autoErase":bool=false,"seed":u64?,"target":"pixels"|"mask"|"quickMask"|{"channel":i}=Channels panel target}"##,
+            r##"{"points":[[x,y,pressure?,tiltX?,tiltY?,rotation?,timeMs?,wheel?],…],"brush":{…}?,"preset":name?,"size":0.5..5000 px?,"opacity":0..1?,"color":"#rrggbb"?=foreground,"mode":"normal|multiply|screen|…"="normal","erase":bool?,"autoErase":bool=false,"seed":u64?,"layer":id?,"target":"pixels"|"mask"|"smartFilterMask"|"quickMask"|{"channel":i}=Channels panel target}"##,
             has_paintable,
             pencil,
             true

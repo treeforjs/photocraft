@@ -22,23 +22,23 @@ note = "smart_map.rs: 14 filters plus a verified Camera Raw subset mapped both w
 [[item]]
 id = "FILE-215-3"
 target = "Filter mask can be painted directly, with undo"
-status = "missing"
+status = "partial"
 issue = 215
-note = "smart_cmds.rs:382 mask only from the selection"
+note = "Brush/Pencil/Eraser target Smart Filter masks with live damaged-region rendering, implicit-white masks, source/stack preservation, cancellation and one undo step. Synthetic tests cover depth, density, HDR, native/PSD defaults, stale linked/imported cache rebasing and authority. Nonzero feather is explicitly refused pending feather-aware painting; density/feather PSD interchange remains incomplete"
 
 [[item]]
 id = "FILE-215-4"
 target = "Adjustments (Hue/Sat + Colorize, Curves, Levels, Shadows/Highlights) apply as Smart Filters"
 status = "partial"
 issue = 215
-note = "Levels, Curves and Shadows/Highlights now append editable Smart Filters from Image › Adjustments, with validated edits, undo/redo, mask/channel routing and native round trips. RGB Levels/Curves and default Shadows/Highlights retain live PSD descriptors; custom Shadows/Highlights and CMYK/Lab channel settings warn on PSD export. Hue/Saturation + Colorize remain missing"
+note = "Levels, Curves, Hue/Saturation (all six ranges and Colorize), and Shadows/Highlights append editable native Smart Filters with validated partial edits, undo/redo, mask/channel routing and native round trips. RGB Levels/Curves and default Shadows/Highlights retain live PSD descriptors; Hue/Saturation, custom Shadows/Highlights and CMYK/Lab channel settings warn and omit live filter settings on PSD export while preserving the cache. Proprietary rendering parity is not established"
 
 [[item]]
 id = "FILE-215-5"
 target = "Smart Filter rows: collapse, mask thumb, blend icon, drag reorder, context menu, live preview"
 status = "partial"
 issue = 215
-note = "smart_ui.rs rows + visibility + editor; Levels/Curves/Shadows-Highlights reopen with complete stored settings and replacement previews, including scaled placement/filter masks. No collapse, drag or context menu; other filter editors retain their existing preview limitations"
+note = "Smart Filter rows now have collapse, grayscale mask targeting, blend icon/dialog with replacement preview, revision-bound same-layer drag reorder and context actions. Levels/Curves/Hue-Saturation/Shadows-Highlights reopen stored settings with scaled placement/filter-mask previews. Other filter editors and full proprietary blend/filter-mathematics equivalence remain incomplete"
 
 [[item]]
 id = "FILE-215-6"

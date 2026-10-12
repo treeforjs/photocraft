@@ -126,6 +126,7 @@ pub fn lone_target<'a>(doc: &'a Document, layer: Option<LayerId>, p: &Value) -> 
     use crate::channel_cmds::Target;
     match crate::channel_cmds::target_of(p) {
         Target::Pixels => Ok(None),
+        Target::SmartFilterMask => Err(EngineError::Other("transforming Smart Filter masks is not supported yet".into())),
         Target::Mask => {
             let id = layer.ok_or_else(|| EngineError::Other("no active layer".into()))?;
             let l = doc.layer(id).ok_or(EngineError::NoLayer(id))?;

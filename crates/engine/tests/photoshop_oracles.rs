@@ -131,3 +131,18 @@ fn photoshop_oracles_rerendered() {
     }
     assert!(pass >= PASS_FLOOR, "re-render oracle pass count {pass} fell below the floor {PASS_FLOOR}");
 }
+
+#[test]
+fn screen_smart_filter_preserves_reference_coverage() {
+    // Changing the overlap/partial-alpha coverage lost this previously passing fixture;
+    // protect the specific case as well as the total floor.
+    let name = "sf-blend-screen-100.psd";
+    let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../corpus/photoshop/smart-filters").join(name);
+    let bytes = std::fs::read(path).expect("pinned Photoshop corpus: run cargo xtask corpus --all");
+    let file = PsdFile::from_bytes(&bytes).unwrap();
+    let merged = photocraft_io::merged_composite(&file).unwrap();
+    let mut doc = photocraft_io::import(name, &bytes).unwrap().document;
+    assert_eq!(rerender(&mut doc).unwrap(), 1);
+    let (max, _) = max_diff(&photocraft_compose::flatten(&doc).px, &merged);
+    assert!(max <= PASS_TOL, "Screen filter coverage changed: {max}");
+}

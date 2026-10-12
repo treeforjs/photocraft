@@ -308,7 +308,7 @@ pub fn hue_saturation(c: [f32; 3], hue: f32, s: f32, l: f32, colorize: bool) -> 
     let (mut hh, mut ss, ll) = rgb_to_hsl(c);
     if colorize {
         hh = hue.rem_euclid(360.0) / 360.0;
-        ss = s.abs().max(0.25);
+        ss = s.clamp(0.0, 1.0);
     } else {
         hh = (hh + hue / 360.0).rem_euclid(1.0);
         ss = (ss * (1.0 + s)).clamp(0.0, 1.0);
@@ -925,6 +925,23 @@ mod tone_tests {
         apply(&a, &mut b);
         let p = b.px[0];
         assert!(p[0] > 0.3 && (p[0] - p[2]).abs() < 0.02, "{p:?}");
+    }
+
+    #[test]
+    fn colorize_respects_zero_and_low_saturation_without_a_hidden_floor() {
+        // HSL lightness is 0.5 here. At red hue, saturation 0.1 gives RGB 0.55/0.45/0.45;
+        // zero saturation must be gray regardless of the requested hue.
+        for (hue, saturation, expected) in [
+            (0.0, 0.0, [0.5, 0.5, 0.5]),
+            (240.0, 0.0, [0.5, 0.5, 0.5]),
+            (0.0, 0.1, [0.55, 0.45, 0.45]),
+            (120.0, 0.1, [0.45, 0.55, 0.45]),
+            (0.0, 0.24, [0.62, 0.38, 0.38]),
+            (0.0, 1.0, [1.0, 0.0, 0.0]),
+        ] {
+            let actual = hue_saturation([0.8, 0.2, 0.2], hue, saturation, 0.0, true);
+            assert!(actual.iter().zip(expected).all(|(a, b)| (a - b).abs() < 1e-6), "hue={hue}, saturation={saturation}: {actual:?}");
+        }
     }
 
     #[test]

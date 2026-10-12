@@ -1815,8 +1815,10 @@ fn layers(app: &mut PhotocraftApp, ui: &mut egui::Ui) {
             // An fx drag that never saw its release (the panel was hidden) must not outlive the button.
             if !ctx.input(|i| i.pointer.primary_down() || i.pointer.any_released()) {
                 ctx.data_mut(|d| d.remove::<FxDrag>(fx_drag_key()));
+                app.ui.smart_filter_drag = None;
             }
-            let held = ctx.data(|d| d.get_temp::<u64>(egui::Id::new("layer-drag")).is_some() || d.get_temp::<FxDrag>(fx_drag_key()).is_some());
+            let held = app.ui.smart_filter_drag.is_some()
+                || ctx.data(|d| d.get_temp::<u64>(egui::Id::new("layer-drag")).is_some() || d.get_temp::<FxDrag>(fx_drag_key()).is_some());
             let dragging = held && ctx.input(|i| i.pointer.primary_down());
             let pointer = ctx.input(|i| i.pointer.interact_pos());
             let delta = layer_drag_edge_scroll(pointer, ui.clip_rect(), dragging, ctx.input(|i| i.stable_dt));
@@ -1962,14 +1964,32 @@ fn layers(app: &mut PhotocraftApp, ui: &mut egui::Ui) {
         }
     });
     for (id, p) in actions {
+        if let Some(result) = crate::smart_filter_rows::action(app, ui.ctx(), &id, &p) {
+            if let Err(error) = result {
+                app.ui.status = error;
+                app.ui.status_error = true;
+            }
+            continue;
+        }
+        if id == "ui.smartFilterMaskTarget" {
+            if let Some(layer) = p.get("layer").and_then(Value::as_u64)
+                && let Err(error) = crate::smart_mask_ui::select(app, photocraft_doc::LayerId(layer))
+            {
+                app.ui.status = error;
+                app.ui.status_error = true;
+            }
+            continue;
+        }
         if id == "ui.maskTarget" {
             app.ui.mask_target = p.as_bool().unwrap_or(false);
             app.ui.vector_mask_target = false;
+            app.ui.smart_filter_mask_target = None;
             continue;
         }
         if id == "ui.vectorMaskTarget" {
             app.ui.vector_mask_target = p.as_bool().unwrap_or(false);
             app.ui.mask_target = false;
+            app.ui.smart_filter_mask_target = None;
             continue;
         }
         if p.is_null() {
@@ -1983,6 +2003,7 @@ fn layers(app: &mut PhotocraftApp, ui: &mut egui::Ui) {
         }
         let _ = app.run(&id, p);
     }
+    crate::smart_filter_rows::finish_pointer_frame(app, ui.ctx());
 }
 
 /// A layer row dragged onto a Layers panel footer button, as in Photoshop: onto Delete deletes it,
