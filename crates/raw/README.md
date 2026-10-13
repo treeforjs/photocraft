@@ -36,7 +36,7 @@ Implemented only from public specifications, papers and observation of files:
   (prose: the `0x0096` table layout, a lossy curve followed by a fixed-table Huffman stage),
   ExifTool's Nikon tag-name documentation and ITU-T T.81 Annex F / H. The Huffman tables are not
   stored in the files; they were recovered by black-box analysis of CC0 raw.pixls.us samples (the
-  same scenes shot compressed and uncompressed) for LightCraft (storytold/lightcraft#86) and
+  same scenes shot compressed and uncompressed) for LightCraft (treeforjs/lightcraft#86) and
   verified there on ~45 files from ~35 bodies.
 * Sony cRAW (ARW 2): H. Dietz, "Sony ARW2 Compression: Artifacts And Credible Repair"
   (Electronic Imaging 2016) and the RawDigger / diglloyd write-ups of the 11 + 7-bit scheme;

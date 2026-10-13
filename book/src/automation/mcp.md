@@ -29,12 +29,21 @@ The release packages ship `photocraft-cli` alongside the desktop app, so no buil
 | Linux (deb, rpm) | `/usr/bin/photocraft-cli` |
 | macOS | the separate `photocraft-cli-<version>-macos-<arch>.zip` release asset (the `.app` holds only the desktop app) |
 
-```sh
-# Windows, default install folder
-claude mcp add photocraft -- "C:\Program Files\PhotoCraft\photocraft-cli.exe" mcp --automation-read-root <dir> --automation-write-root <dir>
-# Linux, or macOS with the CLI unzipped onto PATH
-claude mcp add photocraft -- photocraft-cli mcp --automation-read-root <dir> --automation-write-root <dir>
+Register that binary with your MCP client. Most clients take a JSON entry shaped like this; the
+command and arguments are the same whichever client you use:
+
+```json
+{
+  "mcpServers": {
+    "photocraft": {
+      "command": "C:\\Program Files\\PhotoCraft\\photocraft-cli.exe",
+      "args": ["mcp", "--automation-read-root", "<dir>", "--automation-write-root", "<dir>"]
+    }
+  }
+}
 ```
+
+On Linux, or on macOS with the CLI unzipped onto `PATH`, the command is simply `photocraft-cli`.
 
 ## Security notes
 

@@ -796,7 +796,7 @@ const PHOTOSHOP: Source = Source { label: "photoshop oracles", dir: "corpus/phot
         let ok = "area = \"tools\"\ntitle = \"Tools\"\norder = 3\n[[item]]\nid = \"T-1\"\ntarget = \"Pencil\"\nstatus = \"partial\"\nissue = 213\n";
         let c = parse_checklist("t.toml", ok).unwrap();
         assert_eq!(c.counts(), (0, 1, 0));
-        assert!(render_checklist(&c).contains("| T-1 | Pencil | partial | [#213](https://github.com/storytold/photocraft/issues/213) |  |"));
+        assert!(render_checklist(&c).contains("| T-1 | Pencil | partial | [#213](https://github.com/treeforjs/photocraft/issues/213) |  |"));
         assert!(parse_checklist("t.toml", &ok.replace("partial", "almost")).is_err(), "status must be done|partial|missing");
         assert!(parse_checklist("t.toml", &ok.replace("Pencil", "a | b")).is_err());
         assert!(parse_checklist("t.toml", &format!("{ok}bogus = 1\n")).is_err());

@@ -447,10 +447,8 @@
 
 # Help
 	About PhotoCraft	Про PhotoCraft
-	PhotoCraft Website	Вебсайт PhotoCraft
 	PhotoCraft on GitHub	PhotoCraft на GitHub
 	Report an Issue…	Повідомити про проблему…
-	ArtCraft Website	Вебсайт ArtCraft
 	System Info…	Інформація про систему…
 
 # Tools and options bar
@@ -1546,8 +1544,6 @@
 	Preserve Transparency	Зберігати прозорість
 	Reverse	Зворотний
 	Align with layer	Вирівняти за шаром
-	PhotoCraft website	Вебсайт PhotoCraft
-	ArtCraft	ArtCraft
 	GitHub	GitHub
 	No character style	Без стилю символів
 	No author	Автор відсутній

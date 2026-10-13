@@ -15,7 +15,7 @@ These X11 and Wayland checks ran as an ordinary user with Mesa software graphics
 ## Install a package
 
 Download `photocraft-<version>-linux-x86_64.deb` and `SHA256SUMS.txt` from the same
-[release](https://github.com/storytold/photocraft/releases). From the download
+[release](https://github.com/treeforjs/photocraft/releases). From the download
 directory, replace `<version>` with the downloaded version:
 
 ```sh

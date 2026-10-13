@@ -136,7 +136,7 @@ Confidence: moderate — the next users of 0.2.x will move these numbers either 
 | Localisation | 2026-10-07: 10 UI languages; menu, `tl!`, blend mode, preference and brush-section coverage enforced by tests; live switching and scoped Preferences previews | medium | Engine errors/status messages still partly English; CJK web fonts, browser-locale detection, and RTL remain open. |
 
 2026-10-08: Motion Blur adds adaptive FFT convolution for wide streaks while retaining the
-row kernel merged in [#902](https://github.com/storytold/photocraft/pull/902) for shorter
+row kernel merged in [#902](https://github.com/treeforjs/photocraft/pull/902) for shorter
 streaks and unsupported cases. Native release medians of three paired runs on an Intel
 i7-9750H with 12 Rayon workers, synthetic RGBA8 at 30° / distance 1000: 24 MP
 22.594 → 9.785 s (2.31×), and 1.5 MP

@@ -275,7 +275,7 @@ mod tests {
 
     #[test]
     fn reads_craft_fonts_manifest_lines() {
-        let text = "# Font manifest for the Crafting Apps.\n\
+        let text = "# Font manifest.\n\
             \n\
             BIZ UDPGothic | Regular | fonts/biz-ud-pgothic/BIZUDPGothic-Regular.ttf | Jpan,Latn | OFL-1.1 | fonts/biz-ud-pgothic/OFL.txt | 258d | https://example.org\n\
             Open Sans | Regular | fonts/open-sans/OpenSans[wdth,wght].ttf\n";

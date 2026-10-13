@@ -12,7 +12,7 @@
 # Clean-room: every entry was written from the plain meaning of the English label using ordinary
 # Brazilian Portuguese computing vocabulary (camada, desfoque, seleção, demarcador ...). No
 # proprietary localisation resource, string table or product UI was consulted or copied; add
-# entries the same way. Product and technology names (PhotoCraft, ArtCraft, OpenType, CMYK, Lab ...)
+# entries the same way. Product and technology names (PhotoCraft, OpenType, CMYK, Lab ...)
 # stay as they are; the trailing "…" of dialog commands is kept.
 
 	File	Arquivo
@@ -694,9 +694,7 @@
 	Tool Presets	Predefinições de ferramentas
 	Tools	Ferramentas
 	About PhotoCraft	Sobre o PhotoCraft
-	PhotoCraft Website	Site do PhotoCraft
 	PhotoCraft on GitHub	PhotoCraft no GitHub
-	ArtCraft Website	Site do ArtCraft
 	Report an Issue…	Relatar um problema…
 	WIA Support…	Suporte a WIA…
 	Apply	Aplicar
@@ -1483,7 +1481,6 @@
 	Apple Watch 45mm	Apple Watch 45mm
 	Aqua	Aqua
 	Art & Illustration	Arte e ilustração
-	ArtCraft	ArtCraft
 	Background Eraser Tool	Ferramenta Borracha de plano de fundo
 	Bevel & Emboss	Chanfro e entalhe
 	Blend Mode	Modo de mesclagem
@@ -1618,7 +1615,6 @@
 	Pen Tilt	Inclinação da caneta
 	Pen Tool	Ferramenta Caneta
 	Photo	Foto
-	PhotoCraft website	Site do PhotoCraft
 	Picas	Paicas
 	Pillow Emboss	Entalhe almofadado
 	Pixel Replacement	Substituição de pixels

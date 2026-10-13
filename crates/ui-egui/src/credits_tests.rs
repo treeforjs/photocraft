@@ -173,7 +173,7 @@ fn a_model_with_commits_never_reads_zero_percent() {
 
 #[test]
 fn the_models_table_lines_counts_up_on_the_right_under_a_rule_of_headers() {
-    let models: Vec<Model> = (0..8).map(|i| model("Anthropic", leak(format!("Model {i}")), [228, 45, 6, 2, 2, 1, 1, 1][i])).collect();
+    let models: Vec<Model> = (0..8).map(|i| model("Example Labs", leak(format!("Model {i}")), [228, 45, 6, 2, 2, 1, 1, 1][i])).collect();
     let mut h = Harness::builder().with_size(vec2(WIDTH + 20.0, 520.0)).build_ui(move |ui| {
         if !ui.ctx().fonts(|f| f.families().contains(&egui::FontFamily::Name("semibold".into()))) {
             return;

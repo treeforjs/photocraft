@@ -1,6 +1,6 @@
 # Credits
 
-PhotoCraft is created and maintained by the ArtCraft team and PhotoCraft contributors. Project ownership, copyright, and licensing remain as stated in the repository's `README.md`, `NOTICE`, and license files. Every merged contribution is credited in the repository history and release notes.
+PhotoCraft is maintained by its contributors; this repository is an independent fork of the original project. Copyright and licensing, including the original authors' copyright notice, remain as stated in the repository's `README.md`, `NOTICE` and license files. Every merged contribution is credited in the repository history and release notes.
 
 ## Documentation
 

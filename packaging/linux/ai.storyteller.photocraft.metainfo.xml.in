@@ -26,9 +26,9 @@
   <launchable type="desktop-id">ai.storyteller.photocraft.desktop</launchable>
   <icon type="stock">ai.storyteller.photocraft</icon>
   <!-- Only url types known to appstream 0.15 (Ubuntu 22.04, where CI validates): no vcs-browser. -->
-  <url type="homepage">https://getartcraft.com/apps/photocraft</url>
-  <url type="bugtracker">https://github.com/storytold/photocraft/issues</url>
-  <url type="help">https://github.com/storytold/photocraft</url>
+  <url type="homepage">https://github.com/treeforjs/photocraft</url>
+  <url type="bugtracker">https://github.com/treeforjs/photocraft/issues</url>
+  <url type="help">https://github.com/treeforjs/photocraft</url>
   <categories>
     <category>Graphics</category>
     <category>RasterGraphics</category>
@@ -43,7 +43,7 @@
   <screenshots>
     <screenshot type="default">
       <caption>Editing The Great Wave off Kanagawa with type layers and adjustment layers</caption>
-      <image>https://raw.githubusercontent.com/storytold/photocraft/main/docs/images/photocraft-demo.jpg</image>
+      <image>https://raw.githubusercontent.com/treeforjs/photocraft/main/docs/images/photocraft-demo.jpg</image>
     </screenshot>
   </screenshots>
   <branding>
