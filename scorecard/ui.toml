@@ -64,9 +64,9 @@ note = "paint_mouse.rs brush picker and canvas_tool_menu.rs selection actions; o
 [[item]]
 id = "UI-217-9"
 target = "UI scale presets 100/115/125/150/200 % through zoom_factor, remembered"
-status = "partial"
+status = "done"
 issue = 217
-note = "prefs_ui.rs display_scale maps UiScale to set_zoom_factor (75-300 %); no 115 % preset"
+note = "prefs_ui.rs display_scale maps UiScale (75/100/115/125/150/175/200/250/300 % or Auto) to set_zoom_factor; remembered in Preferences"
 
 [[item]]
 id = "UI-217-10"
