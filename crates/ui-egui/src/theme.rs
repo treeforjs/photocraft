@@ -855,7 +855,18 @@ mod tests {
         assert_eq!(ThemeKind::from_name("Solarized Dark"), Some(ThemeKind::SolarizedDark));
         assert_eq!(ThemeKind::from_name("solarized"), Some(ThemeKind::SolarizedDark));
         let m = Tokens::for_kind(ThemeKind::Craft);
-        assert!(m.pro && m.dark() && m.kind == ThemeKind::Craft && m.card == Color32::from_rgb(83, 83, 83));
+        assert!(m.pro && m.dark() && m.kind == ThemeKind::Craft);
+        // The shared themes are craft-ui's tokens, so PhotoCraft matches the other craft apps.
+        for (kind, mode) in
+            [(ThemeKind::Craft, craft_ui::Mode::Dark), (ThemeKind::CraftLight, craft_ui::Mode::Light), (ThemeKind::HighContrast, craft_ui::Mode::HighContrast)]
+        {
+            let (t, c) = (Tokens::for_kind(kind), craft_ui::Tokens::new(mode, craft_ui::Density::Compact));
+            assert_eq!((t.card, t.accent, t.text, t.dark()), (c.surface, c.accent, c.text, mode != craft_ui::Mode::Light), "{kind:?}");
+        }
+        assert_eq!(ThemeKind::from_name("light"), Some(ThemeKind::CraftLight));
+        assert_eq!(ThemeKind::from_name("highContrast"), Some(ThemeKind::HighContrast));
+        assert_eq!(ThemeKind::from_name("pro"), Some(ThemeKind::Craft));
+        assert_eq!(serde_json::from_str::<ThemeKind>("\"ProMedium\"").ok(), Some(ThemeKind::Craft));
         let s = Tokens::for_kind(ThemeKind::SolarizedDark);
         assert!(s.dark() && !s.bevel && s.kind == ThemeKind::SolarizedDark && s.card == Color32::from_rgb(7, 54, 66));
         assert_eq!(ThemeKind::from_name("neon"), None);

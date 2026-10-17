@@ -1809,7 +1809,7 @@ mod tests {
     fn appearance_resolves_both_saved_themes_and_follows_system() {
         let mut interface = prefs::Interface { appearance_mode: AppearanceMode::Auto, ..prefs::Interface::default() };
         assert_eq!(selected_theme(&interface, Some(egui::Theme::Dark)), ThemeKind::Craft);
-        assert_eq!(selected_theme(&interface, Some(egui::Theme::Light)), ThemeKind::StudioLight);
+        assert_eq!(selected_theme(&interface, Some(egui::Theme::Light)), ThemeKind::CraftLight);
         interface.dark_theme = DarkTheme::Studio;
         interface.light_theme = LightTheme::Classic;
         assert_eq!(selected_theme(&interface, Some(egui::Theme::Dark)), ThemeKind::Studio);
@@ -1828,7 +1828,7 @@ mod tests {
         app.run("prefs.set", json!({"path": "interface.appearanceMode", "value": "auto"})).unwrap();
         let ctx = egui::Context::default();
         tick(&mut app, &ctx);
-        assert_eq!(app.ui.theme, ThemeKind::StudioLight);
+        assert_eq!(app.ui.theme, ThemeKind::CraftLight);
     }
 
     #[test]
@@ -1837,7 +1837,7 @@ mod tests {
         let mut app = PhotocraftApp::new(photocraft_engine::Session::new(), crate::Services::default());
         app.run("prefs.set", json!({"values": {"interface.darkTheme": "studio", "interface.lightTheme": "classic"}})).unwrap();
         for (mode, visible) in
-            [(AppearanceMode::Auto, ThemeKind::Studio), (AppearanceMode::Light, ThemeKind::Classic), (AppearanceMode::Dark, ThemeKind::Studio)]
+            [(AppearanceMode::Light, ThemeKind::Classic), (AppearanceMode::Dark, ThemeKind::Studio), (AppearanceMode::Auto, ThemeKind::Studio)]
         {
             cycle_appearance(&mut app, &ctx);
             assert_eq!(app.session.prefs().interface.appearance_mode, mode);
@@ -1992,11 +1992,11 @@ mod tests {
         assert_eq!(delays, [2.0, 4.0, 8.0, 16.0, SAVE_RETRY_MAX_S, SAVE_RETRY_MAX_S]);
         assert_eq!(app.ui.notices.iter().filter(|n| n.error && n.title == "Preferences can't be saved").count(), 1);
         // A newer change retries sooner than the backoff, but not on every frame.
-        app.run("prefs.set", json!({"values": {"interface.theme": "pro"}})).unwrap();
+        app.run("prefs.set", json!({"values": {"interface.theme": "classic"}})).unwrap();
         assert_eq!(persist(&mut app, now - 29.0), Some(1.0));
         fail.store(false, Ordering::Relaxed);
         assert_eq!(persist(&mut app, now - 28.0), None);
-        assert_eq!(stored(&store)["interface"]["theme"], "pro");
+        assert_eq!(stored(&store)["interface"]["theme"], "classic");
         assert!(app.ui.notices.is_empty(), "the notice goes once preferences are saved");
     }
 
