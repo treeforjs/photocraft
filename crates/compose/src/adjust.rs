@@ -649,8 +649,21 @@ pub fn levels_float(ch: &LevelsChannel, v: f32) -> f32 {
 
 /// Photoshop curve: a natural cubic spline through the points (it may
 /// overshoot between points, as Photoshop's does), constant outside the
-/// first/last point, clamped to 0..=1, sampled into a LUT.
+/// first/last point, clamped to 0..=1, sampled into a LUT. An arbitrary map (drawn with the
+/// pencil, [`photocraft_doc::adjust::is_curve_map`]) joins its points with straight lines.
 pub fn curve_lut(points: &[CurvePoint]) -> Vec<f32> {
+    if photocraft_doc::adjust::is_curve_map(points) {
+        let last = (points.len() - 1) as f32;
+        return (0..LUT_SIZE)
+            .map(|k| {
+                let at = k as f32 / (LUT_SIZE - 1) as f32 * last;
+                let i = at.floor() as usize;
+                let y0 = points.get(i).map_or(1.0, |p| p.output);
+                let y1 = points.get(i + 1).map_or(y0, |p| p.output);
+                (y0 + (y1 - y0) * (at - i as f32)).clamp(0.0, 1.0)
+            })
+            .collect();
+    }
     let mut pts: Vec<(f32, f32)> = points.iter().map(|p| (p.input, p.output)).collect();
     pts.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap_or(std::cmp::Ordering::Equal));
     pts.dedup_by(|a, b| (a.0 - b.0).abs() < 1e-6);

@@ -106,9 +106,9 @@ note = "panels.rs: the wheel steps the blend-mode dropdown (widgets::dropdown_wh
 [[item]]
 id = "UI-217-15"
 target = "Curves: smoothing / pencil mode, black/grey/white eyedroppers, tooltips"
-status = "partial"
+status = "done"
 issue = 217
-note = "adjust_dialog.rs adds black/gray/white eyedroppers; smoothing and pencil modes remain missing"
+note = "adjust_dialog.rs adds black/gray/white eyedroppers; adjust_editors.rs + curve_pencil.rs add Edit Points / Draw (a 256-level map, PSD curv map records) and Smooth, with tooltips"
 
 [[item]]
 id = "UI-217-16"

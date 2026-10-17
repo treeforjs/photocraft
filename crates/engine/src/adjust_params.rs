@@ -11,7 +11,7 @@
 
 use photocraft_color::ColorMode;
 use photocraft_doc::Adjustment;
-use photocraft_doc::adjust::{CurvePoint, HueRange, LevelsChannel, ToneSpace};
+use photocraft_doc::adjust::{CURVE_MAP_LEN, CurvePoint, HueRange, LevelsChannel, ToneSpace};
 use serde_json::{Map, Value, json};
 
 use crate::{EngineError, Result};
@@ -481,8 +481,12 @@ fn curve_arr(c: &[CurvePoint]) -> Value {
     )
 }
 
-/// Most points a curve may have (Photoshop allows 16; the PSD record holds 19).
+/// Most points a curve may have (Photoshop allows 16; the PSD record holds 19). A pencil-drawn
+/// map has [`CURVE_MAP_LEN`] instead.
 pub const MAX_CURVE_POINTS: usize = 19;
+
+/// Points the Curves dialog edits (Photoshop's limit), e.g. when a map turns back into points.
+pub const MAX_EDITOR_CURVE_POINTS: usize = 16;
 
 /// Fixed-target Curves eyedroppers. The UI keeps the sampled operation provisional; this helper
 /// only resolves a sample into an ordinary Curves adjustment that the existing command can apply.
@@ -640,6 +644,10 @@ pub fn curves_eyedropper(base: &Value, picker: CurvesEyedropper, sample: [f32; 3
     let Adjustment::Curves { master, per_channel, .. } = &mut adjustment else {
         return Err(bad("curves eyedropper", "expected a Curves adjustment"));
     };
+    // The pickers move points: a pencil-drawn map becomes the points that shape it first.
+    for curve in std::iter::once(&mut *master).chain(per_channel.iter_mut()) {
+        *curve = photocraft_doc::adjust::curve_map_points(curve, MAX_EDITOR_CURVE_POINTS);
+    }
     let sample = sample.map(|v| v.clamp(0.0, 1.0));
     if mode == ColorMode::Grayscale {
         let tone = (sample[0] + sample[1] + sample[2]) / 3.0;
@@ -715,9 +723,21 @@ pub fn curves_eyedropper_from_params(s: &crate::Session, p: &Value) -> Result<Op
 
 /// `[[in, out], …]` in 0..255: sorted by input, duplicates collapsed, 2..=19 points.
 pub fn parse_curve(cmd: &str, key: &str, v: &Value) -> Result<Vec<CurvePoint>> {
-    let err = || bad(cmd, format!("`{key}` must be an array of 2..={MAX_CURVE_POINTS} [input, output] pairs in 0..255"));
+    let err = || {
+        bad(
+            cmd,
+            format!(
+                "`{key}` must be an array of 2..={MAX_CURVE_POINTS} [input, output] pairs in 0..255, or a pencil-drawn map: {CURVE_MAP_LEN} outputs in 0..255 (or {CURVE_MAP_LEN} pairs, one per input level)"
+            ),
+        )
+    };
     let a = v.as_array().ok_or_else(err)?;
-    if a.len() < 2 || a.len() > 64 {
+    if a.len() == CURVE_MAP_LEN && a.iter().all(Value::is_number) {
+        let outputs: Vec<f32> =
+            a.iter().map(|y| y.as_f64().filter(|y| y.is_finite()).map(|y| (y as f32).clamp(0.0, 255.0) / 255.0)).collect::<Option<_>>().ok_or_else(err)?;
+        return Ok(photocraft_doc::adjust::curve_map(&outputs));
+    }
+    if a.len() < 2 || a.len() > CURVE_MAP_LEN {
         return Err(err());
     }
     let mut pts = Vec::with_capacity(a.len());
@@ -729,7 +749,7 @@ pub fn parse_curve(cmd: &str, key: &str, v: &Value) -> Result<Vec<CurvePoint>> {
     }
     pts.sort_by(|a, b| a.input.total_cmp(&b.input));
     pts.dedup_by(|later, earlier| (later.input - earlier.input).abs() < CURVE_POINT_DUPLICATE_DISTANCE);
-    if pts.len() < 2 || pts.len() > MAX_CURVE_POINTS {
+    if pts.len() < 2 || (pts.len() > MAX_CURVE_POINTS && !photocraft_doc::adjust::is_curve_map(&pts)) {
         return Err(err());
     }
     Ok(pts)
@@ -889,6 +909,31 @@ mod tests {
         assert!(matches!(&a, Adjustment::Curves { space: ToneSpace::Lab, per_channel, .. } if per_channel[0][0].output > 0.1));
         let a = from_params("levels", &json!({"inBlack": 20}), None, ColorMode::Cmyk).unwrap();
         assert!(matches!(&a, Adjustment::Levels { space: ToneSpace::Cmyk, master, .. } if (master.in_black - 20.0 / 255.0).abs() < 1e-6));
+    }
+
+    #[test]
+    fn pencil_drawn_curve_maps_parse_and_round_trip() {
+        let inverted: Vec<u32> = (0..256).rev().collect();
+        let a = from_params("curves", &json!({"red": inverted}), None, ColorMode::Rgb).unwrap();
+        let Adjustment::Curves { per_channel, master, .. } = &a else { panic!("{a:?}") };
+        assert!(photocraft_doc::adjust::is_curve_map(&per_channel[0]));
+        assert_eq!(per_channel[0][0].output, 1.0);
+        assert_eq!(per_channel[0][255].output, 0.0);
+        assert_eq!(master.len(), 2, "the other curves stay point curves");
+        // The params of a map are its 256 pairs, which parse back to the same map.
+        let back = from_params("curves", &to_params(&a), None, ColorMode::Rgb).unwrap();
+        assert_eq!(back, a);
+        // 20 pairs that are not one per level are still too many points.
+        let twenty: Vec<[u32; 2]> = (0..20).map(|i| [i * 13, i * 13]).collect();
+        assert!(from_params("curves", &json!({"points": twenty}), None, ColorMode::Rgb).is_err());
+        let mut bad: Vec<Value> = (0..256).map(|i| json!(i)).collect();
+        bad[7] = json!("x");
+        assert!(from_params("curves", &json!({"points": bad}), None, ColorMode::Rgb).is_err());
+        // The eyedroppers move points, so they turn a map into the points that shape it.
+        let p = json!({"points": (0..256).map(|i| (i / 2) as u32).collect::<Vec<_>>()});
+        let a = curves_eyedropper(&p, CurvesEyedropper::White, [0.9, 0.9, 0.9], ColorMode::Rgb).unwrap();
+        let Adjustment::Curves { master, .. } = &a else { panic!("{a:?}") };
+        assert!(master.len() <= MAX_EDITOR_CURVE_POINTS && !photocraft_doc::adjust::is_curve_map(master), "{master:?}");
     }
 
     #[test]
