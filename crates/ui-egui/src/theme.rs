@@ -26,8 +26,10 @@ pub enum ThemeKind {
     Craft,
     /// The shared craft-ui Light theme (off-white surfaces, no pure white).
     CraftLight,
-    /// The shared craft-ui Cream theme: warm paper surfaces with a red accent (a light theme).
-    Cream,
+    /// The shared craft-ui Warm theme: warm off-white surfaces with a faint rose tint and a red
+    /// accent (a light theme). It was called Cream, then Paper; older saves of either read as this.
+    #[serde(alias = "Cream", alias = "Paper")]
+    Warm,
     /// The shared craft-ui Dim theme: mid-grey surfaces between Light and Dark (a dark theme).
     /// Older saves of the retired medium-grey "ProMedium" theme read as this.
     #[serde(alias = "ProMedium")]
@@ -47,11 +49,11 @@ pub enum ThemeKind {
 }
 
 impl ThemeKind {
-    /// Every theme, in menu order: the shared craft-ui themes (Light, Cream, Dim, Dark, High
+    /// Every theme, in menu order: the shared craft-ui themes (Light, Warm, Dim, Dark, High
     /// contrast) first, then PhotoCraft's own.
     pub const ALL: [ThemeKind; 11] = [
         ThemeKind::CraftLight,
-        ThemeKind::Cream,
+        ThemeKind::Warm,
         ThemeKind::Dim,
         ThemeKind::Craft,
         ThemeKind::HighContrast,
@@ -66,7 +68,7 @@ impl ThemeKind {
         match self {
             ThemeKind::Craft => "Dark",
             ThemeKind::CraftLight => "Light",
-            ThemeKind::Cream => "Cream",
+            ThemeKind::Warm => "Warm",
             ThemeKind::Dim => "Dim",
             ThemeKind::HighContrast => "High contrast",
             ThemeKind::Studio => "Studio (Dark)",
@@ -83,7 +85,7 @@ impl ThemeKind {
         match self {
             ThemeKind::Craft => "dark",
             ThemeKind::CraftLight => "light",
-            ThemeKind::Cream => "cream",
+            ThemeKind::Warm => "warm",
             ThemeKind::Dim => "dim",
             ThemeKind::HighContrast => "highContrast",
             ThemeKind::Studio => "studio",
@@ -102,7 +104,7 @@ impl ThemeKind {
     pub fn craft_mode(self) -> Option<craft_ui::Mode> {
         match self {
             ThemeKind::CraftLight => Some(craft_ui::Mode::Light),
-            ThemeKind::Cream => Some(craft_ui::Mode::Cream),
+            ThemeKind::Warm => Some(craft_ui::Mode::Warm),
             ThemeKind::Dim => Some(craft_ui::Mode::Dim),
             ThemeKind::Craft => Some(craft_ui::Mode::Dark),
             ThemeKind::HighContrast => Some(craft_ui::Mode::HighContrast),
@@ -122,7 +124,7 @@ impl ThemeKind {
             "light" | "craftlight" | "day" => Some(ThemeKind::CraftLight),
             // The retired medium-grey Photoshop theme fits Dim, the shared in-between dark theme.
             "dim" | "craftdim" | "promedium" | "promediumgray" | "medium" | "mediumgray" | "grey" | "gray" | "dusk" => Some(ThemeKind::Dim),
-            "cream" | "craftcream" | "sepia" | "warm" | "paper" => Some(ThemeKind::Cream),
+            "warm" | "craftwarm" | "paper" | "craftpaper" | "cream" | "craftcream" | "ivory" | "sepia" => Some(ThemeKind::Warm),
             "highcontrast" | "contrast" | "hc" => Some(ThemeKind::HighContrast),
             "studio" | "studiodark" => Some(ThemeKind::Studio),
             "studiolight" => Some(ThemeKind::StudioLight),
@@ -205,7 +207,7 @@ impl Tokens {
             // layout (tab strips, flat panels) so every craft app shares one look.
             ThemeKind::Craft => Tokens::craft(kind, craft_ui::Mode::Dark),
             ThemeKind::CraftLight => Tokens::craft(kind, craft_ui::Mode::Light),
-            ThemeKind::Cream => Tokens::craft(kind, craft_ui::Mode::Cream),
+            ThemeKind::Warm => Tokens::craft(kind, craft_ui::Mode::Warm),
             ThemeKind::Dim => Tokens::craft(kind, craft_ui::Mode::Dim),
             ThemeKind::HighContrast => Tokens::craft(kind, craft_ui::Mode::HighContrast),
             ThemeKind::Studio => Tokens {
@@ -895,7 +897,7 @@ mod tests {
         // The shared themes are craft-ui's tokens, so PhotoCraft matches the other craft apps.
         for (kind, mode) in [
             (ThemeKind::CraftLight, craft_ui::Mode::Light),
-            (ThemeKind::Cream, craft_ui::Mode::Cream),
+            (ThemeKind::Warm, craft_ui::Mode::Warm),
             (ThemeKind::Dim, craft_ui::Mode::Dim),
             (ThemeKind::Craft, craft_ui::Mode::Dark),
             (ThemeKind::HighContrast, craft_ui::Mode::HighContrast),
@@ -915,31 +917,39 @@ mod tests {
     }
 
     #[test]
-    fn cream_and_dim_parse_round_trip_and_cream_is_light() {
+    fn warm_and_dim_parse_round_trip_and_warm_is_light() {
         for (name, kind) in [
-            ("cream", ThemeKind::Cream),
-            ("Sepia", ThemeKind::Cream),
-            ("paper", ThemeKind::Cream),
+            ("warm", ThemeKind::Warm),
+            ("Sepia", ThemeKind::Warm),
+            // The theme's old names still read as Warm (scripts, `ui.set`, Window › Theme).
+            ("cream", ThemeKind::Warm),
+            ("Cream", ThemeKind::Warm),
+            ("paper", ThemeKind::Warm),
+            ("Paper", ThemeKind::Warm),
             ("dim", ThemeKind::Dim),
             ("dusk", ThemeKind::Dim),
             ("Medium Gray", ThemeKind::Dim),
         ] {
             assert_eq!(ThemeKind::from_name(name), Some(kind), "{name}");
         }
-        for kind in [ThemeKind::Cream, ThemeKind::Dim] {
+        for kind in [ThemeKind::Warm, ThemeKind::Dim] {
             assert_eq!(ThemeKind::from_name(kind.id()), Some(kind));
             let json = serde_json::to_string(&kind).unwrap();
             assert_eq!(serde_json::from_str::<ThemeKind>(&json).ok(), Some(kind));
         }
-        assert_eq!((ThemeKind::Cream.label(), ThemeKind::Dim.label()), ("Cream", "Dim"));
-        // Cream is a light theme (dark text on warm paper) with craft-ui's red accent; Dim is dark.
-        let cream = Tokens::for_kind(ThemeKind::Cream);
-        assert!(!cream.dark() && !ThemeKind::Cream.is_dark() && cream.pro);
-        assert_eq!(cream.accent, Color32::from_rgb(0xB3, 0x26, 0x1E));
+        // UI state saved while the theme was called Cream or Paper still loads as Warm.
+        assert_eq!(serde_json::from_str::<ThemeKind>("\"Cream\"").ok(), Some(ThemeKind::Warm));
+        assert_eq!(serde_json::from_str::<ThemeKind>("\"Paper\"").ok(), Some(ThemeKind::Warm));
+        assert_eq!(serde_json::to_string(&ThemeKind::Warm).unwrap(), "\"Warm\"");
+        assert_eq!((ThemeKind::Warm.label(), ThemeKind::Dim.label()), ("Warm", "Dim"));
+        // Warm is a light theme (dark text on warm off-white) with craft-ui's red accent; Dim is dark.
+        let warm = Tokens::for_kind(ThemeKind::Warm);
+        assert!(!warm.dark() && !ThemeKind::Warm.is_dark() && warm.pro);
+        assert_eq!(warm.accent, Color32::from_rgb(0xB3, 0x26, 0x1E));
         assert!(Tokens::for_kind(ThemeKind::Dim).dark());
         assert!(!Tokens::for_kind(ThemeKind::CraftLight).dark());
         // Menu order: the shared craft themes first, in craft-ui's order.
-        assert_eq!(&ThemeKind::ALL[..5], &[ThemeKind::CraftLight, ThemeKind::Cream, ThemeKind::Dim, ThemeKind::Craft, ThemeKind::HighContrast]);
+        assert_eq!(&ThemeKind::ALL[..5], &[ThemeKind::CraftLight, ThemeKind::Warm, ThemeKind::Dim, ThemeKind::Craft, ThemeKind::HighContrast]);
         assert_eq!(ThemeKind::AdwaitaDark.next(), ThemeKind::CraftLight);
     }
 
