@@ -183,9 +183,9 @@ note = "Ctrl/Cmd = Direct Selection and Alt = Convert Point on existing paths (d
 [[item]]
 id = "TOOL-214-11"
 target = "Stroke Path dialog: pick any brush-based tool, Simulate Pressure"
-status = "partial"
+status = "done"
 issue = 214
-note = "path.stroke brush, pencil, eraser (vector_cmds.rs:1170); brush-only button, no dialog"
+note = "Stroke Path dialog: tool (brush, pencil, eraser and every stroke-based paint tool via its paint.* command, one history step) + Simulate Pressure taper; vector_cmds.rs stroke_with_tool/path_points; tests stroke_path_*"
 
 [[item]]
 id = "TOOL-214-12"
