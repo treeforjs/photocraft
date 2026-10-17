@@ -341,6 +341,8 @@ fn services(inbox: Inbox) -> Services {
             if let Some(q) = settings.jpeg_quality {
                 opts.encode.jpeg_quality = q;
             }
+            opts.encode.jpeg_progressive_scans = settings.jpeg_progressive_scans;
+            opts.encode.jpeg_optimize = settings.jpeg_optimize;
             opts.encode.webp_lossless = settings.webp_lossless;
             if let Some(q) = settings.webp_quality {
                 opts.encode.webp_quality = q;

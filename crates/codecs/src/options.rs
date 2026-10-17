@@ -113,6 +113,13 @@ pub struct EncodeOptions {
     pub jpeg_quality: u8,
     /// JPEG 4:2:0 chroma subsampling (`false` = 4:4:4).
     pub jpeg_chroma_subsampling: bool,
+    /// Progressive JPEG with this many scans per component (Photoshop offers 3, 4 and 5); `0`
+    /// writes a baseline file. Values above 64 are clamped, `1` is read as 2 (the fewest the
+    /// format allows).
+    pub jpeg_progressive_scans: u8,
+    /// Baseline JPEG with Huffman tables computed for the image ("Baseline Optimized"):
+    /// smaller files, slower to encode. Progressive files are always optimized.
+    pub jpeg_optimize: bool,
     pub png_compression: PngCompression,
     /// Write Adam7-interlaced PNG.
     pub png_interlaced: bool,
@@ -137,6 +144,8 @@ impl Default for EncodeOptions {
         EncodeOptions {
             jpeg_quality: 90,
             jpeg_chroma_subsampling: true,
+            jpeg_progressive_scans: 0,
+            jpeg_optimize: false,
             png_compression: PngCompression::Default,
             png_interlaced: false,
             webp_lossless: true,

@@ -3473,6 +3473,14 @@ cameraRaw	Masking	Маскування
 	Quick Selection found nothing there	Швидке виділення нічого тут не знайшло
 	Object Selection found nothing there — try a tighter rectangle	Виділення об'єктів нічого тут не знайшло — спробуйте вужчий прямокутник
 	No subject found — try a rectangle around the object	Об'єкт не знайдено — спробуйте прямокутник навколо об'єкта
+	Save as JPEG	Зберегти як JPEG
+	About {size}	Близько {size}
+	Size estimate unavailable	Оцінка розміру недоступна
+	Encoding	Кодування
+	Standard: opens in every app	Стандартне: відкривається в будь-якому застосунку
+	Smaller file: same image, a little slower to save	Менший файл: те саме зображення, зберігається трохи довше
+	Progressive: shows a preview while it loads on the web	Прогресивне: показує попередній перегляд під час завантаження в мережі
+	Passes	Проходи
 	Masks	Маски
 	Pixel mask	Піксельна маска
 	Vector mask	Векторна маска

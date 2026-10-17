@@ -2372,6 +2372,16 @@ fontWeight	Italic	斜体
 	Quick Selection found nothing there	快速选择在该处未找到任何内容
 	Object Selection found nothing there — try a tighter rectangle	对象选择在该处未找到任何内容 — 请尝试更紧凑的矩形
 	No subject found — try a rectangle around the object	未找到主体 — 请尝试在对象周围绘制矩形
+	Save as JPEG	存储为 JPEG
+	Low	低
+	High	高
+	About {size}	约 {size}
+	Size estimate unavailable	无法估算大小
+	Encoding	编码
+	Standard: opens in every app	标准：可在任何应用中打开
+	Smaller file: same image, a little slower to save	更小的文件：图像相同，存储稍慢
+	Progressive: shows a preview while it loads on the web	渐进式：在网页加载时显示预览
+	Passes	遍数
 	Masks	蒙版
 	Pixel mask	像素蒙版
 	Vector mask	矢量蒙版
