@@ -2391,9 +2391,10 @@ fontWeight	Italic	Kurzíva
 	Tool	Nástroj
 	High contrast	Vysoký kontrast
 	High Contrast Theme	Motiv s vysokým kontrastem
-	Cream	Krémový
+theme	Warm	Teplý
+	Warm	Teplý
 	Dim	Tlumený
-	Cream Theme	Krémový motiv
+	Warm Theme	Teplý motiv
 	Dim Theme	Tlumený motiv
 	Paragraph direction	Směr odstavce
 	Auto Direction	Automatický směr
