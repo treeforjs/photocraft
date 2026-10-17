@@ -24,7 +24,9 @@ pub struct CanvasToolMenu {
 /// One menu row: label and command id. `None` is a separator.
 pub type Row = Option<(&'static str, &'static str)>;
 
-/// Right-click while transforming: what the box's handles do.
+/// Right-click while transforming, in Photoshop's order: what the box's handles do, Warp, then
+/// turning and mirroring the box about its reference point. Photoshop's Content-Aware Scale and
+/// Puppet Warp rows leave the box for their own modes and are left out.
 pub const TRANSFORM_MENU: &[Row] = &[
     Some(("Free Transform", "edit.freeTransform")),
     Some(("Scale", "edit.transform.scale")),
@@ -32,6 +34,14 @@ pub const TRANSFORM_MENU: &[Row] = &[
     Some(("Skew", "edit.transform.skew")),
     Some(("Distort", "edit.transform.distort")),
     Some(("Perspective", "edit.transform.perspective")),
+    Some(("Warp", "edit.transform.warp")),
+    None,
+    Some(("Rotate 180°", "edit.transform.rotate180")),
+    Some(("Rotate 90° Clockwise", "edit.transform.rotate90Cw")),
+    Some(("Rotate 90° Counter Clockwise", "edit.transform.rotate90Ccw")),
+    None,
+    Some(("Flip Horizontal", "edit.transform.flipHorizontal")),
+    Some(("Flip Vertical", "edit.transform.flipVertical")),
 ];
 
 /// Photoshop's selection-tool context menu with an active selection, in its order. Its Generative
