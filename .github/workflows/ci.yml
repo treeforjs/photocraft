@@ -31,8 +31,7 @@ concurrency:
 
 jobs:
   # Which OSes the test job runs on. main, manual runs and PRs labelled `full-ci` get Linux and
-  # Windows. Other PRs get Linux, plus Windows when they touch code whose behaviour differs by
-  # platform: the app shell, UI, text and fonts, GPU, pen input, build scripts or the lockfile.
+  # Windows. Other PRs get Linux.
   # macOS is tested only by release.yml.
   platforms:
     name: select platforms
@@ -66,11 +65,9 @@ jobs:
           else
             echo "web=false" >> "$GITHUB_OUTPUT"
           fi
-          if git diff --name-only "$BASE" HEAD | grep -Eq '^(apps/|crates/(ui-egui|text|gpu|tablet|heif)/|Cargo\.lock$|(.*/)?build\.rs$|\.github/workflows/ci\.yml$)'; then
-            echo "os=$all" >> "$GITHUB_OUTPUT"
-          else
-            echo 'os=["ubuntu-latest"]' >> "$GITHUB_OUTPUT"
-          fi
+          # PRs test on Linux only for now: Linux green is the merge bar. Windows still runs on
+          # main, on manual runs and on PRs labelled `full-ci`.
+          echo 'os=["ubuntu-latest"]' >> "$GITHUB_OUTPUT"
 
   test:
     name: test (${{ matrix.os }})
