@@ -3425,3 +3425,6 @@ fontWeight	Italic	斜体
 	Edit points to modify the curve	ポイントを編集してカーブを変更
 	Draw to modify the curve	描画してカーブを変更
 	Drag to draw the curve · Smooth softens it	ドラッグしてカーブを描画 · スムーズで滑らかにします
+	Slant	傾斜
+	Optical Size	オプティカルサイズ
+	Optical size follows the font size	オプティカルサイズをフォントサイズに合わせる
