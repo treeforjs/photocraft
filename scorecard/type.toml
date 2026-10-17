@@ -56,9 +56,9 @@ note = "Warp Text opens the live-preview dialog (filter_dialog PREVIEWED) seeded
 [[item]]
 id = "TYPE-218-8"
 target = "Text editing: select all, double/triple/quadruple-click selection, paste, with tests"
-status = "partial"
+status = "done"
 issue = 218
-note = "Cmd+A, paste and double-click exist; no triple/quadruple click, no tests"
+note = "type_tool.rs select_clicks: 2 clicks select the word, 3 the line, 4 the paragraph, 5 all (counted by next_click_count within 0.4 s and 6 pt); type_tool_tests.rs multiple_clicks_select_word_line_paragraph_and_all also covers Cmd+A and paste replacing the selection"
 
 [[item]]
 id = "TYPE-218-9"

@@ -367,18 +367,59 @@ fn word_boundary(text: &str, from: usize, forward: bool) -> usize {
 
 /// Double-click: select the word under the caret.
 pub fn select_word(app: &mut PhotocraftApp) {
+    select_clicks(app, 2);
+}
+
+/// Multiple clicks on type, as in Photoshop: 2 select the word under the caret, 3 its line, 4 its
+/// paragraph and 5 or more all the text.
+pub fn select_clicks(app: &mut PhotocraftApp, clicks: u32) {
     let Some(ed) = app.ui.text_edit.clone() else { return };
-    let Some(text) = current_text(app, LayerId(ed.layer)) else { return };
+    let id = LayerId(ed.layer);
+    let Some(text) = current_text(app, id) else { return };
     let chars: Vec<char> = text.chars().collect();
-    let (mut a, mut b) = (ed.caret.min(chars.len()), ed.caret.min(chars.len()));
-    while a > 0 && chars[a - 1].is_alphanumeric() {
-        a -= 1;
-    }
-    while b < chars.len() && chars[b].is_alphanumeric() {
-        b += 1;
-    }
+    let caret = ed.caret.min(chars.len());
+    let word = |c: Option<&char>| c.is_some_and(|c| c.is_alphanumeric());
+    let (a, b) = match clicks {
+        0 | 1 => return,
+        2 => {
+            let (mut a, mut b) = (caret, caret);
+            while a > 0 && word(chars.get(a - 1)) {
+                a -= 1;
+            }
+            while word(chars.get(b)) {
+                b += 1;
+            }
+            (a, b)
+        }
+        3 | 4 => {
+            let Some((l, _, laid)) = layout(app, id) else { return };
+            let at = byte_of(&laid, caret);
+            // The line holding the caret: the last one starting at or before it.
+            let Some(line) = l.lines.iter().rev().find(|ln| ln.range.start <= at).or(l.lines.first()) else { return };
+            let range = if clicks == 3 {
+                line.range.clone()
+            } else {
+                let same = || l.lines.iter().filter(|ln| ln.paragraph == line.paragraph);
+                let first = same().map(|ln| ln.range.start).min().unwrap_or(line.range.start);
+                let last = same().map(|ln| ln.range.end).max().unwrap_or(line.range.end);
+                first..last
+            };
+            let ci = |b: usize| laid.get(..b.min(laid.len())).map_or(0, |s| s.chars().count());
+            (ci(range.start), ci(range.end))
+        }
+        _ => (0, chars.len()),
+    };
     if let Some(e) = app.ui.text_edit.as_mut() {
-        (e.anchor, e.caret) = (a, b);
+        (e.anchor, e.caret) = (a.min(chars.len()), b.min(chars.len()));
+    }
+}
+
+/// Count clicks on type: another click within `interval` seconds and `slop` points of the last
+/// adds one, anything else starts over at 1. `last` is (count, time, position).
+pub fn next_click_count(last: Option<(u32, f64, egui::Pos2)>, now: f64, at: egui::Pos2, interval: f64, slop: f32) -> u32 {
+    match last {
+        Some((n, t, p)) if now - t <= interval && now >= t && p.distance(at) <= slop => n.saturating_add(1),
+        _ => 1,
     }
 }
 
