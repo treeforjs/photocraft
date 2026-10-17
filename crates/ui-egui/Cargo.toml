@@ -28,6 +28,7 @@ photocraft-format = { workspace = true }
 # Decoding the brand mark's PNG (`brand.rs`); already linked through photocraft-io.
 photocraft-codecs = { workspace = true }
 egui = { workspace = true }
+craft-ui = { workspace = true }
 egui_extras = { version = "0.36", default-features = false, features = ["svg"] }
 eframe = { workspace = true, features = ["default_fonts", "wgpu", "accesskit"] }
 serde = { workspace = true }

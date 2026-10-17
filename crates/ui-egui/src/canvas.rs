@@ -4534,7 +4534,7 @@ mod tests {
                 },
                 (app, false),
             );
-            PhotocraftApp::setup_context(&h.ctx, crate::theme::ThemeKind::Pro);
+            PhotocraftApp::setup_context(&h.ctx, crate::theme::ThemeKind::Craft);
             h.ctx.set_os(os);
             h.state_mut().1 = true;
             h.run_steps(2);
@@ -4562,7 +4562,7 @@ mod tests {
             },
             (app, false),
         );
-        PhotocraftApp::setup_context(&h.ctx, crate::theme::ThemeKind::Pro);
+        PhotocraftApp::setup_context(&h.ctx, crate::theme::ThemeKind::Craft);
         h.state_mut().1 = true;
         h.run_steps(2);
         let normal_h = h.get_by_label_contains("Untitled @").rect().height();
@@ -4608,7 +4608,7 @@ mod tests {
     #[test]
     fn dragging_a_tab_reorders_the_documents() {
         use egui_kittest::kittest::Queryable;
-        for kind in [crate::theme::ThemeKind::Studio, crate::theme::ThemeKind::Pro] {
+        for kind in [crate::theme::ThemeKind::Studio, crate::theme::ThemeKind::Craft] {
             let mut app = PhotocraftApp::new(photocraft_engine::Session::new(), crate::Services::default());
             for name in ["a", "b", "c"] {
                 app.run("file.new", json!({"width": 8, "height": 8, "name": name})).unwrap();

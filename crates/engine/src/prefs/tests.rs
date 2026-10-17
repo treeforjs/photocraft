@@ -25,19 +25,28 @@ fn defaults_match_photoshop() {
 #[test]
 fn appearance_defaults_and_legacy_theme_migrate() {
     let p = Preferences::default();
-    // New users keep Photoshop's default; following the system is opt-in.
-    assert_eq!(p.interface.appearance_mode, AppearanceMode::Dark);
-    assert_eq!(p.interface.dark_theme, DarkTheme::ProMedium);
-    assert_eq!(p.interface.light_theme, LightTheme::StudioLight);
-    for (theme, mode, dark, light) in
-        [("pro", AppearanceMode::Dark, DarkTheme::Pro, LightTheme::StudioLight), ("classic", AppearanceMode::Light, DarkTheme::ProMedium, LightTheme::Classic)]
-    {
+    // New users follow the desktop, with the shared craft-ui Dark and Light themes.
+    assert_eq!(p.interface.appearance_mode, AppearanceMode::Auto);
+    assert_eq!(p.interface.dark_theme, DarkTheme::Craft);
+    assert_eq!(p.interface.light_theme, LightTheme::CraftLight);
+    for (theme, mode, dark, light) in [
+        ("pro", AppearanceMode::Dark, DarkTheme::Craft, LightTheme::CraftLight),
+        ("proMedium", AppearanceMode::Dark, DarkTheme::Craft, LightTheme::CraftLight),
+        ("classic", AppearanceMode::Light, DarkTheme::Craft, LightTheme::Classic),
+    ] {
         let mut s = Session::new();
         s.load_prefs_json(&json!({"interface": {"theme": theme}}).to_string()).unwrap();
         assert_eq!(s.prefs().interface.appearance_mode, mode);
         assert_eq!(s.prefs().interface.dark_theme, dark);
         assert_eq!(s.prefs().interface.light_theme, light);
     }
+    // The retired Photoshop-grey themes saved by older versions read as the shared Dark theme.
+    let mut s = Session::new();
+    s.load_prefs_json(&json!({"interface": {"appearanceMode": "dark", "darkTheme": "proMedium", "theme": "pro"}}).to_string()).unwrap();
+    assert_eq!(s.prefs().interface.dark_theme, DarkTheme::Craft);
+    assert_eq!(s.prefs().interface.theme, Theme::Craft);
+    assert_eq!(DarkTheme::parse("pro"), Some(DarkTheme::Craft));
+    assert_eq!(DarkTheme::Craft.name(), "dark");
 }
 
 #[test]
@@ -54,12 +63,12 @@ fn appearance_choices_validate_and_legacy_theme_still_selects() {
     assert!(s.execute("prefs.set", json!({"path": "interface.darkTheme", "value": "classic"})).is_err());
     s.execute("prefs.set", json!({"path": "interface.theme", "value": "pro"})).unwrap();
     assert_eq!(s.prefs().interface.appearance_mode, AppearanceMode::Dark);
-    assert_eq!(s.prefs().interface.dark_theme, DarkTheme::Pro);
+    assert_eq!(s.prefs().interface.dark_theme, DarkTheme::Craft);
     assert_eq!(s.prefs().interface.light_theme, LightTheme::Classic);
     s.execute("prefs.set", json!({"path": "interface", "value": {"theme": "studioLight"}})).unwrap();
     assert_eq!(s.prefs().interface.appearance_mode, AppearanceMode::Light);
     assert_eq!(s.prefs().interface.light_theme, LightTheme::StudioLight);
-    assert_eq!(s.prefs().interface.dark_theme, DarkTheme::Pro);
+    assert_eq!(s.prefs().interface.dark_theme, DarkTheme::Craft);
 }
 
 #[test]

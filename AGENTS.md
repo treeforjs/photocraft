@@ -10,7 +10,7 @@ PhotoCraft is an open-source, native, Photoshop-comparable image editor written 
 | `docs/development.md` | Build, test, run, drive the app programmatically, debug tricks |
 | `docs/contributing.md` | Rules: clean-room, tests, layering, style, commits; the "add a command" checklist |
 | `docs/control-protocol.md` | JSON control channel: how agents drive and screenshot the running app |
-| `docs/ui-design.md` | Design tokens, themes, widgets, and how to match Photoshop's look |
+| `docs/ui-design.md` | Design tokens, themes and widgets. The look follows the shared craft direction ([craftworks `DESIGN.md`](https://github.com/treeforjs/craftworks/blob/main/DESIGN.md)), not Photoshop's: parity means features and behaviour, never Adobe's colours, layout or workspace names |
 | `docs/roadmap.md` | Honest parity assessment (where we're lacking, where we're going), milestones, **current focus** |
 | `docs/parity.md` | Generated list of every Photoshop menu item, live or missing |
 | `docs/scorecard.md` | Generated scorecard: performance budgets and numbers, corpus floors, per-area checklists (tools, files, UI, type, automation, reliability, distribution), settings that do nothing |

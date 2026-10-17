@@ -148,7 +148,7 @@ fn harness(kind: Kind) -> Harness<'static, PhotocraftApp> {
         },
         app,
     );
-    PhotocraftApp::setup_context(&h.ctx, ThemeKind::ProMedium);
+    PhotocraftApp::setup_context(&h.ctx, ThemeKind::Craft);
     h.run_steps(4);
     h
 }

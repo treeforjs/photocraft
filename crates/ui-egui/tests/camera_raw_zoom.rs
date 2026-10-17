@@ -6,7 +6,7 @@ use serde_json::{Value, json};
 
 fn fixture(ppp: f32) -> Harness<'static, PhotocraftApp> {
     let mut h = Harness::builder().with_step_dt(1.0 / 60.0).with_size(vec2(1200.0, 800.0)).with_pixels_per_point(ppp).build_eframe(|cc| {
-        PhotocraftApp::setup_context(&cc.egui_ctx, ThemeKind::Pro);
+        PhotocraftApp::setup_context(&cc.egui_ctx, ThemeKind::Craft);
         let mut app = PhotocraftApp::new(photocraft_engine::Session::new(), Default::default());
         app.run("file.new", json!({"width":1200,"height":900})).unwrap();
         app.run("layer.new.layer", json!({})).unwrap();

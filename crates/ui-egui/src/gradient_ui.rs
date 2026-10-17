@@ -1086,7 +1086,7 @@ mod tests {
             },
             app,
         );
-        PhotocraftApp::setup_context(&h.ctx, crate::theme::ThemeKind::Pro);
+        PhotocraftApp::setup_context(&h.ctx, crate::theme::ThemeKind::Craft);
         h.run_steps(2);
         // The swatch opens the Gradient Editor window (Photoshop's behaviour), not a popup.
         h.get_by_label("Gradient picker").click();

@@ -87,14 +87,15 @@ fn selected_theme(interface: &prefs::Interface, system: Option<egui::Theme>) -> 
     };
     if light {
         match interface.light_theme {
+            LightTheme::CraftLight => ThemeKind::CraftLight,
             LightTheme::StudioLight => ThemeKind::StudioLight,
             LightTheme::Classic => ThemeKind::Classic,
             LightTheme::Adwaita => ThemeKind::Adwaita,
         }
     } else {
         match interface.dark_theme {
-            DarkTheme::Pro => ThemeKind::Pro,
-            DarkTheme::ProMedium => ThemeKind::ProMedium,
+            DarkTheme::Craft => ThemeKind::Craft,
+            DarkTheme::HighContrast => ThemeKind::HighContrast,
             DarkTheme::Studio => ThemeKind::Studio,
             DarkTheme::SolarizedDark => ThemeKind::SolarizedDark,
             DarkTheme::AdwaitaDark => ThemeKind::AdwaitaDark,
@@ -1183,8 +1184,8 @@ fn appearance_rows(ui: &mut egui::Ui, obj: &mut Map<String, Value>, system: Opti
     ui.add_space(8.0);
     let light_active = mode == "light" || (mode == "auto" && system == Some(egui::Theme::Light));
     let width = ((ui.available_width() - 10.0) / 2.0).max(190.0);
-    let mut light = obj.get("lightTheme").and_then(Value::as_str).unwrap_or("studioLight").to_string();
-    let mut dark = obj.get("darkTheme").and_then(Value::as_str).unwrap_or("proMedium").to_string();
+    let mut light = obj.get("lightTheme").and_then(Value::as_str).unwrap_or("light").to_string();
+    let mut dark = obj.get("darkTheme").and_then(Value::as_str).unwrap_or("dark").to_string();
     ui.horizontal_top(|ui| {
         ui.set_min_width(width * 2.0 + 10.0);
         ui.allocate_ui_with_layout(vec2(width, 300.0), egui::Layout::top_down(egui::Align::Min), |ui| {
@@ -1193,7 +1194,7 @@ fn appearance_rows(ui: &mut egui::Ui, obj: &mut Map<String, Value>, system: Opti
                 "Light Theme",
                 light_active,
                 &mut light,
-                &[("studioLight", ThemeKind::StudioLight), ("classic", ThemeKind::Classic), ("adwaita", ThemeKind::Adwaita)],
+                &[("light", ThemeKind::CraftLight), ("studioLight", ThemeKind::StudioLight), ("classic", ThemeKind::Classic), ("adwaita", ThemeKind::Adwaita)],
                 width,
             );
         });
@@ -1205,8 +1206,8 @@ fn appearance_rows(ui: &mut egui::Ui, obj: &mut Map<String, Value>, system: Opti
                 !light_active,
                 &mut dark,
                 &[
-                    ("proMedium", ThemeKind::ProMedium),
-                    ("pro", ThemeKind::Pro),
+                    ("dark", ThemeKind::Craft),
+                    ("highContrast", ThemeKind::HighContrast),
                     ("studio", ThemeKind::Studio),
                     ("solarizedDark", ThemeKind::SolarizedDark),
                     ("adwaitaDark", ThemeKind::AdwaitaDark),
@@ -1807,7 +1808,7 @@ mod tests {
     #[test]
     fn appearance_resolves_both_saved_themes_and_follows_system() {
         let mut interface = prefs::Interface { appearance_mode: AppearanceMode::Auto, ..prefs::Interface::default() };
-        assert_eq!(selected_theme(&interface, Some(egui::Theme::Dark)), ThemeKind::ProMedium);
+        assert_eq!(selected_theme(&interface, Some(egui::Theme::Dark)), ThemeKind::Craft);
         assert_eq!(selected_theme(&interface, Some(egui::Theme::Light)), ThemeKind::StudioLight);
         interface.dark_theme = DarkTheme::Studio;
         interface.light_theme = LightTheme::Classic;
@@ -2066,7 +2067,7 @@ mod tests {
     fn ui_font_size_commands_follow_themes_and_dpi_and_reset_live() {
         let (mut app, _) = app_with_store();
         let ctx = egui::Context::default();
-        PhotocraftApp::setup_context(&ctx, ThemeKind::Pro);
+        PhotocraftApp::setup_context(&ctx, ThemeKind::Craft);
         let mut input = egui::RawInput::default();
         input.viewports.get_mut(&egui::ViewportId::ROOT).unwrap().native_pixels_per_point = Some(1.5);
         for (theme, scale, expected) in

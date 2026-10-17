@@ -28,20 +28,23 @@ use crate::{EngineError, Result, Session};
 /// A string-valued choice enum with its JSON names (used to validate `prefs.set` and to fill
 /// dropdowns in the Preferences dialog).
 macro_rules! choice {
-    ($(#[$m:meta])* $name:ident { $($var:ident = $s:literal),+ $(,)? } default $def:ident) => {
+    // `Var = "name" | "legacy"` also reads (never writes) the older spellings after the first.
+    ($(#[$m:meta])* $name:ident { $($var:ident = $s:literal $(| $alias:literal)*),+ $(,)? } default $def:ident) => {
         $(#[$m])*
         #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
-        pub enum $name { $(#[serde(rename = $s)] $var),+ }
+        pub enum $name { $(#[serde(rename = $s $(, alias = $alias)*)] $var),+ }
         impl Default for $name {
             fn default() -> Self { Self::$def }
         }
         impl $name {
             pub const NAMES: &'static [&'static str] = &[$($s),+];
+            /// Older spellings that still read as one of [`Self::NAMES`].
+            pub const ALIASES: &'static [&'static str] = &[$($($alias,)*)+];
             pub fn name(self) -> &'static str {
                 match self { $(Self::$var => $s),+ }
             }
             pub fn parse(s: &str) -> Option<Self> {
-                match s { $($s => Some(Self::$var),)+ _ => None }
+                match s { $($s $(| $alias)* => Some(Self::$var),)+ _ => None }
             }
         }
     };
@@ -55,10 +58,10 @@ choice!(TypeUnit { Points = "points", Pixels = "pixels", Millimeters = "mm" } de
 choice!(PointSize { PostScript = "postScript", Traditional = "traditional" } default PostScript);
 choice!(Interpolation { BicubicAutomatic = "bicubicAutomatic", Nearest = "nearestNeighbor", Bilinear = "bilinear", Bicubic = "bicubic", BicubicSmoother = "bicubicSmoother", BicubicSharper = "bicubicSharper", PreserveDetails = "preserveDetails" } default BicubicAutomatic);
 choice!(ColorPicker { Adobe = "adobe", System = "system" } default Adobe);
-choice!(Theme { Pro = "pro", ProMedium = "proMedium", Studio = "studio", StudioLight = "studioLight", Classic = "classic", SolarizedDark = "solarizedDark", Adwaita = "adwaita", AdwaitaDark = "adwaitaDark" } default ProMedium);
-choice!(AppearanceMode { Auto = "auto", Dark = "dark", Light = "light" } default Dark);
-choice!(DarkTheme { Pro = "pro", ProMedium = "proMedium", Studio = "studio", SolarizedDark = "solarizedDark", AdwaitaDark = "adwaitaDark" } default ProMedium);
-choice!(LightTheme { StudioLight = "studioLight", Classic = "classic", Adwaita = "adwaita" } default StudioLight);
+choice!(Theme { Craft = "dark" | "pro" | "proMedium", CraftLight = "light", HighContrast = "highContrast", Studio = "studio", StudioLight = "studioLight", Classic = "classic", SolarizedDark = "solarizedDark", Adwaita = "adwaita", AdwaitaDark = "adwaitaDark" } default Craft);
+choice!(AppearanceMode { Auto = "auto", Dark = "dark", Light = "light" } default Auto);
+choice!(DarkTheme { Craft = "dark" | "pro" | "proMedium", HighContrast = "highContrast", Studio = "studio", SolarizedDark = "solarizedDark", AdwaitaDark = "adwaitaDark" } default Craft);
+choice!(LightTheme { CraftLight = "light", StudioLight = "studioLight", Classic = "classic", Adwaita = "adwaita" } default CraftLight);
 choice!(CanvasColor { Default = "default", Black = "black", DarkGray = "darkGray", MediumGray = "mediumGray", LightGray = "lightGray", Custom = "custom" } default Default);
 choice!(CanvasBorder { DropShadow = "dropShadow", Line = "line", None = "none" } default DropShadow);
 choice!(UiScale { Auto = "auto", P75 = "75", P100 = "100", P125 = "125", P150 = "150", P175 = "175", P200 = "200", P250 = "250", P300 = "300" } default Auto);
@@ -248,10 +251,10 @@ pub struct Interface {
 impl Default for Interface {
     fn default() -> Self {
         Self {
-            theme: Theme::ProMedium,
-            appearance_mode: AppearanceMode::Dark,
-            dark_theme: DarkTheme::ProMedium,
-            light_theme: LightTheme::StudioLight,
+            theme: Theme::Craft,
+            appearance_mode: AppearanceMode::Auto,
+            dark_theme: DarkTheme::Craft,
+            light_theme: LightTheme::CraftLight,
             canvas_color: CanvasColor::Default,
             canvas_custom_color: "#282828".into(),
             canvas_border: CanvasBorder::DropShadow,
@@ -1045,6 +1048,15 @@ fn set_path(root: &mut Value, path: &str, value: Value) -> std::result::Result<(
     Ok(())
 }
 
+/// Retired spellings a choice still accepts (the Photoshop-grey `pro` / `proMedium` themes).
+fn choice_aliases(path: &str) -> &'static [&'static str] {
+    match path {
+        "interface.theme" => Theme::ALIASES,
+        "interface.darkTheme" => DarkTheme::ALIASES,
+        _ => &[],
+    }
+}
+
 /// Validate one value for `path` before it is stored (choices, ranges, colours).
 fn check_value(path: &str, v: &Value) -> std::result::Result<(), String> {
     if path == "performance.renderingMode" && v.is_null() {
@@ -1052,7 +1064,7 @@ fn check_value(path: &str, v: &Value) -> std::result::Result<(), String> {
     }
     if let Some(c) = choices(path) {
         let s = v.as_str().ok_or_else(|| format!("`{path}` must be one of {}", c.join("|")))?;
-        if !c.contains(&s) {
+        if !c.contains(&s) && !choice_aliases(path).contains(&s) {
             return Err(format!("`{path}` must be one of {} (got `{s}`)", c.join("|")));
         }
     }
@@ -1328,8 +1340,8 @@ impl Session {
             && let Some(theme) = interface.get("theme").and_then(Value::as_str).and_then(Theme::parse)
         {
             let (mode, slot) = match theme {
-                Theme::Pro | Theme::ProMedium | Theme::Studio | Theme::SolarizedDark | Theme::AdwaitaDark => ("dark", "darkTheme"),
-                Theme::StudioLight | Theme::Classic | Theme::Adwaita => ("light", "lightTheme"),
+                Theme::Craft | Theme::HighContrast | Theme::Studio | Theme::SolarizedDark | Theme::AdwaitaDark => ("dark", "darkTheme"),
+                Theme::CraftLight | Theme::StudioLight | Theme::Classic | Theme::Adwaita => ("light", "lightTheme"),
             };
             interface.insert("appearanceMode".into(), json!(mode));
             interface.insert(slot.into(), json!(theme.name()));
@@ -1398,13 +1410,17 @@ impl Session {
         // select a visible theme.
         if path == "interface.theme" || next.interface.theme != self.prefs().interface.theme {
             match next.interface.theme {
-                Theme::Pro => {
-                    next.interface.dark_theme = DarkTheme::Pro;
+                Theme::Craft => {
+                    next.interface.dark_theme = DarkTheme::Craft;
                     next.interface.appearance_mode = AppearanceMode::Dark;
                 }
-                Theme::ProMedium => {
-                    next.interface.dark_theme = DarkTheme::ProMedium;
+                Theme::HighContrast => {
+                    next.interface.dark_theme = DarkTheme::HighContrast;
                     next.interface.appearance_mode = AppearanceMode::Dark;
+                }
+                Theme::CraftLight => {
+                    next.interface.light_theme = LightTheme::CraftLight;
+                    next.interface.appearance_mode = AppearanceMode::Light;
                 }
                 Theme::Studio => {
                     next.interface.dark_theme = DarkTheme::Studio;

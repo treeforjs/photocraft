@@ -47,6 +47,7 @@ image = { version = "0.25", default-features = false }
 proptest = "1"
 eframe = { version = "0.36", default-features = false }
 egui = "0.36"
+craft-ui = { git = "https://github.com/treeforjs/craftworks", rev = "f9d8e268bb4136c068c569862a584c26bd6e0f79", version = "0.1.0" }
 egui_kittest = "0.36"
 rfd = "0.17"
 log = "0.4"

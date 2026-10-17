@@ -1148,7 +1148,7 @@ mod tests {
     fn closing_the_camera_raw_window_cancels() {
         let mut app = PhotocraftApp::new(photocraft_engine::Session::new(), Default::default());
         let ctx = egui::Context::default();
-        PhotocraftApp::setup_context(&ctx, crate::theme::ThemeKind::Pro);
+        PhotocraftApp::setup_context(&ctx, crate::theme::ThemeKind::Craft);
         app.run("file.new", json!({"width": 64, "height": 48})).unwrap();
         app.run("layer.new.layer", json!({})).unwrap();
         app.run("edit.fill", json!({"color": "#808080"})).unwrap();
