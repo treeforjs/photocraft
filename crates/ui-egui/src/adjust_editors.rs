@@ -6,6 +6,7 @@
 //! and `commit` when a gesture ends (the Properties host then runs one `layer.setAdjustment`; a
 //! dialog commits on OK). Selective Color and Color Lookup keep their editors in `adjust_ui`.
 
+use crate::curve_pencil;
 use crate::point_curve as curve_edit;
 use crate::state::CurvesEditorState as CurveUi;
 use std::sync::Arc;
@@ -351,16 +352,53 @@ fn curves(ui: &mut egui::Ui, v: &mut Value, cx: &EditorCx) -> Edit {
     let chan = chans.get(ch).copied().unwrap_or(ToneChannel { key: "", label: "" });
     let key = curve_key(&chan);
     let mut pts = read_curve(v, key);
+    let mut e = Edit::default();
+    let mut changed = false;
+    // Edit points or draw with the pencil (a map, one output per level); Smooth softens a drawing.
+    let was_map = curve_pencil::is_map(&pts);
+    ui.horizontal(|ui| {
+        if widgets::pill_tab(ui, tl!("Edit Points"), !was_map).on_hover_text(tl!("Edit points to modify the curve")).clicked() && was_map {
+            pts = curve_pencil::to_points(&pts, curve_edit::MAX_POINTS);
+            changed = true;
+        }
+        if widgets::pill_tab(ui, tl!("Draw"), was_map).on_hover_text(tl!("Draw to modify the curve")).clicked() && !was_map {
+            pts = curve_pencil::to_map(&pts);
+            changed = true;
+        }
+        if was_map && widgets::secondary_button(ui, tl!("Smooth"), 0.0).clicked() {
+            changed |= curve_pencil::smooth(&mut pts);
+        }
+    });
+    if changed {
+        e.commit = true;
+        st.gesture = Default::default();
+        st.pencil_last = None;
+    }
+    let pencil = curve_pencil::is_map(&pts);
     let side = ui.available_width().clamp(120.0, 300.0);
     ui.add_space(4.0);
     let (full, resp) = ui.allocate_exact_size(vec2(side, side + 14.0), Sense::click_and_drag());
     let graph = curve_graph(full, side);
     ui.data_mut(|d| d.insert_temp(cx.mem.with("curves-graph"), graph));
     let to_scr = |q: [f32; 2]| pos2(graph.left() + q[0] / 255.0 * graph.width(), graph.bottom() - q[1] / 255.0 * graph.height());
-    let mut e = Edit::default();
-    let interaction = crate::point_curve::interact(ui, &resp, graph, &mut pts, &mut st.gesture);
-    let mut changed = interaction.changed;
-    e.commit = interaction.commit;
+    if pencil {
+        let pressed = resp.is_pointer_button_down_on() || resp.clicked() || resp.drag_stopped();
+        if pressed && let Some(at) = resp.interact_pointer_pos() {
+            let value = [(at.x - graph.left()) / graph.width().max(1.0) * 255.0, (graph.bottom() - at.y) / graph.height().max(1.0) * 255.0];
+            changed |= curve_pencil::draw(&mut pts, st.pencil_last, value);
+            st.pencil_last = Some(value);
+        }
+        if resp.clicked() || resp.drag_stopped() {
+            e.commit = true;
+        }
+        if !resp.is_pointer_button_down_on() {
+            st.pencil_last = None;
+        }
+    } else {
+        let interaction = crate::point_curve::interact(ui, &resp, graph, &mut pts, &mut st.gesture);
+        changed |= interaction.changed;
+        e.commit |= interaction.commit;
+    }
 
     // Draw: histogram, quarter grid, baseline, gradient bars, other channels, the curve, points.
     let p = ui.painter_at(full.expand(2.0));
@@ -404,7 +442,7 @@ fn curves(ui: &mut egui::Ui, v: &mut Value, cx: &EditorCx) -> Edit {
         }
     }
     draw_curve(&pts, if ch == 0 { t.text } else { bar_color(&chan, &t) }, 1.5);
-    for (i, q) in pts.iter().enumerate() {
+    for (i, q) in pts.iter().enumerate().filter(|_| !pencil) {
         let r = Rect::from_center_size(to_scr(*q), vec2(CURVE_HANDLE_SIZE, CURVE_HANDLE_SIZE));
         if Some(i) == st.gesture.selected {
             p.rect_filled(r, 0.0, t.text);
@@ -418,7 +456,7 @@ fn curves(ui: &mut egui::Ui, v: &mut Value, cx: &EditorCx) -> Edit {
     // Input / Output of the selected point.
     ui.add_space(6.0);
     ui.horizontal(|ui| {
-        let i = st.gesture.selected.filter(|i| *i < pts.len());
+        let i = st.gesture.selected.filter(|i| *i < pts.len() && !pencil);
         let (mut vi, mut vo) = i.map_or((0.0, 0.0), |i| (pts[i][0], pts[i][1]));
         label(ui, tl!("Input:"));
         let ri = ui.add_enabled_ui(i.is_some(), |ui| widgets::value_field(ui, &mut vi, 0.0..=255.0, "", 52.0)).inner;
@@ -436,14 +474,12 @@ fn curves(ui: &mut egui::Ui, v: &mut Value, cx: &EditorCx) -> Edit {
         }
     });
     let t2 = Tokens::get(ui.ctx());
-    ui.label(
-        RichText::new(crate::i18n::fmt(
-            tl!("Click to add a point · drag off or {key}-click or Delete to remove"),
-            &[("key", &crate::shortcuts::pretty("Cmd"))],
-        ))
-        .color(t2.text_faint)
-        .size(11.0),
-    );
+    let hint = if pencil {
+        tl!("Drag to draw the curve · Smooth softens it").to_string()
+    } else {
+        crate::i18n::fmt(tl!("Click to add a point · drag off or {key}-click or Delete to remove"), &[("key", &crate::shortcuts::pretty("Cmd"))])
+    };
+    ui.label(RichText::new(hint).color(t2.text_faint).size(11.0));
     ui.data_mut(|d| d.insert_temp(state_id, st));
     if changed {
         v[key] = json!(pts.iter().map(|q| [q[0].round(), q[1].round()]).collect::<Vec<_>>());

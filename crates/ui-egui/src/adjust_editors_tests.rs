@@ -215,6 +215,41 @@ fn curves_points_are_added_selected_and_deleted() {
     assert_eq!(curve_of(&layer(&h).1).len(), 2, "endpoints can't be deleted");
 }
 
+/// The pencil: Draw turns the curve into a map, a stroke sets every level it crosses in one
+/// history step, Smooth softens it, and Edit Points brings back the points that shape it.
+#[test]
+fn curves_pencil_draws_smooths_and_returns_to_points() {
+    let mut h = app_harness("curves", "rgb", 8);
+    let (id, _) = layer(&h);
+    h.get_by_label("Draw").click();
+    h.run_steps(3);
+    let map = curve_of(&layer(&h).1);
+    assert_eq!(map.len(), 256, "a map: one point per level");
+    assert!(map.iter().all(|q| q[0] == q[1]), "keeps the straight line");
+    let g = curves_graph(&h, id);
+    let at = |v: [f32; 2]| Pos2::new(g.left() + v[0] / 255.0 * g.width(), g.bottom() - v[1] / 255.0 * g.height());
+    let steps = h.state().session.active().unwrap().history.past_len();
+    drag(&mut h, at([40.0, 200.0]), at([200.0, 200.0]));
+    let drawn = curve_of(&layer(&h).1);
+    assert_eq!(drawn.len(), 256);
+    assert!(drawn[42..198].iter().all(|q| (q[1] - 200.0).abs() <= 2.0), "{:?}", &drawn[38..60]);
+    assert_eq!(drawn[20][1], 20.0, "levels outside the stroke stay");
+    assert_eq!(h.state().session.active().unwrap().history.past_len(), steps + 1, "one stroke, one step");
+    assert!(h.state().live_adjust.is_none());
+    h.get_by_label("Smooth").click();
+    h.run_steps(3);
+    let smooth = curve_of(&layer(&h).1);
+    assert!(smooth[40][1] < drawn[40][1] - 20.0 && smooth[40][1] > drawn[38][1], "{:?}", &smooth[36..44]);
+    h.get_by_label("Edit Points").click();
+    h.run_steps(3);
+    let points = curve_of(&layer(&h).1);
+    assert!((3..=16).contains(&points.len()), "{points:?}");
+    assert!(points.iter().any(|q| (q[1] - 200.0).abs() <= 2.0), "{points:?}");
+    assert!(h.query_by_label("Smooth").is_none(), "Smooth is for drawn curves");
+    h.state_mut().run("edit.undo", json!({})).unwrap();
+    assert_eq!(curve_of(&layer(&h).1), smooth);
+}
+
 /// Capture and history are shared with Camera Raw, but Properties commits on release.
 #[test]
 fn curves_fast_release_commits_one_edit_and_undo_restores_the_curve() {
