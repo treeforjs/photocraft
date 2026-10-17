@@ -840,6 +840,8 @@ pub struct DockTabs {
 pub struct ColorPanelState {
     /// The panel edits the background colour (its chip was clicked), not the foreground.
     pub background: bool,
+    /// Spectrum, wheel or one of the slider sets.
+    pub mode: crate::color_panel_ui::ColorPanelMode,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
