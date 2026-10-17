@@ -3500,8 +3500,8 @@ mod history_transform_tests {
         app.run("layer.new.layer", json!({})).unwrap();
         app.run("edit.fill", json!({"color": "#ff0000"})).unwrap();
         let mut h = Harness::builder().with_size(vec2(300.0, 400.0)).build_ui_state(|ui, app: &mut PhotocraftApp| history(app, ui), app);
-        PhotocraftApp::setup_context(&h.ctx, crate::theme::ThemeKind::ProMedium);
-        h.state_mut().ui.theme = crate::theme::ThemeKind::ProMedium;
+        PhotocraftApp::setup_context(&h.ctx, crate::theme::ThemeKind::Craft);
+        h.state_mut().ui.theme = crate::theme::ThemeKind::Craft;
         h.run_steps(3);
         // Footer buttons are the only 26 pt squares; the bar lays them out right to left.
         let buttons = |h: &Harness<'static, PhotocraftApp>| {
@@ -3827,7 +3827,7 @@ mod toolbar_tests {
             },
             app,
         );
-        PhotocraftApp::setup_context(&h.ctx, crate::theme::ThemeKind::Pro);
+        PhotocraftApp::setup_context(&h.ctx, crate::theme::ThemeKind::Craft);
         h.run_steps(2);
         let left = |h: &egui_kittest::Harness<'_, PhotocraftApp>| h.ctx.data(|d| d.get_temp::<f32>(egui::Id::new("toolbar-test-left"))).unwrap_or(0.0);
         let single = left(&h);

@@ -113,9 +113,10 @@ fn render_on(h: &mut Harness, gpu: bool, zoom: f32, doc: u32, black: bool, grid:
     let img = Shot { w: width, px: rendered.into_raw() };
     let r = h.state().last_canvas_rect;
     let (cx, cy) = (r.center().x as u32, r.center().y as u32);
-    // Black fill is 0 (64 on a grid line), the pasteboard is 39.
+    // Black fill is 0 (64 on a grid line), the pasteboard is 20, its drop shadow down to 11 and
+    // the canvas border 58.
     // (Two CPU grid lines crossing blend twice: about 112.)
-    let on_doc = |p: [u8; 4]| if black { p[0] < 12 || (58..=70).contains(&p[0]) || (105..=120).contains(&p[0]) } else { is_checker_grey(p) };
+    let on_doc = |p: [u8; 4]| if black { p[0] < 6 || (60..=70).contains(&p[0]) || (105..=120).contains(&p[0]) } else { is_checker_grey(p) };
     let (x0, w) = longest_run((0..width).map(|x| on_doc(img.at(x, cy))));
     let (y0, hgt) = longest_run((0..height).map(|y| on_doc(img.at(cx, y))));
     let doc_px = (doc as f32 * zoom).round() as i64;

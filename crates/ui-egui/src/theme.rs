@@ -19,11 +19,15 @@ use std::sync::Arc;
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ThemeKind {
-    /// Photoshop-style Spectrum dark: flat charcoal panels, tab strips, blue accents (darkest brightness).
-    Pro,
-    /// Photoshop's default (second) interface brightness: #535353 panels, #282828 canvas (default).
+    /// The shared craft-ui Dark theme every craft app uses (default). Older saves of the retired
+    /// Photoshop-grey themes ("Pro", "ProMedium") read as this.
     #[default]
-    ProMedium,
+    #[serde(alias = "Pro", alias = "ProMedium")]
+    Craft,
+    /// The shared craft-ui Light theme.
+    CraftLight,
+    /// The shared craft-ui High contrast theme (WCAG AAA text, yellow focus and accent).
+    HighContrast,
     Studio,
     StudioLight,
     Classic,
@@ -37,9 +41,10 @@ pub enum ThemeKind {
 }
 
 impl ThemeKind {
-    pub const ALL: [ThemeKind; 8] = [
-        ThemeKind::Pro,
-        ThemeKind::ProMedium,
+    pub const ALL: [ThemeKind; 9] = [
+        ThemeKind::Craft,
+        ThemeKind::CraftLight,
+        ThemeKind::HighContrast,
         ThemeKind::Studio,
         ThemeKind::StudioLight,
         ThemeKind::Classic,
@@ -49,8 +54,9 @@ impl ThemeKind {
     ];
     pub fn label(self) -> &'static str {
         match self {
-            ThemeKind::Pro => "Pro (Dark)",
-            ThemeKind::ProMedium => "Pro (Medium Gray)",
+            ThemeKind::Craft => "Dark",
+            ThemeKind::CraftLight => "Light",
+            ThemeKind::HighContrast => "High contrast",
             ThemeKind::Studio => "Studio (Dark)",
             ThemeKind::StudioLight => "Studio (Light)",
             ThemeKind::Classic => "Classic",
@@ -63,8 +69,9 @@ impl ThemeKind {
     /// `window.theme.<id>`.
     pub fn id(self) -> &'static str {
         match self {
-            ThemeKind::Pro => "pro",
-            ThemeKind::ProMedium => "proMedium",
+            ThemeKind::Craft => "dark",
+            ThemeKind::CraftLight => "light",
+            ThemeKind::HighContrast => "highContrast",
             ThemeKind::Studio => "studio",
             ThemeKind::StudioLight => "studioLight",
             ThemeKind::Classic => "classic",
@@ -79,10 +86,12 @@ impl ThemeKind {
     }
     pub fn from_name(s: &str) -> Option<Self> {
         match s.to_ascii_lowercase().replace([' ', '_', '-', '(', ')'], "").as_str() {
-            "pro" | "prodark" | "photoshop" | "dark" => Some(ThemeKind::Pro),
-            "promedium" | "promediumgray" | "medium" | "mediumgray" => Some(ThemeKind::ProMedium),
+            "dark" | "craft" | "craftdark" | "pro" | "prodark" | "photoshop" => Some(ThemeKind::Craft),
+            "promedium" | "promediumgray" | "medium" | "mediumgray" => Some(ThemeKind::Craft),
+            "light" | "craftlight" => Some(ThemeKind::CraftLight),
+            "highcontrast" | "contrast" | "hc" => Some(ThemeKind::HighContrast),
             "studio" | "studiodark" => Some(ThemeKind::Studio),
-            "studiolight" | "light" => Some(ThemeKind::StudioLight),
+            "studiolight" => Some(ThemeKind::StudioLight),
             "classic" | "win2000" | "retro" => Some(ThemeKind::Classic),
             "adwaita" | "adwaitalight" | "gnome" | "gnomelight" => Some(ThemeKind::Adwaita),
             "adwaitadark" | "gnomedark" => Some(ThemeKind::AdwaitaDark),
@@ -158,67 +167,11 @@ impl Tokens {
 
     pub fn for_kind(kind: ThemeKind) -> Self {
         match kind {
-            // Sampled from Photoshop 2026's default brightness (raw display values).
-            ThemeKind::ProMedium => Tokens {
-                kind,
-                chrome: Color32::from_rgb(83, 83, 83),
-                dock: Color32::from_rgb(66, 66, 66),
-                card: Color32::from_rgb(83, 83, 83),
-                card_border: Color32::from_rgb(66, 66, 66),
-                field: Color32::from_rgb(69, 69, 69),
-                field_border: Color32::from_rgb(104, 104, 104),
-                hover: Color32::from_rgb(98, 98, 98),
-                pressed: Color32::from_rgb(112, 112, 112),
-                text: Color32::from_rgb(238, 238, 238),
-                text_dim: Color32::from_rgb(212, 212, 212),
-                text_faint: Color32::from_rgb(160, 160, 160),
-                icon: Color32::from_rgb(226, 226, 226),
-                accent_soft: Color32::from_rgb(110, 110, 110),
-                separator: Color32::from_rgb(62, 62, 62),
-                tab_strip: Color32::from_rgb(74, 74, 74),
-                row_selected: Color32::from_rgb(107, 107, 107),
-                ..Tokens::for_kind(ThemeKind::Pro)
-            },
-            ThemeKind::Pro => Tokens {
-                kind,
-                chrome: Color32::from_rgb(50, 50, 50),
-                canvas: Color32::from_rgb(40, 40, 40),
-                canvas_dot: Color32::from_rgb(40, 40, 40),
-                dock: Color32::from_rgb(30, 30, 30),
-                card: Color32::from_rgb(50, 50, 50),
-                card_border: Color32::from_rgb(30, 30, 30),
-                field: Color32::from_rgb(36, 36, 36),
-                field_border: Color32::from_rgb(74, 74, 74),
-                hover: Color32::from_rgb(66, 66, 66),
-                pressed: Color32::from_rgb(78, 78, 78),
-                text: Color32::from_rgb(222, 222, 222),
-                text_dim: Color32::from_rgb(178, 178, 178),
-                text_faint: Color32::from_rgb(128, 128, 128),
-                icon: Color32::from_rgb(200, 200, 200),
-                accent: Color32::from_rgb(55, 142, 240),
-                accent_soft: Color32::from_rgb(78, 78, 78),
-                accent_border: Color32::from_rgb(55, 142, 240),
-                accent_text: Color32::WHITE,
-                separator: Color32::from_rgb(30, 30, 30),
-                shadow: Color32::from_black_alpha(150),
-                primary_bg: Color32::from_rgb(55, 142, 240),
-                primary_text: Color32::WHITE,
-                danger: Color32::from_rgb(236, 91, 98),
-                warning: Color32::from_rgb(232, 176, 70),
-                radius_sm: 3.0,
-                radius: 4.0,
-                radius_lg: 6.0,
-                bevel: false,
-                pro: true,
-                round_chips: false,
-                tab_strip: Color32::from_rgb(38, 38, 38),
-                row_selected: Color32::from_rgb(82, 82, 82),
-                histogram_bg: Color32::from_rgb(40, 40, 40),
-                histogram_level: 225,
-                caption_close: Color32::from_rgb(196, 43, 28),
-                caption_close_text: Color32::WHITE,
-                scrim: Color32::from_black_alpha(110),
-            },
+            // The shared craft-ui tokens (treeforjs/craftworks DESIGN.md), drawn with the panel
+            // layout (tab strips, flat panels) so every craft app shares one look.
+            ThemeKind::Craft => Tokens::craft(kind, craft_ui::Mode::Dark),
+            ThemeKind::CraftLight => Tokens::craft(kind, craft_ui::Mode::Light),
+            ThemeKind::HighContrast => Tokens::craft(kind, craft_ui::Mode::HighContrast),
             ThemeKind::Studio => Tokens {
                 kind,
                 chrome: Color32::from_rgb(20, 20, 21),
@@ -468,9 +421,56 @@ impl Tokens {
         }
     }
 
+    /// PhotoCraft's tokens for one of the shared craft-ui modes.
+    fn craft(kind: ThemeKind, mode: craft_ui::Mode) -> Self {
+        use craft_ui::tokens::radius;
+        let c = craft_ui::Tokens::new(mode, craft_ui::Density::Compact);
+        let dark = mode != craft_ui::Mode::Light;
+        Tokens {
+            kind,
+            chrome: c.surface,
+            canvas: c.bg,
+            canvas_dot: c.bg,
+            dock: c.bg,
+            card: c.surface,
+            card_border: c.border,
+            field: c.field,
+            field_border: c.border,
+            hover: c.hover,
+            pressed: c.pressed,
+            text: c.text,
+            text_dim: c.text_muted,
+            text_faint: c.text_faint,
+            icon: c.icon,
+            accent: c.accent,
+            accent_soft: c.accent_soft,
+            accent_border: c.accent,
+            accent_text: c.accent_text,
+            separator: c.divider,
+            shadow: c.shadow,
+            primary_bg: c.accent,
+            primary_text: c.text_on_accent,
+            danger: c.danger,
+            warning: c.warning,
+            radius_sm: f32::from(radius::SM),
+            radius: f32::from(radius::MD),
+            radius_lg: f32::from(radius::LG),
+            bevel: false,
+            pro: true,
+            round_chips: false,
+            tab_strip: c.bg,
+            row_selected: c.accent_soft,
+            histogram_bg: c.bg,
+            histogram_level: if dark { 225 } else { 240 },
+            caption_close: Color32::from_rgb(196, 43, 28),
+            caption_close_text: Color32::WHITE,
+            scrim: Color32::from_black_alpha(110),
+        }
+    }
+
     /// Tokens for the active theme (stored in egui's context data by [`apply`]).
     pub fn get(ctx: &egui::Context) -> Tokens {
-        ctx.data(|d| d.get_temp::<Tokens>(egui::Id::new("photocraft-theme"))).unwrap_or_else(|| Tokens::for_kind(ThemeKind::Studio))
+        ctx.data(|d| d.get_temp::<Tokens>(egui::Id::new("photocraft-theme"))).unwrap_or_else(|| Tokens::for_kind(ThemeKind::Craft))
     }
 
     /// Thin RGB outlines; the filled bands use the same hues with subdued coverage.
@@ -523,7 +523,7 @@ impl Tokens {
     }
 
     pub fn dark(&self) -> bool {
-        matches!(self.kind, ThemeKind::Studio | ThemeKind::Pro | ThemeKind::ProMedium | ThemeKind::SolarizedDark | ThemeKind::AdwaitaDark)
+        matches!(self.kind, ThemeKind::Studio | ThemeKind::Craft | ThemeKind::HighContrast | ThemeKind::SolarizedDark | ThemeKind::AdwaitaDark)
     }
 }
 
@@ -779,7 +779,7 @@ mod tests {
     fn ui_font_sizes_scale_shaping_and_row_height_without_accumulating() {
         let ctx = egui::Context::default();
         install_fonts(&ctx);
-        apply(&ctx, ThemeKind::Pro);
+        apply(&ctx, ThemeKind::Craft);
         let original = text_sizes(&ctx);
         let definitions = ctx.fonts(|f| f.definitions().clone());
         for size in [UiFontSize::Tiny, UiFontSize::Small, UiFontSize::Medium, UiFontSize::Large, UiFontSize::Tiny, UiFontSize::Small] {
@@ -809,7 +809,7 @@ mod tests {
         ctx.run_ui(Default::default(), |ui| {
             assert!(!medium_bound(ui.ctx()), "egui's defaults are active in the first frame");
             install_fonts(ui.ctx());
-            apply(ui.ctx(), ThemeKind::Pro);
+            apply(ui.ctx(), ThemeKind::Craft);
             set_ui_font_size(ui.ctx(), UiFontSize::Medium);
         })
         .textures_delta
@@ -849,13 +849,24 @@ mod tests {
     fn theme_names_parse() {
         assert_eq!(ThemeKind::from_name("Classic"), Some(ThemeKind::Classic));
         assert_eq!(ThemeKind::from_name("studio (light)"), Some(ThemeKind::StudioLight));
-        assert_eq!(ThemeKind::from_name("dark"), Some(ThemeKind::Pro));
+        assert_eq!(ThemeKind::from_name("dark"), Some(ThemeKind::Craft));
         assert_eq!(ThemeKind::from_name("studio"), Some(ThemeKind::Studio));
-        assert_eq!(ThemeKind::from_name("Pro (Medium Gray)"), Some(ThemeKind::ProMedium));
+        assert_eq!(ThemeKind::from_name("Pro (Medium Gray)"), Some(ThemeKind::Craft));
         assert_eq!(ThemeKind::from_name("Solarized Dark"), Some(ThemeKind::SolarizedDark));
         assert_eq!(ThemeKind::from_name("solarized"), Some(ThemeKind::SolarizedDark));
-        let m = Tokens::for_kind(ThemeKind::ProMedium);
-        assert!(m.pro && m.dark() && m.kind == ThemeKind::ProMedium && m.card == Color32::from_rgb(83, 83, 83));
+        let m = Tokens::for_kind(ThemeKind::Craft);
+        assert!(m.pro && m.dark() && m.kind == ThemeKind::Craft);
+        // The shared themes are craft-ui's tokens, so PhotoCraft matches the other craft apps.
+        for (kind, mode) in
+            [(ThemeKind::Craft, craft_ui::Mode::Dark), (ThemeKind::CraftLight, craft_ui::Mode::Light), (ThemeKind::HighContrast, craft_ui::Mode::HighContrast)]
+        {
+            let (t, c) = (Tokens::for_kind(kind), craft_ui::Tokens::new(mode, craft_ui::Density::Compact));
+            assert_eq!((t.card, t.accent, t.text, t.dark()), (c.surface, c.accent, c.text, mode != craft_ui::Mode::Light), "{kind:?}");
+        }
+        assert_eq!(ThemeKind::from_name("light"), Some(ThemeKind::CraftLight));
+        assert_eq!(ThemeKind::from_name("highContrast"), Some(ThemeKind::HighContrast));
+        assert_eq!(ThemeKind::from_name("pro"), Some(ThemeKind::Craft));
+        assert_eq!(serde_json::from_str::<ThemeKind>("\"ProMedium\"").ok(), Some(ThemeKind::Craft));
         let s = Tokens::for_kind(ThemeKind::SolarizedDark);
         assert!(s.dark() && !s.bevel && s.kind == ThemeKind::SolarizedDark && s.card == Color32::from_rgb(7, 54, 66));
         assert_eq!(ThemeKind::from_name("neon"), None);
@@ -864,7 +875,7 @@ mod tests {
     #[test]
     fn studio_text_contrast_is_high() {
         let t = Tokens::for_kind(ThemeKind::Studio);
-        let p = Tokens::for_kind(ThemeKind::Pro);
+        let p = Tokens::for_kind(ThemeKind::Craft);
         assert!(p.pro && !t.pro);
         let lum = |c: Color32| 0.2126 * c.r() as f32 + 0.7152 * c.g() as f32 + 0.0722 * c.b() as f32;
         assert!(lum(t.text) - lum(t.card) > 180.0);
@@ -1028,7 +1039,7 @@ pub mod live {
 
         #[test]
         fn overrides_apply_and_report_unknown() {
-            let mut t = Tokens::for_kind(super::super::ThemeKind::Pro);
+            let mut t = Tokens::for_kind(super::super::ThemeKind::Craft);
             let unknown = apply_overrides(&mut t, &serde_json::json!({"card": "#102030", "radius": 9, "nope": 1}));
             assert_eq!(t.card, Color32::from_rgb(16, 32, 48));
             assert_eq!(t.radius, 9.0);

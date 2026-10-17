@@ -37,7 +37,7 @@ fn has_menu(h: &Harness<'_, PhotocraftApp>) -> bool {
 
 #[test]
 fn overflowing_tabs_stay_on_the_strip_and_the_rest_move_to_the_menu() {
-    let h = harness(14, ThemeKind::Pro);
+    let h = harness(14, ThemeKind::Craft);
     assert_eq!(h.state().session.documents().len(), 14);
     let s = strip(&h);
     assert!(s.tabs.len() < 14, "some tabs must overflow into the menu: {} shown", s.tabs.len());
@@ -53,7 +53,7 @@ fn overflowing_tabs_stay_on_the_strip_and_the_rest_move_to_the_menu() {
 
 #[test]
 fn the_active_document_brings_its_tab_onto_the_strip() {
-    let mut h = harness(14, ThemeKind::Pro);
+    let mut h = harness(14, ThemeKind::Craft);
     for pick in [0, 13, 7] {
         h.state_mut().session.set_active(pick);
         h.run_steps(2);
@@ -64,7 +64,7 @@ fn the_active_document_brings_its_tab_onto_the_strip() {
 
 #[test]
 fn tabs_that_fit_keep_their_natural_widths_and_no_menu() {
-    let h = harness(3, ThemeKind::Pro);
+    let h = harness(3, ThemeKind::Craft);
     let s = strip(&h);
     assert_eq!(s.tabs.len(), 3, "every tab stays on the strip when they fit");
     assert!(h.query_by_label("More documents").is_none(), "no overflow menu when the tabs fit");

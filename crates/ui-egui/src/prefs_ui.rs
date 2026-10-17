@@ -87,14 +87,15 @@ fn selected_theme(interface: &prefs::Interface, system: Option<egui::Theme>) -> 
     };
     if light {
         match interface.light_theme {
+            LightTheme::CraftLight => ThemeKind::CraftLight,
             LightTheme::StudioLight => ThemeKind::StudioLight,
             LightTheme::Classic => ThemeKind::Classic,
             LightTheme::Adwaita => ThemeKind::Adwaita,
         }
     } else {
         match interface.dark_theme {
-            DarkTheme::Pro => ThemeKind::Pro,
-            DarkTheme::ProMedium => ThemeKind::ProMedium,
+            DarkTheme::Craft => ThemeKind::Craft,
+            DarkTheme::HighContrast => ThemeKind::HighContrast,
             DarkTheme::Studio => ThemeKind::Studio,
             DarkTheme::SolarizedDark => ThemeKind::SolarizedDark,
             DarkTheme::AdwaitaDark => ThemeKind::AdwaitaDark,
@@ -1183,8 +1184,8 @@ fn appearance_rows(ui: &mut egui::Ui, obj: &mut Map<String, Value>, system: Opti
     ui.add_space(8.0);
     let light_active = mode == "light" || (mode == "auto" && system == Some(egui::Theme::Light));
     let width = ((ui.available_width() - 10.0) / 2.0).max(190.0);
-    let mut light = obj.get("lightTheme").and_then(Value::as_str).unwrap_or("studioLight").to_string();
-    let mut dark = obj.get("darkTheme").and_then(Value::as_str).unwrap_or("proMedium").to_string();
+    let mut light = obj.get("lightTheme").and_then(Value::as_str).unwrap_or("light").to_string();
+    let mut dark = obj.get("darkTheme").and_then(Value::as_str).unwrap_or("dark").to_string();
     ui.horizontal_top(|ui| {
         ui.set_min_width(width * 2.0 + 10.0);
         ui.allocate_ui_with_layout(vec2(width, 300.0), egui::Layout::top_down(egui::Align::Min), |ui| {
@@ -1193,7 +1194,7 @@ fn appearance_rows(ui: &mut egui::Ui, obj: &mut Map<String, Value>, system: Opti
                 "Light Theme",
                 light_active,
                 &mut light,
-                &[("studioLight", ThemeKind::StudioLight), ("classic", ThemeKind::Classic), ("adwaita", ThemeKind::Adwaita)],
+                &[("light", ThemeKind::CraftLight), ("studioLight", ThemeKind::StudioLight), ("classic", ThemeKind::Classic), ("adwaita", ThemeKind::Adwaita)],
                 width,
             );
         });
@@ -1205,8 +1206,8 @@ fn appearance_rows(ui: &mut egui::Ui, obj: &mut Map<String, Value>, system: Opti
                 !light_active,
                 &mut dark,
                 &[
-                    ("proMedium", ThemeKind::ProMedium),
-                    ("pro", ThemeKind::Pro),
+                    ("dark", ThemeKind::Craft),
+                    ("highContrast", ThemeKind::HighContrast),
                     ("studio", ThemeKind::Studio),
                     ("solarizedDark", ThemeKind::SolarizedDark),
                     ("adwaitaDark", ThemeKind::AdwaitaDark),
@@ -1807,8 +1808,8 @@ mod tests {
     #[test]
     fn appearance_resolves_both_saved_themes_and_follows_system() {
         let mut interface = prefs::Interface { appearance_mode: AppearanceMode::Auto, ..prefs::Interface::default() };
-        assert_eq!(selected_theme(&interface, Some(egui::Theme::Dark)), ThemeKind::ProMedium);
-        assert_eq!(selected_theme(&interface, Some(egui::Theme::Light)), ThemeKind::StudioLight);
+        assert_eq!(selected_theme(&interface, Some(egui::Theme::Dark)), ThemeKind::Craft);
+        assert_eq!(selected_theme(&interface, Some(egui::Theme::Light)), ThemeKind::CraftLight);
         interface.dark_theme = DarkTheme::Studio;
         interface.light_theme = LightTheme::Classic;
         assert_eq!(selected_theme(&interface, Some(egui::Theme::Dark)), ThemeKind::Studio);
@@ -1827,7 +1828,7 @@ mod tests {
         app.run("prefs.set", json!({"path": "interface.appearanceMode", "value": "auto"})).unwrap();
         let ctx = egui::Context::default();
         tick(&mut app, &ctx);
-        assert_eq!(app.ui.theme, ThemeKind::StudioLight);
+        assert_eq!(app.ui.theme, ThemeKind::CraftLight);
     }
 
     #[test]
@@ -1836,7 +1837,7 @@ mod tests {
         let mut app = PhotocraftApp::new(photocraft_engine::Session::new(), crate::Services::default());
         app.run("prefs.set", json!({"values": {"interface.darkTheme": "studio", "interface.lightTheme": "classic"}})).unwrap();
         for (mode, visible) in
-            [(AppearanceMode::Auto, ThemeKind::Studio), (AppearanceMode::Light, ThemeKind::Classic), (AppearanceMode::Dark, ThemeKind::Studio)]
+            [(AppearanceMode::Light, ThemeKind::Classic), (AppearanceMode::Dark, ThemeKind::Studio), (AppearanceMode::Auto, ThemeKind::Studio)]
         {
             cycle_appearance(&mut app, &ctx);
             assert_eq!(app.session.prefs().interface.appearance_mode, mode);
@@ -1991,11 +1992,11 @@ mod tests {
         assert_eq!(delays, [2.0, 4.0, 8.0, 16.0, SAVE_RETRY_MAX_S, SAVE_RETRY_MAX_S]);
         assert_eq!(app.ui.notices.iter().filter(|n| n.error && n.title == "Preferences can't be saved").count(), 1);
         // A newer change retries sooner than the backoff, but not on every frame.
-        app.run("prefs.set", json!({"values": {"interface.theme": "pro"}})).unwrap();
+        app.run("prefs.set", json!({"values": {"interface.theme": "classic"}})).unwrap();
         assert_eq!(persist(&mut app, now - 29.0), Some(1.0));
         fail.store(false, Ordering::Relaxed);
         assert_eq!(persist(&mut app, now - 28.0), None);
-        assert_eq!(stored(&store)["interface"]["theme"], "pro");
+        assert_eq!(stored(&store)["interface"]["theme"], "classic");
         assert!(app.ui.notices.is_empty(), "the notice goes once preferences are saved");
     }
 
@@ -2066,7 +2067,7 @@ mod tests {
     fn ui_font_size_commands_follow_themes_and_dpi_and_reset_live() {
         let (mut app, _) = app_with_store();
         let ctx = egui::Context::default();
-        PhotocraftApp::setup_context(&ctx, ThemeKind::Pro);
+        PhotocraftApp::setup_context(&ctx, ThemeKind::Craft);
         let mut input = egui::RawInput::default();
         input.viewports.get_mut(&egui::ViewportId::ROOT).unwrap().native_pixels_per_point = Some(1.5);
         for (theme, scale, expected) in

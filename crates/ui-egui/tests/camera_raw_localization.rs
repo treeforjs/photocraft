@@ -11,7 +11,7 @@ fn all_seven_languages_render_camera_raw_and_switch_without_resetting_view_or_fi
         let builder = Harness::builder().with_step_dt(1.0 / 60.0).with_size(vec2(1440.0, 1000.0));
         let builder = if gpu { builder.wgpu() } else { builder };
         let mut h = builder.build_eframe(move |cc| {
-            PhotocraftApp::setup_context(&cc.egui_ctx, ThemeKind::Pro);
+            PhotocraftApp::setup_context(&cc.egui_ctx, ThemeKind::Craft);
             let mut app = PhotocraftApp::new(photocraft_engine::Session::new(), Default::default());
             app.run("file.new", json!({"width":64,"height":48})).unwrap();
             app.run("layer.new.layer", json!({})).unwrap();
@@ -21,7 +21,7 @@ fn all_seven_languages_render_camera_raw_and_switch_without_resetting_view_or_fi
         });
         h.run_steps(3);
         let ctx = h.ctx.clone();
-        h.state_mut().set_theme(&ctx, ThemeKind::Pro);
+        h.state_mut().set_theme(&ctx, ThemeKind::Craft);
         h.state_mut().session.prefs.edit(|p| p.interface.language = lang.code().into());
         h.run_steps(4);
         let tr = |s| i18n::tr_ctx(lang, "cameraRaw", s);

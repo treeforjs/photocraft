@@ -64,7 +64,7 @@ fn expanded(app: &PhotocraftApp, group: LayerId) -> bool {
 
 #[test]
 fn a_new_active_layer_opens_its_groups_and_scrolls_into_view() {
-    for theme in [ThemeKind::ProMedium, ThemeKind::Studio] {
+    for theme in [ThemeKind::Craft, ThemeKind::Studio] {
         let (app, inner, group, top, below_top) = tall_doc();
         let mut h = harness(app, theme);
         let top_row = row(&h, "Stack 29").expect("top row drawn");
@@ -119,7 +119,7 @@ fn a_new_active_layer_opens_its_groups_and_scrolls_into_view() {
 fn reveal_survives_odd_documents() {
     // No document, a document without layers in groups, a layer deleted between frames.
     let app = PhotocraftApp::new(photocraft_engine::Session::new(), crate::Services::default());
-    let mut h = harness(app, ThemeKind::ProMedium);
+    let mut h = harness(app, ThemeKind::Craft);
     h.run_steps(2);
     h.state_mut().run("file.new", json!({"width": 20, "height": 20})).unwrap();
     h.state_mut().sync_views();

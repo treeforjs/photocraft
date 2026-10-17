@@ -66,7 +66,7 @@ fn drag(h: &mut Harness<'_, PhotocraftApp>, a: Pos2, b: Pos2) {
 
 #[test]
 fn invalid_mixed_controller_requests_leave_dialog_preferences_and_document_unchanged() {
-    let mut h = fixture(ThemeKind::Pro);
+    let mut h = fixture(ThemeKind::Craft);
     let ctx = h.ctx.clone();
     let before = inspect(&h);
     let preferences = h.state().session.prefs().dialogs.clone();
@@ -92,7 +92,7 @@ fn invalid_mixed_controller_requests_leave_dialog_preferences_and_document_uncha
 
 #[test]
 fn invalid_requests_do_not_open_a_dialog_or_replace_scope_preferences() {
-    let mut h = fixture(ThemeKind::Pro);
+    let mut h = fixture(ThemeKind::Craft);
     let ctx = h.ctx.clone();
     menu(h.state_mut(), &ctx, json!({"ui":{"cancel":true}})).unwrap();
     let view = h.state().ui.camera_raw_scope.clone();
@@ -109,7 +109,7 @@ fn invalid_requests_do_not_open_a_dialog_or_replace_scope_preferences() {
 
 #[test]
 fn failed_commit_keeps_the_dialog_and_filter_settings_for_retry() {
-    let mut h = fixture(ThemeKind::Pro);
+    let mut h = fixture(ThemeKind::Craft);
     let ctx = h.ctx.clone();
     menu(h.state_mut(), &ctx, json!({"ui":{"set":{"exposure":0.5}}})).unwrap();
     h.state_mut().run("layer.lockLayers", json!({"pixels":true})).unwrap();
@@ -124,7 +124,7 @@ fn failed_commit_keeps_the_dialog_and_filter_settings_for_retry() {
 
 #[test]
 fn malformed_curves_fail_in_both_preview_and_engine_without_an_edit() {
-    let mut h = fixture(ThemeKind::Pro);
+    let mut h = fixture(ThemeKind::Craft);
     let ctx = h.ctx.clone();
     let before = inspect(&h);
     let document = h.state().session.active().unwrap().doc.clone();
@@ -263,7 +263,7 @@ fn real_drag_hover_warnings_sampler_motion_and_floating_scope_across_themes() {
 
 #[test]
 fn real_shortcuts_triangles_menu_and_scope_preferences_roundtrip() {
-    let mut h = fixture(ThemeKind::Pro);
+    let mut h = fixture(ThemeKind::Craft);
     let revision = inspect(&h)["previewRevision"].clone();
     for (key, field) in [(egui::Key::U, "shadows"), (egui::Key::O, "highlights"), (egui::Key::S, "samplerTool")] {
         h.key_press(key);
@@ -342,7 +342,7 @@ fn selected_region_scope_and_preview_share_the_engine_selection_boundary() {
 
 #[test]
 fn floating_window_is_above_the_dialog_and_can_be_dragged_back_to_the_dock() {
-    let mut h = fixture(ThemeKind::Pro);
+    let mut h = fixture(ThemeKind::Craft);
     // No heading, grab control or undock/sample actions in the context menu.
     assert!(h.query_by_label("Histogram").is_none());
     let graph = rect(&h, "scopeRect");
@@ -390,7 +390,7 @@ fn floating_window_is_above_the_dialog_and_can_be_dragged_back_to_the_dock() {
 
 #[test]
 fn alt_tone_diagnostics_and_double_click_reset_follow_the_same_proxy_revision() {
-    let mut h = fixture(ThemeKind::Pro);
+    let mut h = fixture(ThemeKind::Craft);
     let history = h.state().session.active().unwrap().history.past_len();
     let ctx = h.ctx.clone();
     menu(h.state_mut(), &ctx, json!({"ui":{"set":{"exposure":0.5}}})).unwrap();
@@ -418,9 +418,9 @@ fn alt_tone_diagnostics_and_double_click_reset_follow_the_same_proxy_revision() 
 fn both_clipping_warnings_leave_unclipped_preview_pixels_visible_on_gpu() {
     let _gpu = gpu_lock();
     let mut h = Harness::builder().with_step_dt(1.0 / 60.0).with_size(vec2(800.0, 600.0)).wgpu().build_eframe(|cc| {
-        PhotocraftApp::setup_context(&cc.egui_ctx, ThemeKind::Pro);
+        PhotocraftApp::setup_context(&cc.egui_ctx, ThemeKind::Craft);
         let mut app = PhotocraftApp::new(photocraft_engine::Session::new(), Default::default());
-        app.set_theme(&cc.egui_ctx, ThemeKind::Pro);
+        app.set_theme(&cc.egui_ctx, ThemeKind::Craft);
         app.run("file.new", json!({"width":16,"height":16})).unwrap();
         app.run("layer.new.layer", json!({})).unwrap();
         app.run("edit.fill", json!({"color":"#808080"})).unwrap();
@@ -440,7 +440,7 @@ fn both_clipping_warnings_leave_unclipped_preview_pixels_visible_on_gpu() {
 
 #[test]
 fn curve_drag_moves_the_existing_point_without_creating_another() {
-    let mut h = fixture(ThemeKind::Pro);
+    let mut h = fixture(ThemeKind::Craft);
     let graph = open_curve(&mut h);
     let ctx = h.ctx.clone();
     menu(h.state_mut(), &ctx, json!({"ui":{"set":{"pointCurve":[[0,0],[128,128],[255,255]]}}})).unwrap();
@@ -476,7 +476,7 @@ fn curve_points(h: &Harness<'_, PhotocraftApp>) -> Value {
 
 #[test]
 fn controller_click_delivered_in_one_raw_frame_selects_an_existing_curve_point() {
-    let mut h = fixture(ThemeKind::Pro);
+    let mut h = fixture(ThemeKind::Craft);
     let graph = open_curve(&mut h);
     set_curve(&mut h, json!([[0.0, 0.0], [128.0, 128.0], [255.0, 255.0]]));
     let at = curve_at(graph, [128.0, 128.0]);
@@ -530,7 +530,7 @@ fn curve_capture_handles_fast_and_slow_motion_without_jumps_in_every_theme() {
 
 #[test]
 fn curve_deletion_reentry_keyboard_limits_and_controller_replacement_share_capture() {
-    let mut h = fixture(ThemeKind::Pro);
+    let mut h = fixture(ThemeKind::Craft);
     let graph = open_curve(&mut h);
     let original = h.state().session.active().unwrap().doc.clone();
     set_curve(&mut h, json!([[0.0, 0.0], [128.0, 128.0], [255.0, 255.0]]));
@@ -610,7 +610,7 @@ fn curve_gpu_paints_the_moved_handle_in_every_theme() {
 
 #[test]
 fn pixel_hover_tracks_displayed_rgb_before_after_and_keeps_analysis_cached() {
-    let mut h = fixture(ThemeKind::Pro);
+    let mut h = fixture(ThemeKind::Craft);
     let ctx = h.ctx.clone();
     menu(h.state_mut(), &ctx, json!({"ui":{"scope":{"vectorscope":true,"lab":true}}})).unwrap();
     h.run_steps(3);
@@ -719,7 +719,7 @@ fn pixel_hover_gpu_badge_single_band_and_crosshair_appear_and_clear_in_all_theme
 
 #[test]
 fn sampler_list_replacement_and_operations_cannot_silently_cancel_each_other() {
-    let mut h = fixture(ThemeKind::Pro);
+    let mut h = fixture(ThemeKind::Craft);
     let ctx = h.ctx.clone();
     let combined = json!({"ui":{"scope":{"samplers":[[0.1,0.1]],"addSampler":[0.5,0.5]}}});
     assert!(menu(h.state_mut(), &ctx, combined).is_err(), "replacing and editing the list in one request is ambiguous");
@@ -748,12 +748,12 @@ fn alt_drag_slider(h: &mut Harness<'_, PhotocraftApp>, label: &str) -> Value {
 #[test]
 fn alt_drag_diagnostics_follow_light_tone_sliders_not_same_named_ones() {
     let tr = |s| photocraft_ui_egui::i18n::tr_ctx(photocraft_ui_egui::i18n::current(), "cameraRaw", s);
-    let mut h = fixture(ThemeKind::Pro);
+    let mut h = fixture(ThemeKind::Craft);
     let during = alt_drag_slider(&mut h, tr("Highlights"));
     assert_ne!(during["params"]["highlights"], 0.0, "the drag hit the Light slider");
     assert_eq!(during["overlayRevision"], during["previewRevision"], "Light tone sliders drive Alt diagnostics");
 
-    let mut h = fixture(ThemeKind::Pro);
+    let mut h = fixture(ThemeKind::Craft);
     h.get_by_label(tr("Light")).click();
     h.run_steps(12);
     h.get_by_label(tr("Curve")).click();

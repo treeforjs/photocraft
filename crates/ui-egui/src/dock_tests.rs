@@ -124,7 +124,7 @@ fn drag(h: &mut Harness<'static, PhotocraftApp>, from: Pos2, to: Pos2) {
 
 #[test]
 fn switching_layer_kinds_keeps_the_layers_panel_still() {
-    for theme in [ThemeKind::ProMedium, ThemeKind::Studio] {
+    for theme in [ThemeKind::Craft, ThemeKind::Studio] {
         let (app, pixel, adj) = app_with_layers();
         let mut h = harness(app, vec2(1200.0, 800.0), theme);
         let rects = |h: &Harness<'static, PhotocraftApp>| last_rects(&h.ctx);
@@ -146,7 +146,7 @@ fn switching_layer_kinds_keeps_the_layers_panel_still() {
 #[test]
 fn dragging_the_splitter_resizes_and_survives_a_ui_state_round_trip() {
     let (app, _, _) = app_with_layers();
-    let mut h = harness(app, vec2(1200.0, 800.0), ThemeKind::ProMedium);
+    let mut h = harness(app, vec2(1200.0, 800.0), ThemeKind::Craft);
     let props = rect_of(&h, Group::Properties);
     let layers = rect_of(&h, Group::Layers);
     let split = Pos2::new(props.center().x, props.bottom() + GAP / 2.0);
@@ -171,7 +171,7 @@ fn dragging_the_splitter_resizes_and_survives_a_ui_state_round_trip() {
     let saved = serde_json::to_value(&h.state().ui).unwrap();
     let (mut app2, _, _) = app_with_layers();
     app2.ui = serde_json::from_value(saved).unwrap();
-    let h2 = harness(app2, vec2(1200.0, 800.0), ThemeKind::ProMedium);
+    let h2 = harness(app2, vec2(1200.0, 800.0), ThemeKind::Craft);
     assert_eq!(last_rects(&h2.ctx), last_rects(&h.ctx));
 
     // Remembered in the preferences once the mouse is up, and restored at the next launch.
@@ -193,7 +193,7 @@ fn dragging_the_splitter_resizes_and_survives_a_ui_state_round_trip() {
 #[test]
 fn reset_workspace_restores_the_default_layout_and_new_workspaces_keep_theirs() {
     let (app, _, _) = app_with_layers();
-    let mut h = harness(app, vec2(1200.0, 800.0), ThemeKind::ProMedium);
+    let mut h = harness(app, vec2(1200.0, 800.0), ThemeKind::Craft);
     let ctx = h.ctx.clone();
     let default = last_rects(&h.ctx);
     h.state_mut().ui.dock.heights.insert(Group::Properties, 120.0);
@@ -212,7 +212,7 @@ fn reset_workspace_restores_the_default_layout_and_new_workspaces_keep_theirs() 
 
 #[test]
 fn a_single_tab_click_expands_a_collapsed_panel() {
-    for theme in [ThemeKind::ProMedium, ThemeKind::Studio] {
+    for theme in [ThemeKind::Craft, ThemeKind::Studio] {
         for tab_index in [0, 1] {
             let (mut app, _, _) = app_with_layers();
             app.ui.dock_tabs.color = 0;
@@ -240,7 +240,7 @@ fn a_single_tab_click_expands_a_collapsed_panel() {
 #[test]
 fn double_clicking_a_tab_collapses_and_dragging_a_strip_reorders() {
     let (app, _, _) = app_with_layers();
-    let mut h = harness(app, vec2(1200.0, 800.0), ThemeKind::ProMedium);
+    let mut h = harness(app, vec2(1200.0, 800.0), ThemeKind::Craft);
     let color = rect_of(&h, Group::Color);
     let tab = color.left_top() + vec2(20.0, 13.0);
     h.event(egui::Event::PointerMoved(tab));
@@ -271,7 +271,7 @@ fn double_clicking_a_tab_collapses_and_dragging_a_strip_reorders() {
 
 #[test]
 fn tiny_windows_do_not_panic() {
-    for theme in [ThemeKind::ProMedium, ThemeKind::Studio] {
+    for theme in [ThemeKind::Craft, ThemeKind::Studio] {
         for (w, ht) in [(40.0, 30.0), (300.0, 80.0), (600.0, 200.0), (2000.0, 120.0)] {
             let (mut app, _, _) = app_with_layers();
             app.ui.panels.history = true;
@@ -418,8 +418,7 @@ fn right_click_tab(h: &mut Harness<'static, PhotocraftApp>, group: Group, origin
 fn panel_tab_context_menu_closes_one_tab_or_its_group() {
     use egui_kittest::kittest::Queryable;
 
-    for (theme, g, window) in [(ThemeKind::ProMedium, Group::Properties, "window.panel.properties"), (ThemeKind::Studio, Group::Layers, "window.panel.layers")]
-    {
+    for (theme, g, window) in [(ThemeKind::Craft, Group::Properties, "window.panel.properties"), (ThemeKind::Studio, Group::Layers, "window.panel.layers")] {
         let pro = is_pro(theme);
         let names = g.tabs(pro);
         let (app, _, _) = app_with_layers();
@@ -461,7 +460,7 @@ fn panel_tab_context_menu_closes_one_tab_or_its_group() {
 }
 
 fn is_pro(theme: ThemeKind) -> bool {
-    matches!(theme, ThemeKind::Pro | ThemeKind::ProMedium)
+    crate::theme::Tokens::for_kind(theme).pro
 }
 
 /// Full app at `size` (1× scale) on a document with `n` layers named "Row 00", "Row 01", …
@@ -499,7 +498,7 @@ fn rows_in_view(h: &Harness<'static, PhotocraftApp>, n: usize) -> usize {
 #[test]
 fn default_layout_shows_ten_layer_rows_at_900pt() {
     for (size, want) in [(vec2(1440.0, 900.0), 10), (vec2(1280.0, 720.0), 4)] {
-        let h = app_harness_rows(size, ThemeKind::ProMedium, 40);
+        let h = app_harness_rows(size, ThemeKind::Craft, 40);
         let rows = rows_in_view(&h, 40);
         let groups = last_rects(&h.ctx);
         assert!(rows >= want, "{size:?}: {rows} rows visible, want ≥ {want}: {groups:?}");
@@ -534,7 +533,7 @@ fn defaults_give_way_to_layers_but_user_sizes_stay() {
 /// stays), and toggles closed again; old saved layouts place it above Layers.
 #[test]
 fn window_character_opens_its_own_group_and_keeps_properties() {
-    for theme in [ThemeKind::ProMedium, ThemeKind::Studio] {
+    for theme in [ThemeKind::Craft, ThemeKind::Studio] {
         let (app, _, _) = app_with_layers();
         let mut h = harness(app, vec2(1440.0, 900.0), theme);
         let ctx = h.ctx.clone();
@@ -666,7 +665,7 @@ fn dock_strips_fit_and_the_chevron_menu_switches_tabs() {
         },
         0usize,
     );
-    PhotocraftApp::setup_context(&h.ctx, ThemeKind::ProMedium);
+    PhotocraftApp::setup_context(&h.ctx, ThemeKind::Craft);
     h.run_steps(3);
     use egui_kittest::kittest::Queryable;
     h.get_by_label("More panels").click();
