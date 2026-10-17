@@ -1,6 +1,6 @@
 # Scorecard checklist: tools (#213 painting and retouching, #214 selection, transform, drawing).
 # An item is done when it has a command, a UI and tests.
-# Statuses must be true on main. Verified against 4b53f62 on 2026-10-05.
+# Statuses must be true on main. Verified against b8debbb on 2026-10-17.
 area = "tools"
 title = "Tools"
 order = 3
@@ -50,9 +50,9 @@ note = "fill_ui.rs dialog over edit.fill (fill_cmds.rs): all contents, mode, opa
 [[item]]
 id = "TOOL-213-7"
 target = "Live stroke preview for every brush-based retouch tool"
-status = "missing"
+status = "partial"
 issue = 213
-note = "Live stroke only for Brush and Eraser (canvas.rs:1684)"
+note = "Live preview for Clone, Healing and History Brush (canvas.rs), live dabs for Blur/Sharpen/Smudge/Dodge/Burn/Sponge (live_clone_matches_the_commit, live_dodge_matches_the_commit_across_cells); Spot Healing and Sample All Layers not previewed"
 
 [[item]]
 id = "TOOL-213-8"
@@ -162,9 +162,9 @@ note = "edit.contentAwareScale (edit_menu_cmds.rs:899) behind a parameter dialog
 [[item]]
 id = "TOOL-214-8"
 target = "A measured ruler angle prefills Image Rotation > Arbitrary (0.01 deg)"
-status = "missing"
+status = "done"
 issue = 214
-note = "Arbitrary rotation is a generic dialog; ruler only feeds straighten"
+note = "analysis_ui.rs arbitrary_rotation_starts_at_the_ruler_angle"
 
 [[item]]
 id = "TOOL-214-9"
