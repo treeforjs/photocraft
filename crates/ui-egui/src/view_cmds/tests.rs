@@ -190,6 +190,21 @@ fn engine_commands_open_their_dialogs() {
     let d = menu(&mut app, &ctx, "type.warpText", json!({})).unwrap()["dialog"].as_u64().unwrap();
     crate::dialogs::confirm(&mut app, d).unwrap();
     assert!(app.run("type.info", json!({})).unwrap()["warp"]["style"] == "warpArc");
+    // Reopening shows the current warp, with live preview, and OK keeps it.
+    app.run("type.warpText", json!({"style": "flag", "bend": -30, "verticalDistortion": 12, "orientation": "vertical"})).unwrap();
+    let d = menu(&mut app, &ctx, "type.warpText", json!({})).unwrap()["dialog"].as_u64().unwrap();
+    let f = &app.ui.dialog_mut(d).unwrap().fields;
+    assert_eq!((f["style"].as_str(), f["bend"].as_f64(), f["verticalDistortion"].as_f64()), (Some("flag"), Some(-30.0), Some(12.0)));
+    assert_eq!((f["orientation"].as_str(), f["__preview"].as_bool()), (Some("vertical"), Some(true)));
+    crate::dialogs::confirm(&mut app, d).unwrap();
+    let w = app.run("type.info", json!({})).unwrap()["warp"].clone();
+    assert_eq!((w["style"].as_str(), w["value"].as_f64(), w["horizontal"].as_bool()), (Some("warpFlag"), Some(-30.0), Some(false)));
+    // The live preview renders a different warp without touching the document.
+    let st = app.session.active().unwrap();
+    let (doc, active, rev) = (st.doc.clone(), st.active_layer, st.revision);
+    let preview = crate::filter_dialog::preview_document(&doc, active, "type.warpText", &json!({"style": "bulge", "bend": 80}), 1).unwrap();
+    assert_ne!(photocraft_compose::flatten(&preview).px, photocraft_compose::flatten(&doc).px);
+    assert_eq!(app.session.active().unwrap().revision, rev);
     // Batch needs a recorded action.
     assert!(menu(&mut app, &ctx, "file.automate.batch", json!({})).is_err());
     // Close Others keeps the active document's view (the documents are dirty; the unsaved-changes prompt is covered in discard_ui).

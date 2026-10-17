@@ -173,6 +173,7 @@ pub const PREVIEWED: &[&str] = &[
     "layer.matting.defringe",
     "layer.matting.colorDecontaminate",
     "layer.layerStyle.scaleEffects",
+    "type.warpText",
 ];
 
 pub fn has_dialog(command: &str) -> bool {
@@ -281,6 +282,9 @@ fn open_inner(app: &mut PhotocraftApp, command: &str, creation: bool) -> Option<
     if command == "image.rotation.arbitrary" {
         straighten_defaults(app, &mut fields);
     }
+    if command == "type.warpText" {
+        current_warp(app, &mut fields);
+    }
     // Photoshop's Pattern Name dialog starts from the name the pattern would get anyway.
     if command == "edit.definePattern" {
         fields.insert("name".into(), json!(photocraft_engine::pattern_cmds::default_name(&app.session)));
@@ -295,6 +299,28 @@ fn open_inner(app: &mut PhotocraftApp, command: &str, creation: bool) -> Option<
         crate::smart_ui::bind_creation_preview(app, command, id);
     }
     Some(id)
+}
+
+/// Warp Text opens with the type layer's current warp, so OK without changes keeps it. An
+/// unwarped layer starts at Arc (the first real style; "none" would make OK a no-op).
+fn current_warp(app: &PhotocraftApp, fields: &mut Map<String, Value>) {
+    let warp = app.session.active().and_then(|d| d.doc.layer(d.active_layer?)).and_then(|l| match &l.content {
+        photocraft_doc::LayerContent::Text(t) => t.warp.clone(),
+        _ => None,
+    });
+    let Some(w) = warp else {
+        if fields.get("style").and_then(Value::as_str) == Some("none") {
+            fields.insert("style".into(), json!("arc"));
+        }
+        return;
+    };
+    let style = photocraft_text::warp::STYLES.iter().find(|(psd, _)| *psd == w.style).map_or("none", |(_, short)| short);
+    let pct = |v: f32| if v.is_finite() { f64::from(v.clamp(-100.0, 100.0)) } else { 0.0 };
+    fields.insert("style".into(), json!(style));
+    fields.insert("bend".into(), json!(pct(w.value)));
+    fields.insert("horizontalDistortion".into(), json!(pct(w.horizontal_distortion)));
+    fields.insert("verticalDistortion".into(), json!(pct(w.vertical_distortion)));
+    fields.insert("orientation".into(), json!(if w.horizontal { "horizontal" } else { "vertical" }));
 }
 
 /// Arbitrary rotation starts at the angle that straightens the ruler line, when there is one.
