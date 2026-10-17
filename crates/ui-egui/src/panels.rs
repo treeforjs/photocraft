@@ -2706,7 +2706,7 @@ fn adjustments_grid(app: &mut PhotocraftApp, ui: &mut egui::Ui) {
 
 /// The Color panel's foreground and background chips. A click picks the colour the field edits,
 /// framed; a double-click opens the Color Picker on it.
-fn field_chips(app: &mut PhotocraftApp, ui: &mut egui::Ui, chips: Rect) {
+pub(crate) fn field_chips(app: &mut PhotocraftApp, ui: &mut egui::Ui, chips: Rect) {
     let t = Tokens::get(ui.ctx());
     let bgr = Rect::from_min_size(chips.min + vec2(13.0, 13.0), vec2(22.0, 22.0));
     let fgr = Rect::from_min_size(chips.min + vec2(3.0, 3.0), vec2(22.0, 22.0));
@@ -2733,8 +2733,28 @@ fn field_chips(app: &mut PhotocraftApp, ui: &mut egui::Ui, chips: Rect) {
     }
 }
 
-/// Photoshop Color panel: saturation/brightness field + hue strip, drawn as shaded meshes.
+/// The Color panel: the mode dropdown, then the spectrum field, the wheel or a slider set
+/// ([`crate::color_panel_ui`]), then the hex/RGB readout. The field and the wheel grow with the
+/// group; the panel scrolls when the group is shorter than its smallest layout.
 fn color_field(app: &mut PhotocraftApp, ui: &mut egui::Ui) {
+    // Mode row and readout (two lines when the readout wraps in a narrow dock).
+    let chrome = if ui.available_width() < 300.0 { 104.0 } else { 76.0 };
+    let h = (ui.available_height() - chrome).clamp(90.0, 360.0);
+    egui::ScrollArea::vertical().id_salt("color-panel-scroll").auto_shrink([false, false]).show(ui, |ui| {
+        crate::color_panel_ui::mode_row(app, ui);
+        match app.ui.color_panel.mode {
+            crate::color_panel_ui::ColorPanelMode::Spectrum => spectrum_field(app, ui, h),
+            _ => {
+                crate::color_panel_ui::body(app, ui, h);
+                ui.add_space(6.0);
+                color_field_readout(app, ui, egui::Id::new(("color-field-hue", app.ui.color_panel.background)));
+            }
+        }
+    });
+}
+
+/// The Color panel's spectrum: saturation/brightness field + hue strip, drawn as shaded meshes.
+fn spectrum_field(app: &mut PhotocraftApp, ui: &mut egui::Ui, h: f32) {
     let t = Tokens::get(ui.ctx());
     let bg_active = app.ui.color_panel.background;
     let key = egui::Id::new(("color-field-hue", bg_active));
@@ -2746,7 +2766,6 @@ fn color_field(app: &mut PhotocraftApp, ui: &mut egui::Ui) {
     }
     let w = ui.available_width();
     let strip_w = 14.0;
-    let h = 120.0;
     ui.horizontal(|ui| {
         ui.spacing_mut().item_spacing.x = 8.0;
         let (chips, _) = ui.allocate_exact_size(vec2(38.0, h), Sense::hover());
@@ -2819,6 +2838,12 @@ fn color_field(app: &mut PhotocraftApp, ui: &mut egui::Ui) {
         }
     });
     ui.add_space(6.0);
+    color_field_readout(app, ui, key);
+}
+
+/// The hex and R, G, B fields under the Color panel; `key` keeps the spectrum's hue for greys.
+fn color_field_readout(app: &mut PhotocraftApp, ui: &mut egui::Ui, key: egui::Id) {
+    let bg_active = app.ui.color_panel.background;
     ui.horizontal(|ui| {
         let mut c = if bg_active { app.session.tools.background } else { app.session.tools.foreground };
         if color_readout(ui, ui.id().with(("color-field", bg_active)), &mut c) {
@@ -3367,7 +3392,7 @@ mod color_tests {
 
     fn field_harness(app: PhotocraftApp) -> egui_kittest::Harness<'static, PhotocraftApp> {
         // 60 fps steps, so two clicks a frame apart are a double-click.
-        let mut h = egui_kittest::Harness::builder().with_size(vec2(300.0, 200.0)).with_step_dt(1.0 / 60.0).build_ui_state(
+        let mut h = egui_kittest::Harness::builder().with_size(vec2(300.0, 232.0)).with_step_dt(1.0 / 60.0).build_ui_state(
             |ui, app: &mut PhotocraftApp| {
                 if ui.ctx().fonts(|f| f.families().contains(&egui::FontFamily::Name("medium".into()))) {
                     color_field(app, ui);
@@ -3396,7 +3421,8 @@ mod color_tests {
         app.session.tools.foreground = [0.2, 0.4, 0.6, 1.0];
         app.session.tools.background = [0.0, 0.0, 0.0, 1.0];
         let mut h = field_harness(app);
-        let min = h.ctx.input(|i| i.viewport_rect()).min;
+        // Below the mode dropdown.
+        let min = h.ctx.input(|i| i.viewport_rect()).min + vec2(0.0, crate::color_panel_ui::MODE_ROW_H);
         // The background chip's corner that the foreground chip doesn't cover.
         click(&mut h, min + vec2(40.0, 40.0));
         // The field's top-left: no saturation, full brightness.
@@ -3411,7 +3437,8 @@ mod color_tests {
     fn double_clicking_a_chip_opens_its_color_picker() {
         let app = PhotocraftApp::new(photocraft_engine::Session::new(), crate::Services::default());
         let mut h = field_harness(app);
-        let min = h.ctx.input(|i| i.viewport_rect()).min;
+        // Below the mode dropdown.
+        let min = h.ctx.input(|i| i.viewport_rect()).min + vec2(0.0, crate::color_panel_ui::MODE_ROW_H);
         // The foreground point is where the chips overlap: the foreground is on top there.
         for (p, target) in [(vec2(40.0, 40.0), "background"), (vec2(30.0, 30.0), "foreground")] {
             h.state_mut().ui.dialogs.clear();
@@ -3432,9 +3459,10 @@ mod color_tests {
         app.session.tools.foreground = [0.0, 0.0, 0.0, 1.0];
         app.session.tools.background = [0.0, 0.0, 0.0, 1.0];
         let mut h = field_harness(app);
-        let min = h.ctx.input(|i| i.viewport_rect()).min;
+        // Below the mode dropdown.
+        let min = h.ctx.input(|i| i.viewport_rect()).min + vec2(0.0, crate::color_panel_ui::MODE_ROW_H);
         // The hue strip runs from red at the top through blue (a third down) and green (two thirds).
-        let (strip_x, green, blue) = (285.0, 88.0, 48.0);
+        let (strip_x, green, blue) = (285.0, 89.0, 48.0);
         click(&mut h, min + vec2(strip_x, green));
         click(&mut h, min + vec2(40.0, 40.0));
         click(&mut h, min + vec2(strip_x, blue));
@@ -3443,6 +3471,33 @@ mod color_tests {
         click(&mut h, min + vec2(265.0, 10.0));
         let [r, g, b] = srgb_bytes(h.state().session.tools.foreground);
         assert!(g > 200 && r < 64 && b < 64, "the foreground's green, not the background's blue: {:?}", [r, g, b]);
+    }
+
+    /// The wheel picks hue by angle and saturation by distance, at the slider's brightness; the
+    /// RGB sliders then show that colour, and dragging one keeps the rest.
+    #[test]
+    fn wheel_and_sliders_edit_the_foreground() {
+        use crate::color_panel_ui::ColorPanelMode;
+        use egui_kittest::kittest::Queryable;
+        let mut app = PhotocraftApp::new(photocraft_engine::Session::new(), crate::Services::default());
+        app.session.tools.foreground = [1.0, 1.0, 1.0, 1.0];
+        app.ui.color_panel.mode = ColorPanelMode::Wheel;
+        let mut h = field_harness(app);
+        // The dropdown reads "Color Wheel" too; the wheel is the big one.
+        let wheel = h.query_all_by_label("Color Wheel").map(|n| n.rect()).max_by(|a, b| a.area().total_cmp(&b.area())).unwrap();
+        let wheel = Rect::from_center_size(wheel.center(), vec2(wheel.height(), wheel.height()));
+        // Right edge, at the centre's height: 90° (yellow-green is 90°; pure yellow sits at 60°).
+        click(&mut h, wheel.center() + vec2(wheel.width() / 2.0 - 3.0, 0.0));
+        let [r, g, b] = srgb_bytes(h.state().session.tools.foreground);
+        assert!(g > 240 && r > 100 && r < 160 && b < 30, "{:?}", [r, g, b]);
+        // The top of the wheel is red.
+        click(&mut h, wheel.center() - vec2(0.0, wheel.height() / 2.0 - 3.0));
+        let [r, g, b] = srgb_bytes(h.state().session.tools.foreground);
+        assert!(r > 240 && g < 30 && b < 30, "{:?}", [r, g, b]);
+        h.state_mut().ui.color_panel.mode = ColorPanelMode::Cmyk;
+        h.run_steps(2);
+        // Four sliders, each with its value field.
+        assert!(h.query_by_label("C").is_some() && h.query_by_label("K").is_some());
     }
 }
 

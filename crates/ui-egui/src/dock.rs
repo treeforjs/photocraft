@@ -111,8 +111,8 @@ impl Group {
     }
 
     /// Tabs that lay out their own scrolling list and footer (they fill the group).
-    pub fn scrolls_itself(self, tab: usize) -> bool {
-        matches!((self, tab), (Group::Layers, 0) | (Group::History, 0))
+    pub fn scrolls_itself(self, tab: usize, pro: bool) -> bool {
+        matches!((self, tab), (Group::Layers, 0) | (Group::History, 0)) || (pro && matches!((self, tab), (Group::Color, 0)))
     }
 
     fn tab_mut(self, tabs: &mut DockTabs) -> &mut usize {
@@ -415,7 +415,7 @@ pub fn show(app: &mut PhotocraftApp, ui: &mut egui::Ui, shown: &[Group], mut bod
         let resp = widgets::card_ex(&mut child, g.key(), &tabs, &mut sel, collapsed, |ui, shown_tab| {
             let Some(&tab) = indices.get(shown_tab) else { return };
             let inner = ui.available_height().max(0.0);
-            if g.scrolls_itself(tab) {
+            if g.scrolls_itself(tab, t.pro) {
                 ui.set_min_height(inner);
                 body(app, ui, g, tab);
             } else {
