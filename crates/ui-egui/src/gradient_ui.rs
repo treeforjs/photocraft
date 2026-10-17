@@ -1286,7 +1286,7 @@ mod tests {
                 },
                 app,
             );
-            PhotocraftApp::setup_context(&h.ctx, crate::theme::ThemeKind::ALL[0]);
+            PhotocraftApp::setup_context(&h.ctx, crate::theme::ThemeKind::Craft);
             h.run_steps(4);
             assert!(!h.state().ui.panels.gradient_editor, "classic={classic}: starts closed");
             h.get_by_label("Gradient picker").click();
@@ -1301,7 +1301,7 @@ mod tests {
     #[test]
     fn the_editor_window_renders_with_and_without_a_gradient_layer() {
         let ctx = egui::Context::default();
-        PhotocraftApp::setup_context(&ctx, crate::theme::ThemeKind::ALL[0]);
+        PhotocraftApp::setup_context(&ctx, crate::theme::ThemeKind::Craft);
         // `run_ui` hands back a `FullOutput` whose texture deltas the caller has to consume.
         let run = |app: &mut PhotocraftApp| {
             let mut out = ctx.run_ui(egui::RawInput::default(), |ui| editor_window(app, ui.ctx()));
@@ -1345,7 +1345,7 @@ mod tests {
             },
             app,
         );
-        PhotocraftApp::setup_context(&h.ctx, crate::theme::ThemeKind::ALL[0]);
+        PhotocraftApp::setup_context(&h.ctx, crate::theme::ThemeKind::Craft);
         // Open the window once the fonts are bound (the build's first frame runs without them).
         h.run_steps(2);
         h.state_mut().ui.panels.gradient_editor = true;
@@ -1370,7 +1370,7 @@ mod tests {
             },
             app,
         );
-        PhotocraftApp::setup_context(&h.ctx, crate::theme::ThemeKind::ALL[0]);
+        PhotocraftApp::setup_context(&h.ctx, crate::theme::ThemeKind::Craft);
         h.run_steps(2);
         h.state_mut().ui.panels.gradient_editor = true;
         h.run_steps(4);

@@ -555,7 +555,7 @@ mod tests {
         for size in [egui::vec2(760.0, 480.0), egui::vec2(960.0, 640.0)] {
             let app = PhotocraftApp::new(photocraft_engine::Session::new(), crate::Services::default());
             let mut h = Harness::builder().with_size(size).build_ui_state(|ui, app| show(app, ui.ctx()), app);
-            PhotocraftApp::setup_context(&h.ctx, crate::theme::ThemeKind::ALL[0]);
+            PhotocraftApp::setup_context(&h.ctx, crate::theme::ThemeKind::Craft);
             crate::color_picker_ui::open(h.state_mut(), "foreground");
             h.run_steps(4);
             let frame = rects(&h.ctx)[0];
@@ -585,7 +585,7 @@ mod tests {
         for point in 0..5 {
             let app = PhotocraftApp::new(photocraft_engine::Session::new(), crate::Services::default());
             let mut h = Harness::builder().with_size(egui::vec2(1400.0, 900.0)).build_ui_state(|ui, app| show(app, ui.ctx()), app);
-            PhotocraftApp::setup_context(&h.ctx, crate::theme::ThemeKind::ALL[0]);
+            PhotocraftApp::setup_context(&h.ctx, crate::theme::ThemeKind::Craft);
             h.state_mut().ui.open_dialog(DialogKind::LayerStyle, serde_json::Map::new());
             h.run_steps(3);
             let before = h.get_by_label("Layer Style").rect();
@@ -617,7 +617,7 @@ mod tests {
 
         let app = PhotocraftApp::new(photocraft_engine::Session::new(), crate::Services::default());
         let mut harness = Harness::builder().with_size(egui::vec2(1400.0, 900.0)).build_ui_state(|ui, app| show(app, ui.ctx()), app);
-        PhotocraftApp::setup_context(&harness.ctx, crate::theme::ThemeKind::ALL[0]);
+        PhotocraftApp::setup_context(&harness.ctx, crate::theme::ThemeKind::Craft);
         harness.state_mut().ui.open_dialog(DialogKind::LayerStyle, serde_json::Map::new());
         harness.run_steps(3);
         let before = harness.get_by_label("Layer Style").rect();
@@ -643,7 +643,7 @@ mod tests {
         let mut app = PhotocraftApp::new(photocraft_engine::Session::new(), crate::Services::default());
         app.run("file.new", json!({"width": 64, "height": 64})).unwrap();
         let mut h = egui_kittest::Harness::builder().with_size(size).build_ui_state(|ui, app| show(app, ui.ctx()), app);
-        PhotocraftApp::setup_context(&h.ctx, crate::theme::ThemeKind::ALL[0]);
+        PhotocraftApp::setup_context(&h.ctx, crate::theme::ThemeKind::Craft);
         crate::filter_dialog::open(h.state_mut(), command).unwrap();
         h.run_steps(4);
         h

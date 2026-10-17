@@ -29,7 +29,7 @@ fn tiff_prompt(command: &str) -> (Prompted, Writes, DocId, DocId) {
         },
         app,
     );
-    PhotocraftApp::setup_context(&h.ctx, crate::theme::ThemeKind::ALL[0]);
+    PhotocraftApp::setup_context(&h.ctx, crate::theme::ThemeKind::Craft);
     h.ctx.set_os(egui::os::OperatingSystem::Windows);
     assert!(intercept(h.state_mut(), command, &Value::Null));
     h.run_steps(2);

@@ -29,7 +29,7 @@ fn harness(tool: Tool) -> Harness<'static, PhotocraftApp> {
         },
         app,
     );
-    PhotocraftApp::setup_context(&h.ctx, crate::theme::ThemeKind::ALL[0]);
+    PhotocraftApp::setup_context(&h.ctx, crate::theme::ThemeKind::Craft);
     h.run_steps(4);
     // 100 %: one document pixel per point, so drags land on whole pixels.
     let v = &mut h.state_mut().ui.views[0];
@@ -214,7 +214,7 @@ fn marquee_drag_bench() {
         },
         app,
     );
-    PhotocraftApp::setup_context(&h.ctx, crate::theme::ThemeKind::ALL[0]);
+    PhotocraftApp::setup_context(&h.ctx, crate::theme::ThemeKind::Craft);
     h.run_steps(6);
     press_at(&mut h, 1000.0, 1000.0, Modifiers::NONE);
     mods(&mut h, Modifiers::SHIFT | Modifiers::ALT);

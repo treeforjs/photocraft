@@ -31,7 +31,9 @@ fn appearance_defaults_and_legacy_theme_migrate() {
     assert_eq!(p.interface.light_theme, LightTheme::CraftLight);
     for (theme, mode, dark, light) in [
         ("pro", AppearanceMode::Dark, DarkTheme::Craft, LightTheme::CraftLight),
-        ("proMedium", AppearanceMode::Dark, DarkTheme::Craft, LightTheme::CraftLight),
+        ("proMedium", AppearanceMode::Dark, DarkTheme::Dim, LightTheme::CraftLight),
+        ("dim", AppearanceMode::Dark, DarkTheme::Dim, LightTheme::CraftLight),
+        ("cream", AppearanceMode::Light, DarkTheme::Craft, LightTheme::Cream),
         ("classic", AppearanceMode::Light, DarkTheme::Craft, LightTheme::Classic),
     ] {
         let mut s = Session::new();
@@ -40,13 +42,37 @@ fn appearance_defaults_and_legacy_theme_migrate() {
         assert_eq!(s.prefs().interface.dark_theme, dark);
         assert_eq!(s.prefs().interface.light_theme, light);
     }
-    // The retired Photoshop-grey themes saved by older versions read as the shared Dark theme.
+    // The retired Photoshop-grey themes saved by older versions read as the shared Dark theme,
+    // and the medium grey one as the in-between Dim theme.
     let mut s = Session::new();
     s.load_prefs_json(&json!({"interface": {"appearanceMode": "dark", "darkTheme": "proMedium", "theme": "pro"}}).to_string()).unwrap();
-    assert_eq!(s.prefs().interface.dark_theme, DarkTheme::Craft);
+    assert_eq!(s.prefs().interface.dark_theme, DarkTheme::Dim);
     assert_eq!(s.prefs().interface.theme, Theme::Craft);
     assert_eq!(DarkTheme::parse("pro"), Some(DarkTheme::Craft));
     assert_eq!(DarkTheme::Craft.name(), "dark");
+    assert_eq!(DarkTheme::Dim.name(), "dim");
+    assert_eq!(LightTheme::Cream.name(), "cream");
+}
+
+#[test]
+fn cream_and_dim_are_offered_and_select_their_family() {
+    // Choice lists keep the shared craft order: Light, Cream / Dim, Dark, High contrast.
+    assert_eq!(&LightTheme::NAMES[..2], &["light", "cream"]);
+    assert_eq!(&DarkTheme::NAMES[..3], &["dim", "dark", "highContrast"]);
+    assert_eq!(&Theme::NAMES[..5], &["light", "cream", "dim", "dark", "highContrast"]);
+    let mut s = Session::new();
+    s.execute("prefs.set", json!({"path": "interface.theme", "value": "cream"})).unwrap();
+    assert_eq!(s.prefs().interface.appearance_mode, AppearanceMode::Light, "Cream is a light theme");
+    assert_eq!(s.prefs().interface.light_theme, LightTheme::Cream);
+    s.execute("prefs.set", json!({"path": "interface.theme", "value": "dim"})).unwrap();
+    assert_eq!(s.prefs().interface.appearance_mode, AppearanceMode::Dark);
+    assert_eq!(s.prefs().interface.dark_theme, DarkTheme::Dim);
+    assert_eq!(s.prefs().interface.light_theme, LightTheme::Cream, "the light choice is kept");
+    let mut restarted = Session::new();
+    restarted.load_prefs_json(&s.prefs_to_json()).unwrap();
+    assert_eq!(restarted.prefs().interface, s.prefs().interface);
+    assert!(s.execute("prefs.set", json!({"path": "interface.lightTheme", "value": "dim"})).is_err());
+    assert!(s.execute("prefs.set", json!({"path": "interface.darkTheme", "value": "cream"})).is_err());
 }
 
 #[test]

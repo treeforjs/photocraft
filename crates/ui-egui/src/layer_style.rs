@@ -1575,7 +1575,7 @@ mod tests {
     #[test]
     fn body_keeps_invalid_params_and_renders_without_panicking() {
         let ctx = egui::Context::default();
-        PhotocraftApp::setup_context(&ctx, crate::theme::ThemeKind::ALL[0]);
+        PhotocraftApp::setup_context(&ctx, crate::theme::ThemeKind::Craft);
         let mut app = PhotocraftApp::new(photocraft_engine::Session::new(), Default::default());
         for bad in [json!(7), json!(null), json!("x")] {
             let mut fields = Map::new();
@@ -1601,7 +1601,7 @@ mod tests {
     #[test]
     fn blending_page_renders_for_every_mode_and_odd_fields() {
         let ctx = egui::Context::default();
-        PhotocraftApp::setup_context(&ctx, crate::theme::ThemeKind::ALL[0]);
+        PhotocraftApp::setup_context(&ctx, crate::theme::ThemeKind::Craft);
         let mut app = PhotocraftApp::new(photocraft_engine::Session::new(), Default::default());
         let mut layer = photocraft_doc::Layer::new("L", photocraft_doc::LayerContent::Adjustment(photocraft_doc::Adjustment::Invert));
         layer.advanced.knockout = photocraft_doc::Knockout::Deep;

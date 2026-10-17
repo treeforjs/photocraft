@@ -1276,7 +1276,7 @@ mod tests {
             },
             false,
         );
-        crate::PhotocraftApp::setup_context(&h.ctx, crate::theme::ThemeKind::ALL[0]);
+        crate::PhotocraftApp::setup_context(&h.ctx, crate::theme::ThemeKind::Craft);
         h.ctx.set_os(os);
         *h.state_mut() = true;
         h.run();

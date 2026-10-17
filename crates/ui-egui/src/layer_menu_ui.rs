@@ -378,7 +378,7 @@ mod tests {
             st.doc.layer(st.active_layer.unwrap()).unwrap().clone()
         };
         let ctx = egui::Context::default();
-        crate::PhotocraftApp::setup_context(&ctx, crate::theme::ThemeKind::ALL[0]);
+        crate::PhotocraftApp::setup_context(&ctx, crate::theme::ThemeKind::Craft);
         let screen = egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(800.0, 300.0));
         let id = egui::Id::new("layer-menu-probe");
         let mut content = 0.0;

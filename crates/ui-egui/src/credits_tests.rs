@@ -47,7 +47,7 @@ fn harness(list: Vec<Contributor>, table: bool) -> Harness<'static> {
         ui.set_width(WIDTH);
         contributors_in(&mut app, ui, &list, 1);
     });
-    crate::PhotocraftApp::setup_context(&h.ctx, crate::theme::ThemeKind::ALL[0]);
+    crate::PhotocraftApp::setup_context(&h.ctx, crate::theme::ThemeKind::Craft);
     h.run_steps(4);
     h
 }
@@ -181,7 +181,7 @@ fn the_models_table_lines_counts_up_on_the_right_under_a_rule_of_headers() {
         ui.set_width(WIDTH);
         models_in(ui, &models, 482);
     });
-    crate::PhotocraftApp::setup_context(&h.ctx, crate::theme::ThemeKind::ALL[0]);
+    crate::PhotocraftApp::setup_context(&h.ctx, crate::theme::ThemeKind::Craft);
     h.run_steps(4);
     let head = |l: &str| h.query_all_by_label(l).next().map(|n| n.rect()).unwrap_or_else(|| panic!("no {l} header"));
     let (commits, lines) = (head("Commits"), head("Lines +/−"));

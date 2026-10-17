@@ -306,7 +306,7 @@ mod tests {
     fn the_modal_saves_with_the_chosen_encoding() {
         use egui_kittest::kittest::Queryable;
         let mut h = egui_kittest::Harness::builder().with_size(egui::vec2(800.0, 600.0)).build_ui_state(|ui, app| show(app, ui.ctx()), app());
-        PhotocraftApp::setup_context(&h.ctx, crate::theme::ThemeKind::ALL[0]);
+        PhotocraftApp::setup_context(&h.ctx, crate::theme::ThemeKind::Craft);
         h.state_mut().save_to_from_dialog("/tmp/x/photo.jpg".into()).unwrap();
         h.run_steps(2);
         h.get_by_label("Progressive: shows a preview while it loads on the web").click();

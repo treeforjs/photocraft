@@ -118,7 +118,7 @@ fn the_brushes_tab_grid_is_centred_past_its_indent() {
         },
         app,
     );
-    PhotocraftApp::setup_context(&h.ctx, crate::theme::ThemeKind::ALL[0]);
+    PhotocraftApp::setup_context(&h.ctx, crate::theme::ThemeKind::Craft);
     h.run_steps(6);
     rows_are_centred(&h, PANEL_LIST.indent, 2);
 }

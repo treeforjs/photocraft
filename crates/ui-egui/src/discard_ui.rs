@@ -410,7 +410,7 @@ mod tests {
             },
             app,
         );
-        PhotocraftApp::setup_context(&h.ctx, crate::theme::ThemeKind::ALL[0]);
+        PhotocraftApp::setup_context(&h.ctx, crate::theme::ThemeKind::Craft);
         h.ctx.set_os(os);
         assert!(intercept(h.state_mut(), command, &Value::Null));
         h.run_steps(2);
@@ -598,7 +598,7 @@ mod tests {
             },
             app,
         );
-        PhotocraftApp::setup_context(&h.ctx, crate::theme::ThemeKind::ALL[0]);
+        PhotocraftApp::setup_context(&h.ctx, crate::theme::ThemeKind::Craft);
         h.ctx.set_os(egui::os::OperatingSystem::Windows);
         assert!(intercept(h.state_mut(), "file.close", &Value::Null));
         h.run_steps(2);
