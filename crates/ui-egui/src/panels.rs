@@ -2656,6 +2656,7 @@ fn properties_body(app: &mut PhotocraftApp, ui: &mut egui::Ui) {
             ui.add_space(6.0);
         }
         layer_controls(app, ui, layer);
+        crate::mask_props_ui::properties(app, ui, layer);
         if matches!(layer.content, LayerContent::Text(_)) {
             crate::type_tool::type_properties(app, ui);
         }

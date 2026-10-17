@@ -441,6 +441,25 @@ fn toggle_mask(s: &mut Session, p: &Value, key: &str) -> Result<Value> {
     Ok(json!({ key: v }))
 }
 
+/// Properties › Masks for the pixel mask: Density (0..100, how opaque the hidden area is) and
+/// Feather (px, up to Photoshop's 1000), as one history step.
+fn mask_props(s: &mut Session, p: &Value) -> Result<Value> {
+    let id = layer_param(s, p)?;
+    let num = |k: &str| p.get(k).and_then(Value::as_f64).filter(|v| v.is_finite());
+    let (density, feather) = (num("density"), num("feather"));
+    let v = s.edit("Mask Properties", |doc, _| {
+        let m = doc.layer_mut(id).and_then(|l| l.mask.as_mut()).ok_or(EngineError::Other("the layer has no layer mask".into()))?;
+        if let Some(d) = density {
+            m.density = (d / 100.0).clamp(0.0, 1.0) as f32;
+        }
+        if let Some(f) = feather {
+            m.feather = f.clamp(0.0, 1000.0) as f32;
+        }
+        Ok(json!({"density": f64::from(m.density) * 100.0, "feather": f64::from(m.feather)}))
+    })?;
+    Ok(v)
+}
+
 fn set_all_effects(s: &mut Session, enabled: bool) -> Result<Value> {
     s.edit(if enabled { "Show All Effects" } else { "Hide All Effects" }, |doc, _| {
         fn rec(ls: &mut [Layer], on: bool) {
@@ -778,6 +797,15 @@ pub fn specs() -> Vec<CommandSpec> {
             r##"{"layer":id?,"linked":bool? (default: toggle)}"##,
             has_mask,
             |s, p| toggle_mask(s, p, "linked")
+        ),
+        spec!(
+            "layer.layerMask.properties",
+            "Mask Properties",
+            &[],
+            None,
+            r##"{"layer":id?,"density":0..100?,"feather":px (0..1000)?} → {density,feather}"##,
+            has_mask,
+            mask_props
         ),
         spec!("layer.rasterize.layer", "Layer", &["Layer", "Rasterize"], None, r##"{"layer":id?}"##, has_layer, |s, p| rasterize(s, p, None)),
         spec!("layer.rasterize.allLayers", "All Layers", &["Layer", "Rasterize"], None, "{}", has_doc, |s, _| rasterize_all(s)),
@@ -1414,6 +1442,12 @@ mod tests {
         assert!(!active(&s).mask.as_ref().unwrap().enabled);
         s.execute("layer.layerMask.linked", json!({"linked": false})).unwrap();
         assert!(!active(&s).mask.as_ref().unwrap().linked);
+        let r = s.execute("layer.layerMask.properties", json!({"density": 40, "feather": 5000})).unwrap();
+        assert_eq!((r["density"].as_f64().unwrap().round(), r["feather"].as_f64().unwrap()), (40.0, 1000.0));
+        let m = active(&s).mask.as_ref().unwrap();
+        assert!((m.density - 0.4).abs() < 1e-6 && m.feather == 1000.0);
+        s.execute("layer.layerMask.properties", json!({"density": -5, "feather": "wide"})).unwrap();
+        assert_eq!((active(&s).mask.as_ref().unwrap().density, active(&s).mask.as_ref().unwrap().feather), (0.0, 1000.0));
         // Hide, delete hidden, delete empty.
         s.execute("layer.new.layer", json!({})).unwrap();
         s.execute("layer.hideLayers", json!({})).unwrap();
