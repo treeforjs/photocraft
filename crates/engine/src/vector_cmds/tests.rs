@@ -529,3 +529,41 @@ fn path_stroke_rejects_oversized_brush_before_rendering() {
     let result = s.execute("path.stroke", json!({"size": 1e30}));
     assert!(result.is_err(), "path strokes share the bounded paint renderer");
 }
+
+#[test]
+fn stroke_path_simulates_pressure() {
+    let mut s = session(120, 40, 8);
+    s.execute("layer.new.layer", json!({})).unwrap();
+    s.execute("path.set", json!({"path": {"subpaths": [{"knots": [[10, 20], [110, 20]], "closed": false}]}})).unwrap();
+    s.execute("path.stroke", json!({"size": 16, "hardness": 1, "color": "#000000", "simulatePressure": true})).unwrap();
+    let d = doc(&s);
+    let surf = d.layer(s.active().unwrap().active_layer.unwrap()).unwrap().surface().unwrap().clone();
+    let width = |x: i32| (0..40).filter(|&y| surf.rgba(x, y)[3] > 0.5).count();
+    assert!(width(60) >= 12, "full pressure in the middle: {}", width(60));
+    assert!(width(14) < width(60) / 2, "tapered near the start: {} vs {}", width(14), width(60));
+    assert!(width(106) < width(60) / 2, "tapered near the end: {} vs {}", width(106), width(60));
+}
+
+#[test]
+fn stroke_path_with_a_retouch_tool_is_one_step() {
+    let mut s = session(80, 80, 8);
+    s.execute("layer.new.layer", json!({})).unwrap();
+    s.execute("edit.fill", json!({"color": "#808080"})).unwrap();
+    let id = s.active().unwrap().active_layer.unwrap();
+    let gray = doc(&s).layer(id).unwrap().surface().unwrap().rgba(20, 20)[0];
+    let steps = s.active().unwrap().history.entries().len();
+    // Two subpaths, both dodged in one Stroke Path step.
+    s.execute("path.set", json!({"path": {"subpaths": [{"knots": [[10, 20], [70, 20]], "closed": false}, {"knots": [[10, 60], [70, 60]], "closed": false}]}}))
+        .unwrap();
+    let steps = steps.max(s.active().unwrap().history.entries().len());
+    s.execute("path.stroke", json!({"tool": "dodge", "size": 10})).unwrap();
+    let px = |s: &Session, x, y| doc(s).layer(id).unwrap().surface().unwrap().rgba(x, y)[0];
+    assert!(px(&s, 40, 20) > gray + 0.01 && px(&s, 40, 60) > gray + 0.01, "both subpaths dodged");
+    assert!((px(&s, 40, 40) - gray).abs() < 1e-3, "between them untouched");
+    let entries = s.active().unwrap().history.entries();
+    assert_eq!(entries.len(), steps + 1);
+    assert_eq!(entries.last().map(String::as_str), Some("Stroke Path"));
+    s.execute("edit.undo", json!({})).unwrap();
+    assert!((px(&s, 40, 20) - gray).abs() < 1e-3 && (px(&s, 40, 60) - gray).abs() < 1e-3, "one undo reverts both");
+    assert!(s.execute("path.stroke", json!({"tool": "airbrush"})).is_err());
+}

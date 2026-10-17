@@ -997,9 +997,84 @@ fn paint_coverage(surf: &mut photocraft_raster::Surface, area: Rect, cov: &[f32]
     surf.prune();
 }
 
+/// Painting tools Stroke Path runs through their own `paint.*` command (one call per subpath,
+/// all in one history step), as Photoshop's Stroke Path dialog offers them.
+const STROKE_TOOLS: [(&str, &str); 13] = [
+    ("mixerBrush", "paint.mixerBrush"),
+    ("colorReplacement", "paint.colorReplacement"),
+    ("backgroundEraser", "paint.backgroundEraser"),
+    ("cloneStamp", "paint.cloneStamp"),
+    ("patternStamp", "paint.patternStamp"),
+    ("healingBrush", "paint.healingBrush"),
+    ("historyBrush", "paint.historyBrush"),
+    ("blur", "paint.blur"),
+    ("sharpen", "paint.sharpen"),
+    ("smudge", "paint.smudge"),
+    ("dodge", "paint.dodge"),
+    ("burn", "paint.burn"),
+    ("sponge", "paint.sponge"),
+];
+
+/// The stroke samples along one flattened subpath (closed ones end where they start). With
+/// `simulate`, pressure rises from a thin start to full in the middle and tapers off again
+/// (Simulate Pressure), so pressure-driven size and opacity draw a tapered line.
+fn path_points(pl: &vector::Polyline, simulate: bool) -> Vec<photocraft_paint::StrokePoint> {
+    let mut xy = pl.pts.clone();
+    if pl.closed
+        && let Some(first) = xy.first().copied()
+    {
+        xy.push(first);
+    }
+    if simulate {
+        xy = resample(&xy, 2.0);
+    }
+    let mut run = Vec::with_capacity(xy.len());
+    let mut total = 0.0f64;
+    let mut prev: Option<(f64, f64)> = None;
+    for &(x, y) in &xy {
+        if let Some((px, py)) = prev {
+            total += (x - px).hypot(y - py);
+        }
+        run.push(total);
+        prev = Some((x, y));
+    }
+    xy.iter()
+        .zip(run)
+        .map(|(&(x, y), d)| {
+            let pressure = if simulate && total > 0.0 { (std::f64::consts::PI * d / total).sin().max(0.05) as f32 } else { 1.0 };
+            photocraft_paint::StrokePoint::new(x, y, pressure)
+        })
+        .collect()
+}
+
+/// Points at most `step` px apart along `xy` (a straight segment is just its two ends), so a
+/// pressure ramp has samples to vary over. Capped so a huge path can't explode the point count.
+fn resample(xy: &[(f64, f64)], step: f64) -> Vec<(f64, f64)> {
+    const MAX_POINTS: usize = 200_000;
+    let mut out = Vec::with_capacity(xy.len());
+    for w in xy.windows(2) {
+        let &[(x0, y0), (x1, y1)] = w else { continue };
+        let len = (x1 - x0).hypot(y1 - y0);
+        let n = if len.is_finite() { (len / step).ceil().clamp(1.0, MAX_POINTS as f64) as usize } else { 1 };
+        if out.len().saturating_add(n) > MAX_POINTS {
+            return xy.to_vec();
+        }
+        for i in 0..n {
+            let t = i as f64 / n as f64;
+            out.push((x0 + (x1 - x0) * t, y0 + (y1 - y0) * t));
+        }
+    }
+    out.extend(xy.last().copied());
+    out
+}
+
 fn path_stroke(s: &mut Session, p: &Value) -> Result<Value> {
     let path = resolve_path(s, p.get("name").and_then(Value::as_str))?;
     let tool = p.get("tool").and_then(Value::as_str).unwrap_or("brush");
+    let simulate = p.get("simulatePressure").and_then(Value::as_bool).unwrap_or(false);
+    if let Some(&(_, cmd)) = STROKE_TOOLS.iter().find(|(t, _)| *t == tool) {
+        return stroke_with_tool(s, p, &path, cmd, simulate);
+    }
     let base = s.tools.brush.clone();
     let fg = s.tools.foreground;
     let mut brush = photocraft_paint::BrushSettings {
@@ -1018,7 +1093,7 @@ fn path_stroke(s: &mut Session, p: &Value) -> Result<Value> {
     match tool {
         "pencil" => brush.hardness = 1.0,
         "brush" | "eraser" => {}
-        o => return Err(bad("path.stroke", format!("unknown tool `{o}` (brush|pencil|eraser)"))),
+        o => return Err(bad("path.stroke", format!("unknown tool `{o}` (brush|pencil|eraser|{})", STROKE_TOOLS.map(|(t, _)| t).join("|")))),
     }
     crate::brush_cmds::validate_brush(&brush, "path.stroke")?;
     let lines = vector::flatten_path(&path, 0.1);
@@ -1037,12 +1112,7 @@ fn path_stroke(s: &mut Session, p: &Value) -> Result<Value> {
         }
         let mut dmg = Rect::EMPTY;
         for pl in &lines {
-            let mut pts: Vec<photocraft_paint::StrokePoint> = pl.pts.iter().map(|&(x, y)| photocraft_paint::StrokePoint::new(x, y, 1.0)).collect();
-            if pl.closed
-                && let Some(first) = pts.first().copied()
-            {
-                pts.push(first);
-            }
+            let pts = path_points(pl, simulate);
             if pts.is_empty() {
                 continue;
             }
@@ -1051,6 +1121,44 @@ fn path_stroke(s: &mut Session, p: &Value) -> Result<Value> {
         }
         Ok(dmg)
     })?;
+    Ok(json!({ "damage": [dmg.x0, dmg.y0, dmg.width(), dmg.height()] }))
+}
+
+/// Stroke Path with a tool that has its own stroke command: each subpath becomes one call of `cmd`
+/// with the path's points, all coalesced into a single "Stroke Path" history step.
+fn stroke_with_tool(s: &mut Session, p: &Value, path: &Path, cmd: &str, simulate: bool) -> Result<Value> {
+    let lines = vector::flatten_path(path, 0.1);
+    let key = format!("path.stroke#{}", s.active().map_or(0, |d| d.revision));
+    // An empty first edit names the step; the tool's strokes then join it.
+    s.coalesce_request = Some(key.clone());
+    let named = s.edit("Stroke Path", |_, _| Ok(()));
+    s.coalesce_request = None;
+    named?;
+    let mut dmg = Rect::EMPTY;
+    for pl in &lines {
+        let pts: Vec<Value> = path_points(pl, simulate).iter().map(|sp| json!([sp.x, sp.y, sp.pressure])).collect();
+        if pts.is_empty() {
+            continue;
+        }
+        let mut call = json!({"points": pts, "coalesce": key});
+        for k in ["layer", "size"] {
+            if let Some(v) = p.get(k) {
+                call[k] = v.clone();
+            }
+        }
+        let r = s.execute(cmd, call)?;
+        if let Some([x, y, w, h]) = r.get("damage").and_then(Value::as_array).and_then(|a| {
+            let n: Vec<i32> = a.iter().filter_map(Value::as_i64).filter_map(|v| i32::try_from(v).ok()).collect();
+            <[i32; 4]>::try_from(n).ok()
+        }) {
+            let r = Rect::new(x, y, x.saturating_add(w), y.saturating_add(h));
+            dmg = if dmg.is_empty() { r } else { dmg.union(&r) };
+        }
+    }
+    // Each call reported only its own subpath; the canvas must repaint all of them.
+    if let Some(st) = s.active_mut() {
+        st.last_damage = (!dmg.is_empty()).then_some(dmg);
+    }
     Ok(json!({ "damage": [dmg.x0, dmg.y0, dmg.width(), dmg.height()] }))
 }
 
@@ -1396,7 +1504,7 @@ pub fn specs() -> Vec<CommandSpec> {
             "path.stroke",
             "Stroke Path",
             [],
-            r##"{"name":str|"work"|"layer"="work","layer":id? (pixel layer),"tool":"brush|pencil|eraser"="brush","size":0.5..5000 px?,"hardness":0..1?,"opacity":0..100?,"color":"#rrggbb"=foreground} (current brush settings otherwise)"##,
+            r##"{"name":str|"work"|"layer"="work","layer":id? (pixel layer),"tool":"brush|pencil|eraser|mixerBrush|colorReplacement|backgroundEraser|cloneStamp|patternStamp|healingBrush|historyBrush|blur|sharpen|smudge|dodge|burn|sponge"="brush","simulatePressure":bool=false,"size":0.5..5000 px?,"hardness":0..1?,"opacity":0..100?,"color":"#rrggbb"=foreground} (current brush settings otherwise; tools after eraser use their own tool options)"##,
             has_layer,
             path_stroke
         ),

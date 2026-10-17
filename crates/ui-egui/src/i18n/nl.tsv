@@ -3556,6 +3556,10 @@ cameraRaw	Whites	Witten
 	Passes	Passes
 	Pixel mask	Pixelmasker
 	Vector mask	Vectormasker
+	Background Eraser	Achtergrondgum
+	Healing Brush	Herstelpenseel
+	Smudge	Natte vinger
+	Simulate Pressure	Druk simuleren
 	High contrast	Hoog contrast
 	High Contrast Theme	Thema met hoog contrast
 	Spectrum	Spectrum
