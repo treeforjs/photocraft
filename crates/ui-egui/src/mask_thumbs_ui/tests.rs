@@ -444,6 +444,7 @@ fn clicking_the_vector_mask_targets_it_for_the_path_tools() {
         unlinked: Vec::new(),
         dragging: false,
         adjusting_last: false,
+        closing: false,
     });
     crate::vector_ui::pen_commit(h.state_mut(), true);
     assert_eq!(layer(&h, masked).vector_mask.unwrap().path.subpaths.len(), 2);
