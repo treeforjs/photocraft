@@ -474,6 +474,8 @@ pub struct ToolOptions {
     pub type_size: f32,
     pub type_aa: String,
     pub type_align: String,
+    /// Paragraph direction for new type: `auto`, `ltr` or `rtl`.
+    pub type_direction: String,
     /// Clone Stamp / Healing Brush.
     pub clone_aligned: bool,
     /// Pattern Stamp: lock the tile origin in document space across strokes.
@@ -641,6 +643,7 @@ impl Default for ToolOptions {
             type_size: 48.0,
             type_aa: "sharp".into(),
             type_align: "left".into(),
+            type_direction: "auto".into(),
             clone_aligned: true,
             pattern_stamp_aligned: true,
             pattern_stamp_impressionist: false,

@@ -265,6 +265,7 @@ pub fn pointer_up(app: &mut PhotocraftApp, start: [f64; 2], end: [f64; 2]) {
         "fontStyle": o.type_style,
         "size": o.type_size,
         "align": o.type_align,
+        "direction": o.type_direction,
         "color": hex(app.session.tools.foreground),
     });
     if w >= min && h >= min {
@@ -1023,6 +1024,12 @@ pub fn options_bar(app: &mut PhotocraftApp, ui: &mut egui::Ui) {
         }
     }
     ui.spacing_mut().item_spacing.x = 8.0;
+    // Paragraph direction of the target (else of new type).
+    let mut dir = styles_at(app).map_or(o.type_direction.clone(), |(_, p)| direction_key(p.direction).to_string());
+    if direction_dropdown(ui, "type-direction", &mut dir, 112.0) {
+        app.ui.tool_options.type_direction = dir.clone();
+        apply(app, ui.ctx(), json!({"direction": dir}));
+    }
     crate::widgets::vline(ui, 22.0);
     // Text colour swatch with a picker popup.
     let c = shown
@@ -1187,6 +1194,23 @@ fn num_field(ui: &mut egui::Ui, label: &str, tip: &str, v: f32, range: std::ops:
         }
     });
     out
+}
+
+/// The `direction` key of `type.setStyle` for `d`.
+pub fn direction_key(d: photocraft_doc::text::TextDirection) -> &'static str {
+    use photocraft_doc::text::TextDirection as D;
+    match d {
+        D::Auto => "auto",
+        D::Ltr => "ltr",
+        D::Rtl => "rtl",
+    }
+}
+
+/// Paragraph direction: Auto follows the first strong character; the others force the base
+/// direction, which also sets which side a line starts from.
+fn direction_dropdown(ui: &mut egui::Ui, id: &str, dir: &mut String, width: f32) -> bool {
+    let opts = [("auto".to_string(), tl!("Auto Direction")), ("ltr".to_string(), tl!("Left to Right")), ("rtl".to_string(), tl!("Right to Left"))];
+    crate::widgets::dropdown(ui, id, dir, &opts, width)
 }
 
 /// Photoshop's paragraph alignment glyphs: four text lines whose widths/offsets show the mode
@@ -1447,6 +1471,16 @@ fn type_sections(app: &mut PhotocraftApp, ui: &mut egui::Ui, character: bool, pa
             }
             if let Some(v) = num_field(ui, "¶↓", "Add space after paragraph", para.space_after_pt, 0.0..=1296.0, "pt", w) {
                 apply(app, ui.ctx(), json!({"spaceAfter": v}));
+            }
+        });
+        row(ui, &mut |ui| {
+            let (r, resp) = ui.allocate_exact_size(egui::vec2(LABEL_W, 22.0), egui::Sense::hover());
+            ui.painter().text(r.left_center(), egui::Align2::LEFT_CENTER, tl!("Direction"), egui::FontId::proportional(11.0), t.text_dim);
+            resp.on_hover_text(tl!("Paragraph direction"));
+            let mut dir = direction_key(para.direction).to_string();
+            if direction_dropdown(ui, "props-type-direction", &mut dir, (full - LABEL_W - COL_GAP).max(80.0)) {
+                app.ui.tool_options.type_direction = dir.clone();
+                apply(app, ui.ctx(), json!({"direction": dir}));
             }
         });
         let mut hy = para.hyphenate;
