@@ -754,20 +754,59 @@ pub fn is_enabled(app: &PhotocraftApp, id: &str) -> Option<bool> {
         "edit.undo" => Some(steps.is_some_and(|s| s.can_undo(&Step::of(t)))),
         "edit.redo" => Some(steps.is_some_and(|s| !s.redo.is_empty())),
         "edit.toggleLastState" => Some(false),
+        i if box_preset(i).is_some() => Some(t.warp.is_none()),
         _ => None,
     }
 }
 
+/// Edit › Transform's Rotate 180° / 90° and Flip rows while a box is up: they turn or mirror the
+/// box about its reference point, as in Photoshop, instead of transforming the document under it.
+/// The map takes a point relative to the reference point to where it goes.
+fn box_preset(id: &str) -> Option<fn([f64; 2]) -> [f64; 2]> {
+    Some(match id {
+        "edit.transform.rotate180" => |[x, y]| [-x, -y],
+        // Document y points down, so clockwise on screen takes +x to +y.
+        "edit.transform.rotate90Cw" => |[x, y]| [-y, x],
+        "edit.transform.rotate90Ccw" => |[x, y]| [y, -x],
+        "edit.transform.flipHorizontal" => |[x, y]| [-x, y],
+        "edit.transform.flipVertical" => |[x, y]| [x, -y],
+        _ => return None,
+    })
+}
+
+/// Apply a [`box_preset`] to the open box: one step of the box's own history.
+fn apply_box_preset(app: &mut PhotocraftApp, map: fn([f64; 2]) -> [f64; 2]) -> Result<serde_json::Value, String> {
+    let Some(t) = app.ui.transform.as_mut() else { return Err("No transform is open".into()) };
+    if t.warp.is_some() {
+        return Err("Rotate and Flip apply to the transform box, not a warp".into());
+    }
+    if app.transform_preview.as_ref().is_some_and(|pv| pv.gesture.is_some() || pv.warp_drag.is_some()) {
+        return Err("Finish the drag first".into());
+    }
+    if let Some(pv) = app.transform_preview.as_mut() {
+        pv.steps.settle(Step::of(t));
+    }
+    let c = t.pivot;
+    t.quad = t.quad.map(|q| {
+        let r = map([q[0] - c[0], q[1] - c[1]]);
+        [c[0] + r[0], c[1] + r[1]]
+    });
+    if let Some(pv) = app.transform_preview.as_mut() {
+        pv.steps.settle(Step::of(t));
+    }
+    Ok(json!({"transform": t}))
+}
+
 /// While transforming, the box owns the history for every caller (menus, shortcuts, the control
-/// channel, MCP): Undo and Redo step through it, and Toggle Last State, which would change the
-/// document under the box, is refused. `None` for other commands or when not transforming.
+/// channel, MCP): Undo and Redo step through it, Rotate 180°/90° and Flip turn the box, and
+/// Toggle Last State, which would change the document under the box, is refused. `None` for other commands or when not transforming.
 pub fn intercept(app: &mut PhotocraftApp, id: &str) -> Option<Result<serde_json::Value, String>> {
     app.ui.transform.as_ref()?;
     match id {
         "edit.undo" => Some(Ok(step(app, false))),
         "edit.redo" => Some(Ok(step(app, true))),
         "edit.toggleLastState" => Some(Err("Commit or cancel the transform first".into())),
-        _ => None,
+        i => box_preset(i).map(|map| apply_box_preset(app, map)),
     }
 }
 
@@ -2756,6 +2795,76 @@ mod tests {
         assert!(ids.contains(&"edit.transform.distort") && ids.contains(&"edit.freeTransform"));
         crate::canvas_tool_menu::choose(&mut app, &ctx, "edit.transform.distort");
         assert_eq!(app.ui.transform.as_ref().unwrap().mode, TransformMode::Distort);
+    }
+
+    /// TOOL-214-5: the box's right-click menu turns and mirrors the box about its reference point;
+    /// the document stays as it is until OK, each turn is one step of the box's Undo, and OK
+    /// applies the turned box.
+    #[test]
+    fn right_click_rotates_and_flips_the_box() {
+        // 16 × 8 at (8, 8): the reference point is its centre (16, 12).
+        let mut app = app_with_square(64, photocraft_geom::Rect::new(8, 8, 24, 16));
+        let ctx = egui::Context::default();
+        let steps = app.session.active().unwrap().history.past_len();
+        begin(&mut app, &ctx).unwrap();
+        let q0 = app.ui.transform.as_ref().unwrap().quad;
+        assert!(crate::canvas_tool_menu::open_transform(&mut app, [10.0, 10.0]));
+        let menu = app.ui.canvas_tool_menu.clone().unwrap();
+        for id in [
+            "edit.transform.warp",
+            "edit.transform.rotate180",
+            "edit.transform.rotate90Cw",
+            "edit.transform.rotate90Ccw",
+            "edit.transform.flipHorizontal",
+            "edit.transform.flipVertical",
+        ] {
+            assert!(crate::canvas_tool_menu::available(&app, &menu, id), "{id}");
+        }
+        crate::canvas_tool_menu::choose(&mut app, &ctx, "edit.transform.rotate90Cw");
+        let q = app.ui.transform.as_ref().unwrap().quad;
+        // The top-left corner swings to the top-right of the turned 8 × 16 box.
+        assert_eq!(q, [[20.0, 4.0], [20.0, 20.0], [12.0, 20.0], [12.0, 4.0]]);
+        assert_eq!(app.session.active().unwrap().history.past_len(), steps, "the document is untouched");
+        // Each preset is a box step: Undo goes back, Redo forward again.
+        app.run("edit.undo", json!({})).unwrap();
+        assert_eq!(app.ui.transform.as_ref().unwrap().quad, q0);
+        app.run("edit.redo", json!({})).unwrap();
+        assert_eq!(app.ui.transform.as_ref().unwrap().quad, q);
+        // The menu bar, the control channel and MCP reach the box through the same id.
+        app.run("edit.transform.flipHorizontal", json!({})).unwrap();
+        app.run("edit.transform.flipHorizontal", json!({})).unwrap();
+        assert_eq!(app.ui.transform.as_ref().unwrap().quad, q, "flipping twice is a no-op");
+        app.run("edit.transform.rotate180", json!({})).unwrap();
+        app.run("edit.transform.rotate90Ccw", json!({})).unwrap();
+        app.run("edit.transform.flipVertical", json!({})).unwrap();
+        let q = app.ui.transform.as_ref().unwrap().quad;
+        // 90° CW, 180° and 90° CCW make a half turn; mirrored top to bottom on top of that, the
+        // box ends up mirrored left to right.
+        assert_eq!(q, [q0[1], q0[0], q0[3], q0[2]]);
+        commit(&mut app);
+        let st = app.session.active().unwrap();
+        assert_eq!(st.history.past_len(), steps + 1, "one Free Transform step");
+        let b = st.doc.layer(st.active_layer.unwrap()).unwrap().surface().unwrap().content_bounds();
+        assert!(b.x0.abs_diff(8) <= 1 && b.y0.abs_diff(8) <= 1 && b.width().abs_diff(16) <= 1 && b.height().abs_diff(8) <= 1, "{b:?}");
+        // Rotated and committed: the 16 × 8 bar stands upright.
+        let mut app = app_with_square(64, photocraft_geom::Rect::new(8, 8, 24, 16));
+        begin(&mut app, &ctx).unwrap();
+        app.run("edit.transform.rotate90Ccw", json!({})).unwrap();
+        commit(&mut app);
+        let st = app.session.active().unwrap();
+        let b = st.doc.layer(st.active_layer.unwrap()).unwrap().surface().unwrap().content_bounds();
+        assert!(b.width().abs_diff(8) <= 1 && b.height().abs_diff(16) <= 1 && b.x0.abs_diff(12) <= 1 && b.y0.abs_diff(4) <= 1, "{b:?}");
+    }
+
+    #[test]
+    fn rotate_and_flip_leave_a_warp_alone() {
+        let mut app = app_with_square(64, photocraft_geom::Rect::new(8, 8, 24, 16));
+        let ctx = egui::Context::default();
+        begin_warp(&mut app, &ctx).unwrap();
+        let before = app.ui.transform.clone();
+        assert!(!crate::menus::is_enabled(&app, "edit.transform.flipHorizontal"));
+        assert!(app.run("edit.transform.flipHorizontal", json!({})).is_err());
+        assert_eq!(app.ui.transform, before);
     }
 
     fn app_with_square(size: u32, fill: photocraft_geom::Rect) -> PhotocraftApp {
