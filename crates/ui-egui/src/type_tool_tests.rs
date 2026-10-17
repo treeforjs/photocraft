@@ -1194,3 +1194,61 @@ fn the_font_menu_lists_served_families() {
     photocraft_text::served::add_families(["Served Menu Test Serif".to_string()]);
     assert!(super::families().iter().any(|f| f == "Served Menu Test Serif"));
 }
+
+fn direction_of(app: &PhotocraftApp, id: LayerId) -> photocraft_doc::text::TextDirection {
+    let t = text_layer(&app.session.active().unwrap().doc, id).unwrap();
+    t.paragraph_runs().first().unwrap().style.direction
+}
+
+/// The options bar and the Paragraph panel both set the paragraph direction (one undo step
+/// each), and the options-bar choice carries to the next new type layer.
+#[test]
+fn paragraph_direction_from_the_options_bar_and_the_paragraph_panel() {
+    use photocraft_doc::text::TextDirection as D;
+    let mut app = new_app();
+    let id = LayerId(app.run("type.create", json!({"text": "abc שלום", "size": 20, "x": 300, "y": 420})).unwrap()["layer"].as_u64().unwrap());
+    let mut h = Harness::builder().with_size(vec2(1200.0, 400.0)).build_ui_state(
+        |ui, app: &mut PhotocraftApp| {
+            // The theme's fonts are bound from the second frame on.
+            if !ui.ctx().fonts(|f| f.families().contains(&egui::FontFamily::Name("semibold".into()))) {
+                return;
+            }
+            ui.horizontal(|ui| super::options_bar(app, ui));
+            ui.add_space(20.0);
+            ui.allocate_ui(vec2(300.0, 300.0), |ui| super::character_panel(app, ui, true));
+        },
+        app,
+    );
+    PhotocraftApp::setup_context(&h.ctx, crate::theme::ThemeKind::ALL[0]);
+    h.run_steps(3);
+    let steps = h.state().session.active().unwrap().history.entries().len();
+    // Both dropdowns show Auto; open the options bar's (the first) and pick Right to Left.
+    let combos: Vec<_> = h.get_all_by_value("Auto Direction").map(|n| n.rect().center()).collect();
+    assert_eq!(combos.len(), 2, "options bar and Paragraph panel");
+    click(&mut h, combos[0]);
+    h.run_steps(2);
+    let item = h.get_by_label("Right to Left").rect().center();
+    click(&mut h, item);
+    h.run_steps(2);
+    assert_eq!(direction_of(h.state(), id), D::Rtl);
+    assert_eq!(h.state().ui.tool_options.type_direction, "rtl");
+    assert_eq!(h.state().session.active().unwrap().history.entries().len(), steps + 1);
+    // The Paragraph panel now shows Right to Left; set Left to Right there.
+    let combos: Vec<_> = h.get_all_by_value("Right to Left").map(|n| n.rect().center()).collect();
+    assert_eq!(combos.len(), 2);
+    click(&mut h, combos[1]);
+    h.run_steps(2);
+    let item = h.get_by_label("Left to Right").rect().center();
+    click(&mut h, item);
+    h.run_steps(2);
+    assert_eq!(direction_of(h.state(), id), D::Ltr);
+    assert!(h.state_mut().session.undo());
+    assert_eq!(direction_of(h.state(), id), D::Rtl);
+    // New type takes the tool's direction.
+    let app = h.state_mut();
+    app.ui.text_edit = None;
+    super::pointer_up(app, [100.0, 100.0], [100.0, 100.0]);
+    let new = app.session.active().unwrap().active_layer.unwrap();
+    assert_ne!(new, id);
+    assert_eq!(direction_of(app, new), D::Ltr);
+}
