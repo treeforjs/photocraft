@@ -2351,3 +2351,6 @@ fontWeight	Italic	斜體
 	Smaller file: same image, a little slower to save	較小的檔案：影像相同，儲存稍慢
 	Progressive: shows a preview while it loads on the web	漸進式：在網頁載入時顯示預覽
 	Passes	次數
+	Masks	遮色片
+	Pixel mask	像素遮色片
+	Vector mask	向量遮色片

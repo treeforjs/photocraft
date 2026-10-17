@@ -2413,3 +2413,6 @@ fontWeight	Italic	Kursiv
 	Smaller file: same image, a little slower to save	Kleinere Datei: gleiches Bild, speichert etwas langsamer
 	Progressive: shows a preview while it loads on the web	Progressiv: zeigt beim Laden im Web eine Vorschau
 	Passes	Durchgänge
+	Masks	Masken
+	Pixel mask	Pixelmaske
+	Vector mask	Vektormaske

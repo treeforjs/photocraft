@@ -3554,3 +3554,5 @@ cameraRaw	Whites	Witten
 	Smaller file: same image, a little slower to save	Kleiner bestand: zelfde beeld, iets trager opslaan
 	Progressive: shows a preview while it loads on the web	Progressief: toont een voorbeeld tijdens het laden op het web
 	Passes	Passes
+	Pixel mask	Pixelmasker
+	Vector mask	Vectormasker

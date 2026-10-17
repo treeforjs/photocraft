@@ -2780,3 +2780,6 @@ fontWeight	Italic	Miring
 	Smaller file: same image, a little slower to save	File lebih kecil: gambar sama, sedikit lebih lambat disimpan
 	Progressive: shows a preview while it loads on the web	Progresif: menampilkan pratinjau saat dimuat di web
 	Passes	Tahap
+	Masks	Mask
+	Pixel mask	Mask piksel
+	Vector mask	Mask vektor

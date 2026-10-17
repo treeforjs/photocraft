@@ -2374,3 +2374,6 @@ fontWeight	Italic	Kurzíva
 	Smaller file: same image, a little slower to save	Menší soubor: stejný obraz, ukládá se o něco déle
 	Progressive: shows a preview while it loads on the web	Progresivní: při načítání na webu ukazuje náhled
 	Passes	Průchody
+	Masks	Masky
+	Pixel mask	Obrazová maska
+	Vector mask	Vektorová maska

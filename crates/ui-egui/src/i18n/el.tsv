@@ -3482,3 +3482,5 @@ fontWeight	Thin	Πολύ λεπτά
 	Smaller file: same image, a little slower to save	Μικρότερο αρχείο: ίδια εικόνα, λίγο πιο αργή αποθήκευση
 	Progressive: shows a preview while it loads on the web	Προοδευτική: δείχνει προεπισκόπηση καθώς φορτώνει στο web
 	Passes	Περάσματα
+	Pixel mask	Μάσκα εικονοστοιχείων
+	Vector mask	Διανυσματική μάσκα

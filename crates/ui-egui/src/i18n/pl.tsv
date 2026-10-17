@@ -3394,3 +3394,6 @@ cameraRaw	Roughness	Chropowatość
 	Smaller file: same image, a little slower to save	Mniejszy plik: ten sam obraz, nieco wolniejszy zapis
 	Progressive: shows a preview while it loads on the web	Progresywne: pokazuje podgląd podczas ładowania w sieci
 	Passes	Przebiegi
+	Masks	Maski
+	Pixel mask	Maska pikselowa
+	Vector mask	Maska wektorowa

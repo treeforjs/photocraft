@@ -3481,3 +3481,6 @@ cameraRaw	Masking	Маскування
 	Smaller file: same image, a little slower to save	Менший файл: те саме зображення, зберігається трохи довше
 	Progressive: shows a preview while it loads on the web	Прогресивне: показує попередній перегляд під час завантаження в мережі
 	Passes	Проходи
+	Masks	Маски
+	Pixel mask	Піксельна маска
+	Vector mask	Векторна маска

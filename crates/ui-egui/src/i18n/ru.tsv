@@ -2655,3 +2655,6 @@ fontWeight	Italic	Курсив
 	Smaller file: same image, a little slower to save	Файл меньше: то же изображение, сохраняется чуть дольше
 	Progressive: shows a preview while it loads on the web	Прогрессивное: показывает превью при загрузке в вебе
 	Passes	Проходы
+	Masks	Маски
+	Pixel mask	Пиксельная маска
+	Vector mask	Векторная маска

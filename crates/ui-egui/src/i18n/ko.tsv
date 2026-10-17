@@ -2950,3 +2950,6 @@ fontWeight	Italic	기울임
 	Smaller file: same image, a little slower to save	더 작은 파일: 같은 이미지, 저장이 약간 느림
 	Progressive: shows a preview while it loads on the web	프로그레시브: 웹에서 로드되는 동안 미리 보기 표시
 	Passes	패스
+	Masks	마스크
+	Pixel mask	픽셀 마스크
+	Vector mask	벡터 마스크

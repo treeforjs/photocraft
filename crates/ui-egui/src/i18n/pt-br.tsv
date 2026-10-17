@@ -2801,3 +2801,6 @@ fontWeight	Italic	Itálico
 	Smaller file: same image, a little slower to save	Arquivo menor: mesma imagem, salva um pouco mais devagar
 	Progressive: shows a preview while it loads on the web	Progressivo: mostra uma prévia enquanto carrega na web
 	Passes	Passagens
+	Masks	Máscaras
+	Pixel mask	Máscara de pixels
+	Vector mask	Máscara vetorial

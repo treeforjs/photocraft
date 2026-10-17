@@ -2442,3 +2442,6 @@ fontWeight	Italic	Cursiva
 	Smaller file: same image, a little slower to save	Archivo más pequeño: misma imagen, guarda algo más lento
 	Progressive: shows a preview while it loads on the web	Progresivo: muestra una vista previa mientras carga en la web
 	Passes	Pasadas
+	Masks	Máscaras
+	Pixel mask	Máscara de píxeles
+	Vector mask	Máscara vectorial

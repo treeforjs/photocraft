@@ -2382,3 +2382,6 @@ fontWeight	Italic	斜体
 	Smaller file: same image, a little slower to save	更小的文件：图像相同，存储稍慢
 	Progressive: shows a preview while it loads on the web	渐进式：在网页加载时显示预览
 	Passes	遍数
+	Masks	蒙版
+	Pixel mask	像素蒙版
+	Vector mask	矢量蒙版
