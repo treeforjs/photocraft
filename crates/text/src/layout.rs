@@ -1096,6 +1096,18 @@ fn feature_list(st: &CharStyle, small_caps: SmallCapsMode) -> Vec<String> {
     feats
 }
 
+/// The run's font variations. Unless the style sets `opsz` itself, the optical size follows the
+/// point size, as in Photoshop (faces without the axis ignore it; the shaper clamps it to the
+/// axis range).
+pub(crate) fn variation_list(st: &CharStyle) -> Vec<String> {
+    let mut vars: Vec<String> =
+        st.variations.iter().filter(|v| v.axis.len() == 4 && v.axis.is_ascii() && v.value.is_finite()).map(|v| format!("\"{}\" {}", v.axis, v.value)).collect();
+    if !st.variations.iter().any(|v| v.axis == "opsz") && st.size_pt.is_finite() && st.size_pt > 0.0 {
+        vars.push(format!("\"opsz\" {}", st.size_pt));
+    }
+    vars
+}
+
 fn style_props(st: &CharStyle, k: f32, fallback: &[String], idx: u32, small_caps: SmallCapsMode) -> Vec<StyleProperty<'static, RunBrush>> {
     let px = (st.size_pt * k).max(0.01);
     let mut fam: Vec<String> = Vec::new();
@@ -1110,7 +1122,7 @@ fn style_props(st: &CharStyle, k: f32, fallback: &[String], idx: u32, small_caps
     }
     fam.push("sans-serif".into());
     let feats = feature_list(st, small_caps);
-    let vars: Vec<String> = st.variations.iter().filter(|v| v.axis.len() == 4 && v.axis.is_ascii()).map(|v| format!("\"{}\" {}", v.axis, v.value)).collect();
+    let vars = variation_list(st);
     vec![
         StyleProperty::FontFamily(FontFamily::Source(Cow::Owned(fam.join(", ")))),
         StyleProperty::FontSize(px),
