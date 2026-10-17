@@ -252,7 +252,10 @@ fn pen_dialog(app: &mut PhotocraftApp, command: &str, label: &str, name: &str) {
         "edit.defineCustomShape" => r##"{"name":text}"##,
         "path.toSelection" => r##"{"feather":0..250=0,"antiAlias":bool=true,"mode":"replace|add|subtract|intersect"="replace"}"##,
         "path.fill" => r##"{"color":text,"opacity":0..100=100,"feather":0..250=0,"antiAlias":bool=true}"##,
-        "path.stroke" => r##"{"tool":"brush|pencil|eraser"="brush","size":1..500=10,"color":text,"opacity":0..100=100}"##,
+        // The tool paints with its own options (size, colour, strength), as when painting by hand.
+        "path.stroke" => {
+            r##"{"tool":"brush|pencil|eraser|mixerBrush|colorReplacement|backgroundEraser|cloneStamp|patternStamp|healingBrush|historyBrush|blur|sharpen|smudge|dodge|burn|sponge"="brush","simulatePressure":bool=false}"##
+        }
         "path.clippingPath.set" => r##"{"flatness":0..100=0}"##,
         "path.transform" => r##"{"translateX":-30000..30000=0,"translateY":-30000..30000=0,"scaleX":0.01..100=1,"scaleY":0.01..100=1,"angle":-360..360=0}"##,
         _ => "{}",
@@ -264,7 +267,7 @@ fn pen_dialog(app: &mut PhotocraftApp, command: &str, label: &str, name: &str) {
     } else {
         fields.insert("name".into(), json!(name));
     }
-    if matches!(command, "path.fill" | "path.stroke") {
+    if command == "path.fill" {
         let fg = app.session.tools.foreground;
         let byte = |v: f32| (v.clamp(0.0, 1.0) * 255.0).round() as u8;
         fields.insert("color".into(), json!(format!("#{:02x}{:02x}{:02x}", byte(fg[0]), byte(fg[1]), byte(fg[2]))));
@@ -665,6 +668,24 @@ mod tests {
         assert_eq!(app.session.journal.last().map(|(id, _)| id.as_str()), Some("path.fill"));
         choose_open(&mut app, "path.delete");
         assert!(app.session.active().unwrap().doc.work_path.is_none());
+    }
+
+    #[test]
+    fn stroke_path_dialog_picks_the_tool_and_simulates_pressure() {
+        let mut app = app();
+        app.run("layer.new.layer", json!({})).unwrap();
+        app.ui.tool = Tool::Pen;
+        work_path(&mut app);
+        choose_open(&mut app, "path.stroke");
+        let id = app.ui.dialogs.last().map(|d| d.id).unwrap();
+        let spec = app.ui.dialogs.last().unwrap().fields["__spec"].as_str().unwrap().to_string();
+        assert!(spec.contains("smudge") && spec.contains("simulatePressure"), "{spec}");
+        let d = app.ui.dialog_mut(id).unwrap();
+        d.fields.insert("tool".into(), json!("pencil"));
+        d.fields.insert("simulatePressure".into(), json!(true));
+        crate::dialogs::confirm(&mut app, id).unwrap();
+        let (cmd, p) = app.session.journal.last().unwrap();
+        assert_eq!((cmd.as_str(), &p["tool"], &p["simulatePressure"]), ("path.stroke", &json!("pencil"), &json!(true)));
     }
 
     #[test]

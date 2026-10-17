@@ -2385,5 +2385,17 @@ fontWeight	Italic	斜体
 	Masks	蒙版
 	Pixel mask	像素蒙版
 	Vector mask	矢量蒙版
+	Pencil	铅笔
+	Color Replacement	颜色替换
+	Background Eraser	背景橡皮擦
+	Clone Stamp	仿制图章
+	Healing Brush	修复画笔
+	History Brush	历史记录画笔
+	Smudge	涂抹
+	Dodge	减淡
+	Burn	加深
+	Sponge	海绵
+	Simulate Pressure	模拟压力
+	Tool	工具
 	High contrast	高对比度
 	High Contrast Theme	高对比度主题
