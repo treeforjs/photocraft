@@ -433,6 +433,10 @@ pub(crate) fn invoke_unguarded(app: &mut PhotocraftApp, ctx: &egui::Context, id:
         | "edit.transform.skew"
         | "edit.transform.distort"
         | "edit.transform.perspective" => {
+            // Live type can't be distorted: offer to rasterize it first.
+            if let Some(r) = crate::rasterize_prompt::intercept_transform(app, id) {
+                return r;
+            }
             // While a box is up, Scale / Rotate / Skew / Distort / Perspective (and Free Transform)
             // switch its mode; otherwise they start one in that mode.
             if app.ui.transform.is_none() {
@@ -446,6 +450,9 @@ pub(crate) fn invoke_unguarded(app: &mut PhotocraftApp, ctx: &egui::Context, id:
         "edit.freeTransformCopy" => crate::transform_tool::begin_copy(app, ctx).map(|_| json!({"transform": app.ui.transform})),
         // Edit › Transform › Warp from the menu: interactive Warp mode (with params: the engine).
         "edit.transform.warp" | "layer.smartObjects.warp" if params.as_object().is_none_or(|o| o.is_empty()) => {
+            if let Some(r) = crate::rasterize_prompt::intercept_transform(app, id) {
+                return r;
+            }
             crate::transform_tool::begin_warp(app, ctx).map(|_| json!({"transform": app.ui.transform}))
         }
         // Split warps edit the mesh of an active Warp session.

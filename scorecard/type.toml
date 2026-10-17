@@ -63,6 +63,6 @@ note = "Cmd+A, paste and double-click exist; no triple/quadruple click, no tests
 [[item]]
 id = "TYPE-218-9"
 target = "Offer 'Rasterize and continue?' for Distort/Perspective/Warp on live type"
-status = "missing"
+status = "done"
 issue = 218
-note = "No such prompt"
+note = "rasterize_prompt.rs intercept_transform: Edit › Transform › Distort, Perspective and Warp on a live type layer (menu, context menu or switching an open box) ask \"This type layer must be rasterized before proceeding…\"; OK applies the box so far, rasterizes (one step) and starts the mode, Cancel changes nothing. Automation still gets the engine error and can rasterize itself"
