@@ -163,7 +163,7 @@ fn merged_object<T: serde::Serialize + serde::de::DeserializeOwned>(current: &T,
     serde_json::from_value(cur).map(Some).map_err(|e| format!("{field}: {e}"))
 }
 
-/// A `ui.set` object field applied by whole-value replacement (e.g. `dock`, `colorPanel`):
+/// A `ui.set` object field applied by whole-value replacement (e.g. `dock`):
 /// unknown nested keys are rejected like [`merged_object`] does, but the value replaces the
 /// state instead of merging into it.
 fn whole_object<T: serde::Serialize + serde::de::DeserializeOwned>(current: &T, v: Option<&Value>, field: &str) -> std::result::Result<Option<T>, String> {
@@ -386,7 +386,7 @@ fn dispatch(app: &mut PhotocraftApp, ctx: &egui::Context, req: &ControlRequest) 
                 let dock_tabs = merged_object(&app.ui.dock_tabs, p.get("dockTabs"), "dockTabs")?;
                 let dock = whole_object(&app.ui.dock, p.get("dock"), "dock")?;
                 // Which chip the Color panel edits.
-                let color_panel = whole_object(&app.ui.color_panel, p.get("colorPanel"), "colorPanel")?;
+                let color_panel = merged_object(&app.ui.color_panel, p.get("colorPanel"), "colorPanel")?;
                 let dock_width = num_field(p, "dockWidth")?;
                 let zoom = num_field(p, "zoom")?;
                 let rotation = num_field(p, "rotation")?;
@@ -1557,6 +1557,11 @@ mod tests {
         assert!(app.ui.color_panel.background);
         assert_eq!(call(&mut app, &ctx, "ui.set", json!({"colorPanel": {"background": "yes"}}))["ok"], false);
         assert!(app.ui.color_panel.background, "a bad value changes nothing");
+        // Fields merge: setting the mode keeps the chip.
+        assert_eq!(call(&mut app, &ctx, "ui.set", json!({"colorPanel": {"mode": "cmyk"}}))["ok"], true);
+        assert_eq!(app.ui.color_panel.mode, crate::color_panel_ui::ColorPanelMode::Cmyk);
+        assert!(app.ui.color_panel.background);
+        assert_eq!(call(&mut app, &ctx, "ui.set", json!({"colorPanel": {"mode": "pantone"}}))["ok"], false);
     }
 
     #[test]

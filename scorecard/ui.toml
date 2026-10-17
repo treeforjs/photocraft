@@ -120,9 +120,9 @@ note = "saturation_track/lightness_track (adjust_editors.rs): grey -> the hue an
 [[item]]
 id = "UI-217-17"
 target = "Color panel: wheel plus RGB/HSB/CMYK/Lab/Gray/Web slider modes; resizes with its group"
-status = "missing"
+status = "done"
 issue = 217
-note = "panels.rs:1837 single field + hex/RGB readout"
+note = "color_panel_ui.rs: a dropdown switches the Color panel between the spectrum field, a colour wheel (hue around, saturation out, brightness slider) and RGB, HSB, CMYK, Lab, Grayscale and Web Color slider sets with live colour tracks; values that sRGB can't hold (hue on grey, CMYK black) are kept while they still name the colour. The field and wheel grow with the group; ui.set colorPanel.mode drives it"
 
 [[item]]
 id = "UI-217-18"
