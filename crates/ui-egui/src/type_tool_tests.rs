@@ -1298,6 +1298,78 @@ fn multiple_clicks_select_word_line_paragraph_and_all() {
     assert_eq!(super::next_click_count(Some((u32::MAX, 1.0, Pos2::ZERO)), 1.1, Pos2::ZERO, 0.4, 6.0), u32::MAX);
 }
 
+/// TYPE-218-4: a variable font gets a slider per axis in the Character panel; unset axes show
+/// what the layout draws (the weight, the point size for the optical size), dragging sets the
+/// axis, and the optical size follows the point size until it is set.
+#[test]
+fn variable_font_axes_get_sliders_and_the_optical_size_follows_the_size() {
+    let face = |italic: bool, axes: Vec<(String, f32, f32, f32)>| photocraft_text::FaceInfo {
+        family: "Var".into(),
+        style: "Regular".into(),
+        postscript_name: None,
+        weight: 400.0,
+        italic,
+        axes,
+    };
+    let axis = |t: &str, a: f32, d: f32, b: f32| (t.to_string(), a, d, b);
+    // Upright axes first, an italic-only axis after, hostile ones dropped.
+    let faces = vec![
+        face(true, vec![axis("wght", 100.0, 400.0, 900.0), axis("ital", 0.0, 1.0, 1.0)]),
+        face(false, vec![axis("wght", 100.0, 400.0, 900.0), axis("opsz", 8.0, 14.0, 144.0), axis("XHGT", 0.0, 50.0, 100.0)]),
+        face(false, vec![axis("bad", 0.0, 1.0, 2.0), axis("wdth", 100.0, 100.0, 50.0), axis("GRAD", f32::NAN, 0.0, 1.0)]),
+    ];
+    let tags: Vec<String> = super::axes_of(&faces, false).into_iter().map(|a| a.0).collect();
+    assert_eq!(tags, ["wght", "opsz", "XHGT", "ital"]);
+    super::TEST_FACES.with(|f| *f.borrow_mut() = Some(faces));
+
+    let mut app = new_app();
+    let id = LayerId(app.run("type.create", json!({"text": "Variable", "size": 30, "x": 300, "y": 420})).unwrap()["layer"].as_u64().unwrap());
+    let mut h = Harness::builder().with_size(vec2(600.0, 900.0)).build_ui_state(
+        |ui, app: &mut PhotocraftApp| {
+            if !ui.ctx().fonts(|f| f.families().contains(&egui::FontFamily::Name("semibold".into()))) {
+                return;
+            }
+            ui.allocate_ui(vec2(300.0, 880.0), |ui| super::character_panel(app, ui, false));
+        },
+        app,
+    );
+    PhotocraftApp::setup_context(&h.ctx, crate::theme::ThemeKind::Craft);
+    h.run_steps(3);
+    let vars = |h: &Harness<'_, PhotocraftApp>| match &h.state().session.active().unwrap().doc.layer(id).unwrap().content {
+        LayerContent::Text(t) => t.runs.first().map(|r| r.style.variations.clone()).unwrap_or_default(),
+        other => panic!("{other:?}"),
+    };
+    for label in ["Weight", "Optical Size", "XHGT", "Italic"] {
+        assert!(h.query_by_label(label).is_some(), "{label} slider");
+    }
+    assert!(vars(&h).is_empty());
+    // Untick "follows the font size": the optical size is pinned at the current size.
+    h.get_by_label("Optical size follows the font size").click();
+    h.run_steps(2);
+    let v = vars(&h);
+    assert_eq!(v.len(), 1);
+    assert_eq!((v[0].axis.as_str(), v[0].value), ("opsz", 30.0));
+    h.get_by_label("Optical size follows the font size").click();
+    h.run_steps(2);
+    assert!(vars(&h).is_empty(), "ticking it again lets the size drive it");
+    // Drag the XHGT slider to its right end.
+    let l = h.get_by_label("XHGT").rect();
+    let y = l.center().y + 24.0;
+    let (from, to) = (Pos2::new(160.0, y), Pos2::new(299.0, y));
+    h.hover_at(from);
+    h.run_steps(1);
+    h.drag_at(from);
+    h.run_steps(1);
+    h.hover_at(to);
+    h.run_steps(1);
+    h.drop_at(to);
+    h.run_steps(2);
+    let v = vars(&h);
+    let x = v.iter().find(|v| v.axis == "XHGT").map(|v| v.value);
+    assert!(x.is_some_and(|x| x > 90.0), "{v:?}");
+    super::TEST_FACES.with(|f| *f.borrow_mut() = None);
+}
+
 /// TYPE-218-5: the Character panel's OpenType buttons light up with the feature and toggle it;
 /// the Numerals and Stylistic Sets menu items report their state.
 #[test]
