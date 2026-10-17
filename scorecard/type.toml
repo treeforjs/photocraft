@@ -1,5 +1,5 @@
 # Scorecard checklist: type (#218, #206).
-# Statuses must be true on main. Verified against 4b53f62 on 2026-10-05.
+# Statuses must be true on main. Verified against b8debbb on 2026-10-17.
 area = "type"
 title = "Type"
 order = 5
@@ -42,9 +42,9 @@ note = "Type > OpenType toggles (type_extra_cmds.rs:512); no panel buttons or su
 [[item]]
 id = "TYPE-218-6"
 target = "Manual pair kerning (Alt+arrows), optical kerning rendered, both round-trip PSD (#206)"
-status = "missing"
+status = "done"
 issue = 218
-note = "Optical renders as Metrics (text.rs:21); Alt+arrow moves by word"
+note = "Optical kerning rendered (text/src/optical.rs, optical_kerning_tightens_open_pairs), manual kerning (manual_kerning_moves_the_next_glyph), Alt+arrows, PSD round trip (BUG-206-*)"
 
 [[item]]
 id = "TYPE-218-7"

@@ -2,6 +2,7 @@
 # Each item: id, short target, status (done | partial | missing), issue, note (evidence).
 # Statuses must be true on main. BUG-203 verified against 47f9306 on 2026-10-07; the rest
 # against 4b53f62 on 2026-10-05, except BUG-204 against ec350d6 on 2026-10-09.
+# BUG-205 to BUG-208 re-verified against b8debbb on 2026-10-17.
 area = "bugs"
 title = "Open bugs"
 order = 9
@@ -114,51 +115,51 @@ note = "targeted_unlinked_mask_transforms_alone and targeted_linked_mask_moves_w
 [[item]]
 id = "BUG-205-4"
 target = "Test: a linked raster mask with no selection moves with the pixels"
-status = "partial"
+status = "done"
 issue = 205
-note = "Implemented at transform_cmds.rs:127; no raster-mask test"
+note = "transform_cmds.rs linked_raster_mask_moves_with_the_pixels"
 
 [[item]]
 id = "BUG-205-5"
 target = "Tests: linked mask + selection stays aligned; unlinked stays; targeted mask only"
-status = "missing"
+status = "done"
 issue = 205
-note = "Unlinked case honoured (m.linked check, l.128) but untested; the other two not implemented"
+note = "transform_cmds.rs tests: linked_mask_with_a_selection_moves_only_the_selected_region, unlinked_mask_stays_put, targeted_unlinked_mask_transforms_alone, targeted_linked_mask_moves_with_its_layer"
 
 [[item]]
 id = "BUG-206-1"
 target = "CharStyle models per-character manual kerning separately from the auto-kern mode"
-status = "missing"
+status = "done"
 issue = 206
-note = "doc/text.rs:76 only `kerning: Kerning` enum (Metrics/Optical/Off)"
+note = "doc/src/text.rs CharStyle.kern (manual pair kerning) beside the auto-kern mode"
 
 [[item]]
 id = "BUG-206-2"
 target = "PSD import keeps Optical and manual Kerning values"
-status = "missing"
+status = "done"
 issue = 206
-note = "text/psd.rs:264 maps anything not Off to Metrics; Kerning value ignored"
+note = "text/src/psd.rs reads Optical (Txt2) and per-run AutoKerning/Kerning (kerning_from_pairs)"
 
 [[item]]
 id = "BUG-206-3"
 target = "PSD export writes the real AutoKerning mode and Kerning values"
-status = "missing"
+status = "done"
 issue = 206
-note = "text/psd.rs:380-381 AutoKerning bool only; Kerning hard-coded 0"
+note = "text/src/psd.rs writes the AutoKerning mode and per-run Kerning (kern_units)"
 
 [[item]]
 id = "BUG-206-4"
 target = "Alt+Left/Right at a collapsed caret adjusts pair kerning; Character panel field"
-status = "missing"
+status = "done"
 issue = 206
-note = "type_tool.rs:896-912 only a mode combo"
+note = "type_tool.rs kern_pair (Alt+Left/Right at a collapsed caret) and the Character panel kerning field; input_tests.rs type_tool_alt_arrows_kern_the_pair"
 
 [[item]]
 id = "BUG-206-5"
 target = "Tests: PSD round trip of manual and Optical kerning, a real file in the oracle corpus"
-status = "missing"
+status = "done"
 issue = 206
-note = "No kerning round-trip test"
+note = "text/src/tests.rs psd_round_trips_manual_kerning, txt2_carries_optical_kerning; io/tests/psd_kerning.rs"
 
 [[item]]
 id = "BUG-207-1"
@@ -184,16 +185,16 @@ note = "paint/src/retouch.rs premultiplies; smudge_into_transparency_leaves_no_d
 [[item]]
 id = "BUG-207-4"
 target = "edit.transform transforms a targeted alpha channel"
-status = "missing"
+status = "done"
 issue = 207
-note = "transform_cmds.rs transform() has no target handling"
+note = "transform_cmds.rs lone_target handles alpha channels and Quick Mask; targeted_alpha_channel_transforms_alone"
 
 [[item]]
 id = "BUG-207-5"
 target = "Tests: per-tool mask/channel targeting, Sample All Layers, no smudge fringe"
-status = "missing"
+status = "done"
 issue = 207
-note = "Only smudge_drags_colour_along_the_stroke (retouch.rs:407)"
+note = "retouch_cmds/tests.rs retouch_tools_paint_only_the_targeted_mask / _targeted_alpha_channel, sample_all_layers_*, smudge_across_a_transparent_edge_has_no_dark_fringe"
 
 [[item]]
 id = "BUG-208-1"
@@ -219,9 +220,9 @@ note = "canvas.rs marquee_readout draws the readout; marquee_tests.rs asserts di
 [[item]]
 id = "BUG-208-4"
 target = "Add/subtract/intersect from modifiers pressed before the drag, kept by a test"
-status = "partial"
+status = "done"
 issue = 208
-note = "Mods captured at press (canvas.rs:1679, used :1779); only a badge test (tool_feedback.rs:195)"
+note = "marquee_tests.rs modifiers_held_before_the_drag_pick_the_mode_not_the_shape"
 
 [[item]]
 id = "BUG-208-5"
