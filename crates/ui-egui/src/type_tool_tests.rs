@@ -1297,3 +1297,49 @@ fn multiple_clicks_select_word_line_paragraph_and_all() {
     assert_eq!(super::next_click_count(Some((3, 1.0, Pos2::ZERO)), 0.5, Pos2::ZERO, 0.4, 6.0), 1, "time went backwards");
     assert_eq!(super::next_click_count(Some((u32::MAX, 1.0, Pos2::ZERO)), 1.1, Pos2::ZERO, 0.4, 6.0), u32::MAX);
 }
+
+/// TYPE-218-5: the Character panel's OpenType buttons light up with the feature and toggle it;
+/// the Numerals and Stylistic Sets menu items report their state.
+#[test]
+fn character_panel_opentype_buttons_toggle_features() {
+    use egui_kittest::kittest::NodeT;
+    use photocraft_engine::type_extra_cmds::feature_on;
+    let mut app = new_app();
+    let id = LayerId(app.run("type.create", json!({"text": "office 1/2", "size": 30, "x": 300, "y": 420})).unwrap()["layer"].as_u64().unwrap());
+    let mut h = Harness::builder().with_size(vec2(600.0, 900.0)).build_ui_state(
+        |ui, app: &mut PhotocraftApp| {
+            if !ui.ctx().fonts(|f| f.families().contains(&egui::FontFamily::Name("semibold".into()))) {
+                return;
+            }
+            ui.allocate_ui(vec2(300.0, 880.0), |ui| super::character_panel(app, ui, false));
+        },
+        app,
+    );
+    PhotocraftApp::setup_context(&h.ctx, crate::theme::ThemeKind::Craft);
+    h.run_steps(3);
+    let style = |h: &Harness<'_, PhotocraftApp>| match &h.state().session.active().unwrap().doc.layer(id).unwrap().content {
+        LayerContent::Text(t) => t.char_runs()[0].style.clone(),
+        other => panic!("{other:?}"),
+    };
+    let selected = |h: &Harness<'_, PhotocraftApp>, label: &str| h.get_by_label(label).accesskit_node().toggled() == Some(egui::accesskit::Toggled::True);
+    assert!(selected(&h, "Standard Ligatures"), "ligatures are on by default");
+    assert!(!selected(&h, "Fractions"));
+    h.get_by_label("Fractions").click();
+    h.run_steps(2);
+    assert!(feature_on(&style(&h), "frac"));
+    assert!(selected(&h, "Fractions"));
+    h.get_by_label("Standard Ligatures").click();
+    h.run_steps(2);
+    assert!(!style(&h).ligatures);
+    h.get_by_label("Fractions").click();
+    h.run_steps(2);
+    assert!(!feature_on(&style(&h), "frac"));
+    // Menu state for the new submenus.
+    let app = h.state_mut();
+    app.run("type.openType.numerals.tabularLining", json!({})).unwrap();
+    app.run("type.openType.stylisticSet2", json!({})).unwrap();
+    assert_eq!(crate::view_cmds::checked(app, "type.openType.numerals.tabularLining"), Some(true));
+    assert_eq!(crate::view_cmds::checked(app, "type.openType.numerals.default"), Some(false));
+    assert_eq!(crate::view_cmds::checked(app, "type.openType.stylisticSet2"), Some(true));
+    assert_eq!(crate::view_cmds::checked(app, "type.openType.stylisticSet1"), Some(false));
+}

@@ -1464,6 +1464,38 @@ fn type_sections(app: &mut PhotocraftApp, ui: &mut egui::Ui, character: bool, pa
             }
         });
         ui.add_space(ROW_GAP);
+        // OpenType features, as in Photoshop's Character panel: one button each, lit when on.
+        let opentype: [(&str, &str, &str); 8] = [
+            ("fi", "Standard Ligatures", "liga"),
+            ("ct", "Contextual Alternates", "calt"),
+            ("st", "Discretionary Ligatures", "dlig"),
+            ("A", "Swash", "swsh"),
+            ("aa", "Stylistic Alternates", "salt"),
+            ("T", "Titling Alternates", "titl"),
+            ("1st", "Ordinals", "ordn"),
+            ("½", "Fractions", "frac"),
+        ];
+        let cw = cell_width(full, opentype.len());
+        ui.horizontal(|ui| {
+            ui.spacing_mut().item_spacing.x = 2.0;
+            for (glyph, tip, tag) in opentype {
+                let on = photocraft_engine::type_extra_cmds::feature_on(&c, tag);
+                let clicked = toggle_cell(ui, cw, on, tip, |ui, r, col| {
+                    let font = if tag == "swsh" { crate::theme::semibold(13.0) } else { egui::FontId::proportional(12.0) };
+                    let g = ui.painter().layout_no_wrap(glyph.to_string(), font, col);
+                    ui.painter().galley(r.center() - g.size() / 2.0, g, col);
+                });
+                if clicked {
+                    let props = match tag {
+                        "liga" => json!({ "ligatures": !on }),
+                        "dlig" => json!({ "discretionaryLigatures": !on }),
+                        _ => json!({ "features": { tag: if on { 0 } else { 1 } } }),
+                    };
+                    apply(app, ui.ctx(), props);
+                }
+            }
+        });
+        ui.add_space(ROW_GAP);
     }
     if paragraph && section(ui, "paragraph", tl!("Paragraph")) {
         use photocraft_doc::text::TextAlign as A;
