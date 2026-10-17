@@ -132,7 +132,7 @@ fn every_theme_shows_the_auto_select_toggle() {
     // could not be turned off there.
     use egui_kittest::Harness;
     use egui_kittest::kittest::Queryable;
-    for theme in [crate::theme::ThemeKind::ProMedium, crate::theme::ThemeKind::Studio] {
+    for theme in [crate::theme::ThemeKind::Craft, crate::theme::ThemeKind::Studio] {
         let (app, _, _) = app();
         let mut h = Harness::builder().with_size(egui::vec2(1400.0, 60.0)).build_ui_state(
             |ui, app: &mut PhotocraftApp| {

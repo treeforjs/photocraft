@@ -64,8 +64,9 @@ pub const UI_COMMANDS: &[(&str, &str, &[&str], Option<&str>)] = &[
     ("window.toggle.dock", "Show/Hide Panels", &[], Some("Shift+Tab")),
     ("window.toggle.options", "Options", &["Window"], None),
     ("window.theme.toggle", "Next Appearance Mode", &["Window"], None),
-    ("window.theme.pro", "Pro Theme", &["Window", "Theme"], None),
-    ("window.theme.proMedium", "Pro Medium Gray Theme", &["Window", "Theme"], None),
+    ("window.theme.dark", "Dark Theme", &["Window", "Theme"], None),
+    ("window.theme.light", "Light Theme", &["Window", "Theme"], None),
+    ("window.theme.highContrast", "High Contrast Theme", &["Window", "Theme"], None),
     ("window.theme.studio", "Studio Theme", &["Window", "Theme"], None),
     ("window.theme.studioLight", "Studio Light Theme", &["Window", "Theme"], None),
     ("window.theme.classic", "Classic Theme", &["Window", "Theme"], None),
@@ -304,7 +305,11 @@ pub(crate) fn invoke_unguarded(app: &mut PhotocraftApp, ctx: &egui::Context, id:
             crate::prefs_ui::cycle_appearance(app, ctx);
             Ok(Value::Null)
         }
-        "window.theme.pro"
+        // `pro` and `proMedium` are the retired Photoshop-grey themes; older scripts get Dark.
+        "window.theme.dark"
+        | "window.theme.light"
+        | "window.theme.highContrast"
+        | "window.theme.pro"
         | "window.theme.proMedium"
         | "window.theme.studio"
         | "window.theme.studioLight"

@@ -38,7 +38,7 @@ fn row(h: &Harness<'_, crate::PhotocraftApp>, id: LayerId) -> egui::Rect {
 #[test]
 fn layer_color_context_menu_edits_the_clicked_layer_and_preserves_multi_selection() {
     for ppp in [1.0, 2.0] {
-        let (mut h, red, other) = harness(crate::theme::ThemeKind::Pro, ppp);
+        let (mut h, red, other) = harness(crate::theme::ThemeKind::Craft, ppp);
         let at = row(&h, red).center();
         click(&mut h, at, PointerButton::Secondary, Modifiers::NONE);
         let at = h.get_by_label("Color ⏵").rect().center();

@@ -826,9 +826,9 @@ mod tests {
         };
         let themes = ids(children);
         assert_eq!(themes.last().map(String::as_str), Some("window.theme.toggle"));
-        assert!(themes.contains(&"window.theme.pro".to_string()) && themes.contains(&"window.theme.classic".to_string()));
+        assert!(themes.contains(&"window.theme.dark".to_string()) && themes.contains(&"window.theme.classic".to_string()));
         assert_eq!(l.bar.find("window.theme.classic").unwrap().checked, Some(true));
-        assert_eq!(l.bar.find("window.theme.pro").unwrap().checked, Some(false));
+        assert_eq!(l.bar.find("window.theme.dark").unwrap().checked, Some(false));
         assert_eq!(l.bar.find("window.theme.toggle").unwrap().label, "Next Appearance Mode");
         let window = ids(&l.bar.menu(MenuRole::Window).unwrap().children);
         assert!(!window.iter().any(|id| id.starts_with("window.theme.") || id == "[Theme]"), "{window:?}");

@@ -230,7 +230,7 @@ mod tests {
 
     #[test]
     fn empty_and_bad_rectangles_draw_no_ribbons() {
-        let t = Tokens::for_kind(ThemeKind::Pro);
+        let t = Tokens::for_kind(ThemeKind::Craft);
         let h = RgbHistogram::default();
         assert!(mesh(Rect::from_min_max(pos2(0.0, 0.0), pos2(256.0, 100.0)), &h, &t).is_empty());
         assert!(mesh(Rect::NOTHING, &h, &t).is_empty());
@@ -262,7 +262,7 @@ mod tests {
             channel[121] = 100;
         }
         let original = h.clone();
-        let m = mesh(Rect::from_min_max(pos2(0.0, 0.0), pos2(256.0, 100.0)), &h, &Tokens::for_kind(ThemeKind::Pro));
+        let m = mesh(Rect::from_min_max(pos2(0.0, 0.0), pos2(256.0, 100.0)), &h, &Tokens::for_kind(ThemeKind::Craft));
         assert!(covers(&m, pos2(120.5, 85.0)), "isolated empty bin creates a full-height black stripe");
         assert!(!covers(&m, pos2(180.5, 85.0)), "a real empty tonal range must stay empty");
         assert_eq!(h, original, "display filtering must never change raw statistics");
