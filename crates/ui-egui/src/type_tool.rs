@@ -763,6 +763,49 @@ fn weight_name(w: f32) -> &'static str {
 
 /// Style names available for a family: each face's actual OpenType subfamily (including numeric
 /// and nonstandard ones), plus the standard weights a variable face's `wght` axis covers.
+/// The variation axes of `family` as (tag, min, default, max): those of its faces in the same
+/// slant first, then any other face's, each tag once. Empty for a static font.
+pub fn variable_axes(family: &str, italic: bool) -> Vec<(String, f32, f32, f32)> {
+    #[cfg(test)]
+    if let Some(faces) = TEST_FACES.with(|f| f.borrow().clone()) {
+        return axes_of(&faces, italic);
+    }
+    let faces = photocraft_text::shared().lock().unwrap_or_else(|e| e.into_inner()).fonts.faces(family);
+    axes_of(&faces, italic)
+}
+
+#[cfg(test)]
+thread_local! {
+    /// Faces [`variable_axes`] reports instead of the font database's (no variable font ships
+    /// with the app or the CI image).
+    pub static TEST_FACES: std::cell::RefCell<Option<Vec<photocraft_text::FaceInfo>>> = const { std::cell::RefCell::new(None) };
+}
+
+fn axes_of(faces: &[photocraft_text::FaceInfo], italic: bool) -> Vec<(String, f32, f32, f32)> {
+    let mut out: Vec<(String, f32, f32, f32)> = Vec::new();
+    for face in faces.iter().filter(|f| f.italic == italic).chain(faces.iter().filter(|f| f.italic != italic)) {
+        for (tag, min, default, max) in &face.axes {
+            let sane = [min, default, max].iter().all(|v| v.is_finite()) && min < max && tag.len() == 4 && tag.is_ascii();
+            if sane && !out.iter().any(|a| &a.0 == tag) {
+                out.push((tag.clone(), *min, default.clamp(*min, *max), *max));
+            }
+        }
+    }
+    out
+}
+
+/// The name of a variation axis for its slider (registered axes by name, others by tag).
+fn axis_label(tag: &str) -> String {
+    match tag {
+        "wght" => tl!("Weight").into(),
+        "wdth" => tl!("Width").into(),
+        "slnt" => tl!("Slant").into(),
+        "ital" => tl!("Italic").into(),
+        "opsz" => tl!("Optical Size").into(),
+        other => other.to_uppercase(),
+    }
+}
+
 pub fn styles(family: &str) -> Vec<String> {
     let faces = photocraft_text::shared().lock().unwrap_or_else(|e| e.into_inner()).fonts.faces(family);
     let v = style_names(&faces);
@@ -1464,6 +1507,30 @@ fn type_sections(app: &mut PhotocraftApp, ui: &mut egui::Ui, character: bool, pa
             }
         });
         ui.add_space(ROW_GAP);
+        // Variable fonts: one slider per axis of the face (TYPE-218-4). Unset axes show what the
+        // layout draws: the style's weight, the point size for the optical size, else the default.
+        for (tag, min, default, max) in variable_axes(&fam, c.italic) {
+            let set = c.variations.iter().find(|v| v.axis == tag).map(|v| v.value).filter(|v| v.is_finite());
+            let unset = match tag.as_str() {
+                "wght" => f32::from(c.weight),
+                "opsz" => c.size_pt,
+                _ => default,
+            };
+            let mut v = set.unwrap_or(unset).clamp(min, max);
+            let label = axis_label(&tag);
+            let resp = ui.push_id(("type-axis", &tag), |ui| crate::widgets::slider_row(ui, &label, &mut v, min..=max, "", None)).inner;
+            if resp.changed() {
+                apply(app, ui.ctx(), json!({ "variations": { tag.clone(): v } }));
+            }
+            if tag == "opsz" {
+                let mut auto = set.is_none();
+                if crate::widgets::checkbox(ui, &mut auto, tl!("Optical size follows the font size")).changed() {
+                    let value = if auto { serde_json::Value::Null } else { json!(c.size_pt.clamp(min, max)) };
+                    apply(app, ui.ctx(), json!({ "variations": { "opsz": value } }));
+                }
+            }
+            ui.add_space(ROW_GAP);
+        }
     }
     if paragraph && section(ui, "paragraph", tl!("Paragraph")) {
         use photocraft_doc::text::TextAlign as A;

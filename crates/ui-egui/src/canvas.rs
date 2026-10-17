@@ -3590,7 +3590,7 @@ fn tool_move(app: &mut PhotocraftApp, x: f64, y: f64, pressure: f32, mods: egui:
         crate::type_tool::pointer_move(app, x, y);
     }
     if tool == Tool::Pen {
-        crate::vector_ui::pen_move(app, x, y);
+        crate::vector_ui::pen_move_with(app, x, y, mods);
     }
     let zoom = app.point_zoom();
     if let Some(d) = app.drag.as_mut().filter(|d| d.reposition) {
@@ -3798,7 +3798,7 @@ pub fn tool_event(app: &mut PhotocraftApp, ev: ToolEvent, mods: egui::Modifiers)
             }
             match tool {
                 Tool::Pen => {
-                    crate::vector_ui::pen_down(app, x, y);
+                    crate::vector_ui::pen_down_with(app, x, y, mods);
                     return;
                 }
                 Tool::CloneStamp | Tool::Healing if mods.alt => {

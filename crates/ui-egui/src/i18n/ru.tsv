@@ -2693,3 +2693,6 @@ fontWeight	Italic	Курсив
 	px/in	пикс/дюйм
 	px/cm	пикс/см
 	Swaps height and width	Меняет местами высоту и ширину
+	Slant	Наклон
+	Optical Size	Оптический размер
+	Optical size follows the font size	Оптический размер следует за кеглем

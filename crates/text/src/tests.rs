@@ -480,6 +480,19 @@ fn variable_font_axes() {
     assert!(heavy > light * 1.5, "{light} → {heavy}");
 }
 
+/// TYPE-218-4: the optical size follows the point size unless the style sets `opsz` itself.
+#[test]
+fn optical_size_follows_the_point_size_unless_set() {
+    use photocraft_doc::text::FontVariation;
+    let mut s = CharStyle { size_pt: 36.0, variations: vec![FontVariation { axis: "wght".into(), value: 650.0 }], ..Default::default() };
+    assert_eq!(crate::layout::variation_list(&s), ["\"wght\" 650", "\"opsz\" 36"]);
+    s.variations.push(FontVariation { axis: "opsz".into(), value: 12.0 });
+    assert_eq!(crate::layout::variation_list(&s), ["\"wght\" 650", "\"opsz\" 12"]);
+    s.variations = vec![FontVariation { axis: "wdth".into(), value: f32::NAN }, FontVariation { axis: "toolong".into(), value: 1.0 }];
+    s.size_pt = f32::NAN;
+    assert!(crate::layout::variation_list(&s).is_empty(), "hostile values are dropped");
+}
+
 #[test]
 fn warp_bends_rendered_text_and_outlines() {
     use photocraft_doc::text::TextWarp;

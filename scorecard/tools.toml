@@ -176,9 +176,9 @@ note = "Ratio dropdown and fields, W x H x Resolution with units (crop_size.rs; 
 [[item]]
 id = "TOOL-214-10"
 target = "Pen: Alt breaks a handle, Shift 45 deg, Ctrl direct-selects, Backspace, close-drag handle"
-status = "partial"
+status = "done"
 issue = 214
-note = "Ctrl/Cmd = Direct Selection and Alt = Convert Point on existing paths (direct_select.rs, #790); no Shift 45 deg, Backspace or Alt while drawing"
+note = "Ctrl/Cmd = Direct Selection and Alt = Convert Point on existing paths (direct_select.rs, #790); while drawing (vector_ui.rs pen_down_with/pen_move_with) Shift snaps anchors and handles to 45 deg, Alt breaks the handle, Backspace removes the last anchor, dragging off the first anchor shapes the closing segment"
 
 [[item]]
 id = "TOOL-214-11"

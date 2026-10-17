@@ -2396,3 +2396,6 @@ fontWeight	Italic	斜體
 	px/cm	像素/公分
 	W	寬
 	H	高
+	Slant	傾斜
+	Optical Size	光學尺寸
+	Optical size follows the font size	光學尺寸跟隨字級

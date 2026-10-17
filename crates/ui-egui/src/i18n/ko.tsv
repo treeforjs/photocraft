@@ -2993,3 +2993,6 @@ fontWeight	Italic	기울임
 	px/cm	px/cm
 	W	폭
 	H	높이
+	Slant	기울기
+	Optical Size	광학 크기
+	Optical size follows the font size	광학 크기가 글꼴 크기를 따름
