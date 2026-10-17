@@ -3387,3 +3387,11 @@ fontWeight	Italic	斜体
 	Quick Selection found nothing there	クイック選択ではそこに何も見つかりませんでした
 	Object Selection found nothing there — try a tighter rectangle	オブジェクト選択ではそこに何も見つかりませんでした — より狭い長方形で試してください
 	No subject found — try a rectangle around the object	被写体が見つかりません — オブジェクトを囲む長方形を試してください
+	Save as JPEG	JPEG として保存
+	About {size}	約 {size}
+	Size estimate unavailable	サイズの見積もりは利用できません
+	Encoding	エンコード
+	Standard: opens in every app	標準：どのアプリでも開けます
+	Smaller file: same image, a little slower to save	小さいファイル：画像は同じ、保存が少し遅くなります
+	Progressive: shows a preview while it loads on the web	プログレッシブ：Web で読み込み中にプレビューを表示
+	Passes	パス数

@@ -2434,3 +2434,13 @@ fontWeight	Italic	Corsivo
 	Quick Selection found nothing there	Selezione rapida non ha trovato nulla lì
 	Object Selection found nothing there — try a tighter rectangle	Selezione oggetto non ha trovato nulla lì — prova un rettangolo più stretto
 	No subject found — try a rectangle around the object	Nessun soggetto trovato — prova un rettangolo attorno all'oggetto
+	Save as JPEG	Salva come JPEG
+	Low	Bassa
+	High	Alta
+	About {size}	Circa {size}
+	Size estimate unavailable	Stima delle dimensioni non disponibile
+	Encoding	Codifica
+	Standard: opens in every app	Standard: si apre in ogni app
+	Smaller file: same image, a little slower to save	File più piccolo: stessa immagine, salvataggio un po’ più lento
+	Progressive: shows a preview while it loads on the web	Progressivo: mostra un’anteprima durante il caricamento sul web
+	Passes	Passaggi

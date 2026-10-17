@@ -216,12 +216,22 @@ pub(crate) struct SaveOpts {
     pub quality: Option<f64>,
     /// TIFF: keep the layers. Off unless a command's params ask (`"tiffLayers": true`).
     pub tiff_layers: bool,
+    /// JPEG Options › Format Options: progressive scans (0 = baseline).
+    pub jpeg_scans: u8,
+    /// JPEG Options › Baseline Optimized.
+    pub jpeg_optimize: bool,
 }
 
 impl SaveOpts {
-    /// `quality` and `tiffLayers` from a command's params.
+    /// `quality`, `tiffLayers` and JPEG Options' `jpegFormat` (`baseline`, `optimized` or
+    /// `progressive`, with `scans` 3–5, default 3) from a command's params.
     pub(crate) fn from_params(p: &Value) -> Self {
-        SaveOpts { quality: f64_param(p, "quality"), tiff_layers: p.get("tiffLayers").and_then(Value::as_bool).unwrap_or(false) }
+        let (jpeg_scans, jpeg_optimize) = match p.get("jpegFormat").and_then(Value::as_str) {
+            Some("progressive") => (p.get("scans").and_then(Value::as_u64).map_or(3, |n| n.clamp(3, 5) as u8), false),
+            Some("optimized") => (0, true),
+            _ => (0, false),
+        };
+        SaveOpts { quality: f64_param(p, "quality"), tiff_layers: p.get("tiffLayers").and_then(Value::as_bool).unwrap_or(false), jpeg_scans, jpeg_optimize }
     }
 
     pub(crate) fn or_quality(mut self, q: f64) -> Self {
@@ -240,6 +250,8 @@ impl From<Option<f64>> for SaveOpts {
 pub(crate) fn encode(doc: &Document, path: &str, save: impl Into<SaveOpts>) -> Result<(Vec<u8>, Vec<String>)> {
     let save = save.into();
     let mut opts = photocraft_io::ExportOptions { tiff_layers: save.tiff_layers, ..Default::default() };
+    opts.encode.jpeg_progressive_scans = save.jpeg_scans;
+    opts.encode.jpeg_optimize = save.jpeg_optimize;
     if let Some(q) = save.quality {
         let q = (q.clamp(0.0, 12.0) / 12.0 * 99.0 + 1.0).round() as u8;
         opts.encode.jpeg_quality = q;
@@ -1249,7 +1261,7 @@ pub fn specs() -> Vec<CommandSpec> {
             "Save a Copy…",
             &["File"],
             Some("Cmd+Alt+S"),
-            r##"{"path":str (format from the extension),"quality":0..12? (JPEG),"layers":bool=true,"tiffLayers":bool=false (TIFF: keep the layers; flat by default)}"##,
+            r##"{"path":str (format from the extension),"quality":0..12? (JPEG),"jpegFormat":"baseline|optimized|progressive"="baseline" (JPEG),"scans":3..5=3 (progressive JPEG),"layers":bool=true,"tiffLayers":bool=false (TIFF: keep the layers; flat by default)}"##,
             native_doc,
             save_a_copy
         ),

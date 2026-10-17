@@ -79,6 +79,7 @@ pub mod i18n;
 mod icon_data;
 pub mod icons;
 pub mod jobs_ui;
+pub mod jpeg_options_ui;
 pub mod kys_import;
 pub mod lasso_ui;
 pub mod layer_menu_ui;
@@ -188,6 +189,10 @@ pub type ImportFn = Box<dyn Fn(&str, &[u8]) -> Result<(Document, Vec<String>), S
 pub struct ExportSettings {
     /// JPEG quality 1–100 (None = codec default).
     pub jpeg_quality: Option<u8>,
+    /// JPEG Options › Format Options: progressive scans (0 = baseline).
+    pub jpeg_progressive_scans: u8,
+    /// JPEG Options › Baseline Optimized.
+    pub jpeg_optimize: bool,
     /// WebP: lossless (VP8L) rather than lossy (VP8 at [`Self::webp_quality`]).
     pub webp_lossless: bool,
     /// Lossy WebP quality 1–100 (None = codec default).
@@ -202,7 +207,15 @@ pub struct ExportSettings {
 
 impl Default for ExportSettings {
     fn default() -> Self {
-        ExportSettings { jpeg_quality: None, webp_lossless: true, webp_quality: None, tiff_layers: true, xmp_all: true }
+        ExportSettings {
+            jpeg_quality: None,
+            jpeg_progressive_scans: 0,
+            jpeg_optimize: false,
+            webp_lossless: true,
+            webp_quality: None,
+            tiff_layers: true,
+            xmp_all: true,
+        }
     }
 }
 
@@ -543,6 +556,8 @@ pub struct PhotocraftApp {
     pub(crate) file_dialog: Option<file_dialog::Pending>,
     /// A Save As to a layered TIFF parked behind the TIFF Options prompt (see `tiff_options_ui`).
     pub(crate) tiff_options: Option<tiff_options_ui::Prompt>,
+    /// A Save As to a JPEG parked behind the Save as JPEG options (see `jpeg_options_ui`).
+    pub(crate) jpeg_options: Option<jpeg_options_ui::Prompt>,
     /// Set once the user has agreed to quit, so the resulting close request goes through.
     pub(crate) allow_close: bool,
     /// Pen pressure/tilt from the platform (see `stylus`).
@@ -650,6 +665,7 @@ impl PhotocraftApp {
             discard: None,
             file_dialog: None,
             tiff_options: None,
+            jpeg_options: None,
             allow_close: false,
             stylus: Default::default(),
             background_jobs: false,
@@ -988,6 +1004,9 @@ impl PhotocraftApp {
         if self.tiff_options.is_some() {
             return Err("Answer TIFF Options before starting another save".into());
         }
+        if self.jpeg_options.is_some() {
+            return Err("Answer Save as JPEG before starting another save".into());
+        }
         // Edit Contents documents save back into their smart object.
         if path.is_none() && self.session.is_enabled("layer.smartObjects.saveContents") {
             self.run("layer.smartObjects.saveContents", serde_json::json!({}))?;
@@ -1012,7 +1031,22 @@ impl PhotocraftApp {
             }
         };
         let doc = st.doc.id;
-        self.pick_save(&suggested, move |app, path| app.with_document(doc, |app| app.save_to(path)))
+        self.pick_save(&suggested, move |app, path| app.with_document(doc, |app| app.save_to_from_dialog(path)))
+    }
+
+    /// A save is parked behind TIFF Options or Save as JPEG.
+    pub(crate) fn save_prompt_open(&self) -> bool {
+        self.tiff_options.is_some() || self.jpeg_options.is_some()
+    }
+
+    /// [`Self::save_to`] for a path the user just chose: a JPEG asks for its quality and
+    /// encoding first (a path passed in by a script saves with the defaults).
+    pub(crate) fn save_to_from_dialog(&mut self, path: String) -> Result<Value, String> {
+        if jpeg_options_ui::is_jpeg_path(&path) {
+            jpeg_options_ui::park(self, path.clone())?;
+            return Ok(serde_json::json!({"path": path, "warnings": [], "pending": true}));
+        }
+        self.save_to(path)
     }
 
     /// [`Self::save_as`] once the path is known.
@@ -1333,6 +1367,7 @@ impl eframe::App for PhotocraftApp {
         jobs_ui::dialog(self, &ctx);
         discard_ui::show(self, &ctx);
         tiff_options_ui::show(self, &ctx);
+        jpeg_options_ui::show(self, &ctx);
         distort_ui::show(self, &ctx);
         camera_raw_ui::show(self, &ctx);
         wide_angle_ui::show(self, &ctx);

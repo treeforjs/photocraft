@@ -2785,3 +2785,11 @@ fontWeight	Italic	Italique
 	Quick Selection found nothing there	La Sélection rapide n'a rien trouvé à cet endroit
 	Object Selection found nothing there — try a tighter rectangle	La Sélection d'objet n'a rien trouvé à cet endroit — essayez un rectangle plus serré
 	No subject found — try a rectangle around the object	Aucun sujet trouvé — essayez un rectangle autour de l'objet
+	Save as JPEG	Enregistrer en JPEG
+	About {size}	Environ {size}
+	Size estimate unavailable	Estimation de la taille indisponible
+	Encoding	Encodage
+	Standard: opens in every app	Standard : s’ouvre dans toutes les apps
+	Smaller file: same image, a little slower to save	Fichier plus léger : même image, enregistrement un peu plus lent
+	Progressive: shows a preview while it loads on the web	Progressif : affiche un aperçu pendant le chargement sur le web
+	Passes	Passes

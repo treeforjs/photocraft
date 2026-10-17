@@ -3386,3 +3386,11 @@ cameraRaw	Roughness	Chropowatość
 	Quick Selection found nothing there	Szybkie zaznaczanie nic tam nie znalazło
 	Object Selection found nothing there — try a tighter rectangle	Zaznaczanie obiektu nic tam nie znalazło — spróbuj ciaśniejszego prostokąta
 	No subject found — try a rectangle around the object	Nie znaleziono obiektu — spróbuj prostokąta wokół obiektu
+	Save as JPEG	Zapisz jako JPEG
+	About {size}	Około {size}
+	Size estimate unavailable	Szacowany rozmiar niedostępny
+	Encoding	Kodowanie
+	Standard: opens in every app	Standardowe: otwiera się w każdej aplikacji
+	Smaller file: same image, a little slower to save	Mniejszy plik: ten sam obraz, nieco wolniejszy zapis
+	Progressive: shows a preview while it loads on the web	Progresywne: pokazuje podgląd podczas ładowania w sieci
+	Passes	Przebiegi

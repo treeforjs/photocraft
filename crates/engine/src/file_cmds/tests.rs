@@ -91,6 +91,34 @@ fn revert_reloads_as_one_undoable_step() {
     assert!(s.execute("file.revert", json!({})).is_err());
 }
 
+/// FILE-215-19: `jpegFormat` picks baseline, optimized or progressive (with `scans`).
+#[test]
+fn save_a_copy_writes_the_jpeg_format() {
+    let dir = tmp("jpegformat");
+    let mut s = session(40, 30, 8);
+    let mut marker = |name: &str, p: Value| {
+        let out = join(&dir, name);
+        let mut p = p;
+        p["path"] = json!(out);
+        p["quality"] = json!(8);
+        s.execute("file.saveACopy", p).unwrap();
+        let b = std::fs::read(&out).unwrap();
+        let sof = b.windows(2).find(|w| w[0] == 0xFF && matches!(w[1], 0xC0 | 0xC2)).map(|w| w[1]);
+        (sof, b.windows(2).filter(|w| w[0] == 0xFF && w[1] == 0xDA).count())
+    };
+    let (sof, n) = marker("a.jpg", json!({}));
+    assert_eq!(sof, Some(0xC0));
+    let (sof_o, n_o) = marker("b.jpg", json!({"jpegFormat": "optimized"}));
+    assert_eq!(sof_o, Some(0xC0));
+    let n = n.max(n_o);
+    let (sof3, n3) = marker("c.jpg", json!({"jpegFormat": "progressive"}));
+    let (sof5, n5) = marker("d.jpg", json!({"jpegFormat": "progressive", "scans": 5}));
+    assert_eq!((sof3, sof5), (Some(0xC2), Some(0xC2)));
+    assert!(n5 > n3 && n3 > n, "{n} < {n3} < {n5}");
+    // Out-of-range scans are clamped to Photoshop's 3–5.
+    assert_eq!(marker("e.jpg", json!({"jpegFormat": "progressive", "scans": 1000})), (Some(0xC2), n5));
+}
+
 #[test]
 fn save_a_copy_keeps_path_and_dirty_state() {
     let dir = tmp("copy");
