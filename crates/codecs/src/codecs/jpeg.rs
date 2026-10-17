@@ -258,6 +258,13 @@ pub(crate) fn encode(src: &Image, plan: Plan, opts: &EncodeOptions) -> Result<Ve
         jpeg_encoder::SamplingFactor::R_4_4_4
     };
     enc.set_sampling_factor(sampling);
+    if opts.jpeg_progressive_scans > 0 {
+        // The encoder asserts 2..=64.
+        enc.set_progressive_scans(opts.jpeg_progressive_scans.clamp(2, 64));
+        enc.set_optimized_huffman_tables(true);
+    } else if opts.jpeg_optimize {
+        enc.set_optimized_huffman_tables(true);
+    }
     let e = |e: jpeg_encoder::EncodingError| CodecError::encode(F, e);
     if opts.embed_metadata {
         if let Some((x, y)) = img.meta.dpi

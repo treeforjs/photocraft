@@ -228,3 +228,45 @@ fn pngsuite_corpus_matches_oracle() {
     eprintln!("pngsuite: {checked} files compared");
     assert!(checked > 100, "{}: only {checked} PNGs compared: run `cargo xtask corpus --all`", dir.display());
 }
+
+// ---------------------------------------------------------------------------
+// JPEG Options format: baseline, baseline optimized, progressive scans (FILE-215-19)
+// ---------------------------------------------------------------------------
+
+/// Start-of-frame marker of a JPEG: 0xC0 baseline, 0xC2 progressive.
+fn sof(bytes: &[u8]) -> Option<u8> {
+    bytes.windows(2).find(|w| w[0] == 0xFF && matches!(w[1], 0xC0..=0xC2)).map(|w| w[1])
+}
+
+/// Start-of-scan markers in a JPEG.
+fn scans(bytes: &[u8]) -> usize {
+    bytes.windows(2).filter(|w| w[0] == 0xFF && w[1] == 0xDA).count()
+}
+
+#[test]
+fn jpeg_format_options() {
+    let img = synth(64, 48, ChannelLayout::Rgb, SampleType::U8, 7, 0.3);
+    let enc = |scans: u8, optimize: bool| {
+        encode(&img, Format::Jpeg, &EncodeOptions { jpeg_quality: 80, jpeg_progressive_scans: scans, jpeg_optimize: optimize, ..Default::default() }).unwrap()
+    };
+    let baseline = enc(0, false);
+    let optimized = enc(0, true);
+    assert_eq!(sof(&baseline), Some(0xC0));
+    assert_eq!(sof(&optimized), Some(0xC0));
+    assert!(optimized.len() < baseline.len(), "optimized tables shrink the file: {} vs {}", optimized.len(), baseline.len());
+    let mut last = scans(&baseline).max(scans(&optimized));
+    for n in [3, 4, 5] {
+        let p = enc(n, false);
+        assert_eq!(sof(&p), Some(0xC2), "{n} scans");
+        let s = scans(&p);
+        assert!(s > last, "more scans per component, more SOS segments: {n} -> {s}");
+        last = s;
+        // Every variant decodes to (nearly) the same pixels.
+        let (a, b) = (decode(&p).unwrap(), decode(&baseline).unwrap());
+        assert!(psnr(&a, &b) > 40.0, "{n} scans: {}", psnr(&a, &b));
+    }
+    // Out-of-range scan counts are clamped, never handed to the encoder's assert.
+    for n in [1, 200, u8::MAX] {
+        assert_eq!(sof(&enc(n, false)), Some(0xC2));
+    }
+}

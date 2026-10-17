@@ -140,9 +140,15 @@ fn settings(f: &Map<String, Value>) -> ExportSettings {
 
 /// Estimated size (bytes) from a ≤512 px proxy encode, scaled by pixel count.
 fn estimate(app: &PhotocraftApp, doc: &Document, f: &Map<String, Value>) -> Option<u64> {
+    estimate_with(app, doc, f, &settings(f))
+}
+
+/// [`estimate`] with explicit encoder settings (Save As › JPEG Options uses it with
+/// `{"format": "jpg"}`).
+pub(crate) fn estimate_with(app: &PhotocraftApp, doc: &Document, f: &Map<String, Value>, settings: &ExportSettings) -> Option<u64> {
     let export = app.services.export.as_ref()?;
     let proxy = export_document(doc, f, Some(512)).ok()?;
-    let (bytes, _) = export(&proxy, &format!("estimate.{}", s_fmt(f)), &settings(f)).ok()?;
+    let (bytes, _) = export(&proxy, &format!("estimate.{}", s_fmt(f)), settings).ok()?;
     let scale = n(f, "scale", 100.0) / 100.0;
     let full = doc.size.width as f64 * scale * doc.size.height as f64 * scale;
     let small = (proxy.size.width as f64 * proxy.size.height as f64).max(1.0);
