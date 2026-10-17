@@ -25,6 +25,8 @@ pub struct PointCurveDrag {
 pub struct CurvesEditorState {
     pub channel: usize,
     pub gesture: PointCurveState,
+    /// The pencil's previous `[input, output]` (0–255) while a stroke is drawn on a map.
+    pub pencil_last: Option<[f32; 2]>,
 }
 
 /// Camera Raw scope preferences are view state, never filter parameters or document history.

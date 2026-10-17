@@ -17,6 +17,64 @@ pub fn is_identity_curve(points: &[CurvePoint]) -> bool {
     }
 }
 
+/// Points in a Curves arbitrary map (a curve drawn with the pencil): one output per 8-bit input
+/// level, at inputs 0, 1/255, …, 1. Photoshop stores such a curve as 256 bytes per channel.
+pub const CURVE_MAP_LEN: usize = 256;
+
+/// Whether `points` is an arbitrary map ([`CURVE_MAP_LEN`] points, one per input level), which
+/// renders by straight lines between its points instead of the spline through a point curve.
+pub fn is_curve_map(points: &[CurvePoint]) -> bool {
+    let last = (CURVE_MAP_LEN - 1) as f32;
+    points.len() == CURVE_MAP_LEN && points.iter().enumerate().all(|(i, p)| (p.input * last - i as f32).abs() < 0.25)
+}
+
+/// The arbitrary map with these outputs (0..=1) for input levels 0..=255; missing levels repeat
+/// the last value given (identity when `outputs` is empty).
+pub fn curve_map(outputs: &[f32]) -> Vec<CurvePoint> {
+    let last = (CURVE_MAP_LEN - 1) as f32;
+    (0..CURVE_MAP_LEN)
+        .map(|i| {
+            let output = outputs.get(i).or(outputs.last()).copied().filter(|v| v.is_finite()).unwrap_or(i as f32 / last);
+            CurvePoint { input: i as f32 / last, output: output.clamp(0.0, 1.0) }
+        })
+        .collect()
+}
+
+/// At most `max` (≥ 2) points that follow the arbitrary map `map` within half a level where
+/// they can: the ends, then repeatedly the level farthest from the straight lines between the
+/// points chosen so far (Photoshop's switch from the pencil back to points). Anything that is
+/// not a map comes back unchanged.
+pub fn curve_map_points(map: &[CurvePoint], max: usize) -> Vec<CurvePoint> {
+    if !is_curve_map(map) {
+        return map.to_vec();
+    }
+    let (Some(first), Some(last)) = (map.first(), map.last()) else { return map.to_vec() };
+    let mut chosen = vec![0usize, map.len() - 1];
+    let mut points = vec![first.clone(), last.clone()];
+    while chosen.len() < max.max(2) {
+        let mut worst: Option<(usize, f32)> = None;
+        for pair in chosen.windows(2) {
+            let (Some(&a), Some(&b)) = (pair.first(), pair.get(1)) else { continue };
+            let (Some(pa), Some(pb)) = (map.get(a), map.get(b)) else { continue };
+            for i in a + 1..b {
+                let Some(p) = map.get(i) else { continue };
+                let t = (i - a) as f32 / (b - a) as f32;
+                let error = (p.output - (pa.output + (pb.output - pa.output) * t)).abs();
+                if worst.is_none_or(|(_, e)| error > e) {
+                    worst = Some((i, error));
+                }
+            }
+        }
+        let Some((i, _)) = worst.filter(|(_, e)| *e > 0.5 / 255.0) else { break };
+        let at = chosen.partition_point(|&c| c < i);
+        chosen.insert(at, i);
+        if let Some(p) = map.get(i) {
+            points.insert(at, p.clone());
+        }
+    }
+    points
+}
+
 /// Number of values in the table of a `size`³ Color Lookup (`size³ × 3`). `None` for a size
 /// below 2 or one whose table length overflows: a stored document's size is untrusted.
 pub fn lut3d_len(size: u32) -> Option<usize> {
@@ -313,5 +371,40 @@ mod tests {
         assert_eq!(lut3d_len(33), Some(33 * 33 * 33 * 3));
         assert_eq!(lut3d_len(1 << 22), None, "(2²²)³ overflows a 64-bit length");
         assert_eq!(lut3d_len(u32::MAX), None);
+    }
+
+    #[test]
+    fn curve_maps_have_one_point_per_level() {
+        let map = curve_map(&[1.0, 0.5, f32::NAN, 2.0]);
+        assert!(is_curve_map(&map));
+        assert_eq!(map[0].output, 1.0);
+        assert_eq!(map[1].output, 0.5);
+        assert!((map[2].output - 2.0 / 255.0).abs() < 1e-6, "a non-finite output falls back to the identity");
+        assert_eq!(map[3].output, 1.0, "clamped");
+        assert_eq!(map[255].output, 1.0, "the last value repeats");
+        assert!(is_curve_map(&curve_map(&[])));
+        assert!(!is_curve_map(&map[..255]));
+        let mut shifted = map.clone();
+        shifted[10].input += 0.5 / 255.0;
+        assert!(!is_curve_map(&shifted));
+        assert!(!is_curve_map(&[CurvePoint { input: 0.0, output: 0.0 }, CurvePoint { input: 1.0, output: 1.0 }]));
+    }
+
+    #[test]
+    fn curve_maps_reduce_to_the_points_that_shape_them() {
+        let identity = curve_map_points(&curve_map(&[]), 16);
+        assert_eq!(identity.len(), 2);
+        assert!(is_identity_curve(&identity));
+        // A tent: up to white at 100, back down to black at 200, black after.
+        let tent: Vec<f32> = (0..256).map(|i: i32| (1.0 - ((i - 100) as f32 / 100.0).abs()).max(0.0)).collect();
+        let pts = curve_map_points(&curve_map(&tent), 16);
+        let levels: Vec<i32> = pts.iter().map(|p| (p.input * 255.0).round() as i32).collect();
+        assert_eq!(levels, [0, 100, 200, 255]);
+        let noisy: Vec<f32> = (0..256).map(|i| if i % 2 == 0 { 0.0 } else { 1.0 }).collect();
+        let pts = curve_map_points(&curve_map(&noisy), 16);
+        assert_eq!(pts.len(), 16, "capped");
+        assert!(pts.windows(2).all(|w| w[0].input < w[1].input));
+        let short = [CurvePoint { input: 0.0, output: 0.2 }, CurvePoint { input: 1.0, output: 0.8 }];
+        assert_eq!(curve_map_points(&short, 16), short.to_vec(), "point curves pass through");
     }
 }

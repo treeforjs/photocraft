@@ -286,6 +286,30 @@ fn threshold_posterize_levels_curves() {
 }
 
 #[test]
+fn a_pencil_drawn_curve_map_is_followed_level_by_level() {
+    // A narrow plateau no spline through 256 points would reproduce without ringing: 0
+    // everywhere but levels 127..=129, which map to white. Straight lines join the levels.
+    let outputs: Vec<f32> = (0..256).map(|i| if (127..=129).contains(&i) { 1.0 } else { 0.0 }).collect();
+    let map = photocraft_doc::adjust::curve_map(&outputs);
+    let lut = adjust::curve_lut(&map);
+    let at = |level: f32| lut[(level / 255.0 * (lut.len() - 1) as f32).round() as usize];
+    assert!((at(128.0) - 1.0).abs() < 0.05, "{}", at(128.0));
+    assert!(at(125.0) < 0.05 && at(131.0) < 0.05, "no overshoot or ringing next to the plateau");
+    assert!((at(126.5) - 0.5).abs() < 0.05, "linear between levels");
+    assert!(lut.iter().all(|v| (0.0..=1.0).contains(v)));
+    let mut buf = Buffer::filled(Rect::new(0, 0, 1, 1), [128.0 / 255.0, 0.2, 0.9, 1.0]);
+    let identity = photocraft_doc::adjust::curve_map(&[]);
+    let curves = Adjustment::Curves {
+        master: map,
+        per_channel: [identity.clone(), identity.clone(), identity],
+        space: photocraft_doc::adjust::ToneSpace::Rgb,
+        black: Vec::new(),
+    };
+    adjust::apply(&curves, &mut buf);
+    assert!(close4(buf.px[0], [1.0, 0.0, 0.0, 1.0]), "{:?}", buf.px[0]);
+}
+
+#[test]
 fn hue_saturation_roundtrips_and_desaturates() {
     let c = [0.8, 0.3, 0.1];
     let (h, s, l) = adjust::rgb_to_hsl(c);

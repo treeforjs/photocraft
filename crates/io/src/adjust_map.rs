@@ -11,7 +11,7 @@
 //! stay [`Adjustment::Unsupported`] and are written back verbatim.
 
 use photocraft_doc::Adjustment;
-use photocraft_doc::adjust::{CurvePoint, HueRange, LevelsChannel, ToneSpace};
+use photocraft_doc::adjust::{CURVE_MAP_LEN, CurvePoint, HueRange, LevelsChannel, ToneSpace, curve_map, is_curve_map};
 use photocraft_psd::descriptor::{Descriptor, Value, VersionedDescriptor};
 
 /// All PSD adjustment keys recognized as adjustment layers.
@@ -43,7 +43,9 @@ fn levels_rec(d: &[u8], at: usize) -> Option<LevelsChannel> {
 }
 
 fn parse_curves(d: &[u8]) -> Option<Adjustment> {
-    // pad(1) version(2) bitmap(4)
+    // is_map(1) version(2) bitmap(4); a map (drawn with the pencil) has 256 output bytes per
+    // curve instead of a point count and (output, input) pairs.
+    let is_map = *d.first()? == 1;
     let version = be16(d, 1)?;
     if version != 1 && version != 4 {
         return None;
@@ -54,6 +56,14 @@ fn parse_curves(d: &[u8]) -> Option<Adjustment> {
     let mut curves: Vec<Vec<CurvePoint>> = vec![line(), line(), line(), line(), line()];
     for bit in 0..32usize {
         if bits & (1 << bit) == 0 {
+            continue;
+        }
+        if is_map {
+            let bytes = d.get(at..at + CURVE_MAP_LEN)?;
+            at += CURVE_MAP_LEN;
+            if let Some(slot) = curves.get_mut(bit) {
+                *slot = curve_map(&bytes.iter().map(|&b| f32::from(b) / 255.0).collect::<Vec<_>>());
+            }
             continue;
         }
         let n = usize::from(be16(d, at)?);
@@ -527,6 +537,24 @@ fn parse_channel_mixer(d: &[u8]) -> Option<Adjustment> {
 fn put16(v: &mut Vec<u8>, x: u16) {
     v.extend_from_slice(&x.to_be_bytes());
 }
+/// The 256 output levels of a curve (a map's own, or a point curve's spline sampled per level).
+fn curve_levels(c: &[CurvePoint]) -> Vec<u8> {
+    if is_curve_map(c) {
+        return c.iter().map(|p| q255(p.output) as u8).collect();
+    }
+    let lut = photocraft_compose::adjust::curve_lut(c);
+    let last = lut.len().saturating_sub(1) as f32;
+    (0..CURVE_MAP_LEN)
+        .map(|k| {
+            let at = k as f32 / (CURVE_MAP_LEN - 1) as f32 * last;
+            let i = at.floor() as usize;
+            let y0 = lut.get(i).copied().unwrap_or(k as f32 / 255.0);
+            let y1 = lut.get(i + 1).copied().unwrap_or(y0);
+            q255(y0 + (y1 - y0) * (at - i as f32)) as u8
+        })
+        .collect()
+}
+
 fn q255(v: f32) -> u16 {
     (v.clamp(0.0, 1.0) * 255.0).round() as u16
 }
@@ -617,11 +645,18 @@ pub fn write(adj: &Adjustment) -> Vec<([u8; 4], Vec<u8>)> {
             return vec![(*b"levl", v)];
         }
         Adjustment::Curves { master, per_channel, space, black } => {
-            v.push(0);
-            put16(&mut v, 1);
             let ink = *space == ToneSpace::Cmyk && black.len() >= 2;
+            let curves = || std::iter::once(master).chain(per_channel.iter()).chain(ink.then_some(black));
+            // One pencil-drawn curve makes the record a map: every curve as 256 output levels.
+            let map = curves().any(|c| is_curve_map(c));
+            v.push(u8::from(map));
+            put16(&mut v, 1);
             v.extend_from_slice(&(if ink { 0b11111u32 } else { 0b1111 }).to_be_bytes());
-            for c in std::iter::once(master).chain(per_channel.iter()).chain(ink.then_some(black)) {
+            for c in curves() {
+                if map {
+                    v.extend(curve_levels(c));
+                    continue;
+                }
                 put16(&mut v, c.len().min(19) as u16);
                 for p in c.iter().take(19) {
                     put16(&mut v, q255(p.output));
@@ -833,6 +868,26 @@ mod tests {
         };
         let b = write(&ink);
         assert_eq!(parse(&b[0].0, &b[0].1, None, Channels::Cmyk), ink);
+        // A pencil-drawn curve writes the record as a map; the point curves beside it become
+        // maps that follow their splines level by level.
+        let drawn = curve_map(&(0..256).map(|i| if i < 128 { 0.0 } else { 1.0 }).collect::<Vec<_>>());
+        let mapped = Adjustment::Curves {
+            master: pts(&[(0, 0), (255, 255)]),
+            per_channel: [drawn.clone(), pts(&[(0, 0), (128, 150), (255, 255)]), pts(&[(0, 0), (255, 255)])],
+            space: ToneSpace::Rgb,
+            black: Vec::new(),
+        };
+        let b = write(&mapped);
+        assert_eq!(b[0].1.first(), Some(&1), "the map flag");
+        assert_eq!(b[0].1.len(), 7 + 4 * 256);
+        let Adjustment::Curves { master, per_channel, .. } = parse(&b[0].0, &b[0].1, None, Channels::Rgb) else { panic!("not curves") };
+        assert_eq!(per_channel[0], drawn);
+        assert!(is_curve_map(&master) && master.iter().enumerate().all(|(i, p)| (p.output * 255.0 - i as f32).abs() < 0.51));
+        let spline = photocraft_compose::adjust::curve_lut(&pts(&[(0, 0), (128, 150), (255, 255)]));
+        let at_128 = spline[(128.0 / 255.0 * (spline.len() - 1) as f32).round() as usize];
+        assert!((per_channel[1][128].output - at_128).abs() < 1.0 / 255.0);
+        // A truncated map record is not read as a curve.
+        assert!(!matches!(parse(&b[0].0, &b[0].1[..300], None, Channels::Rgb), Adjustment::Curves { .. }));
         let inkl = Adjustment::Levels { master: lc(0, 255), per_channel: [lc(0, 255), lc(5, 250), lc(0, 255)], space: ToneSpace::Cmyk, black: lc(30, 255) };
         let b = write(&inkl);
         assert_eq!(parse(&b[0].0, &b[0].1, None, Channels::Cmyk), inkl);

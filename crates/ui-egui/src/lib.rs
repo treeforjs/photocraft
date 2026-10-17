@@ -51,6 +51,7 @@ pub mod crop_overlay;
 pub mod crop_shield;
 pub mod crop_straighten;
 pub mod crop_ui;
+pub mod curve_pencil;
 pub mod delete_layer_prompt;
 pub mod dialog_blend_ui;
 pub mod dialogs;
