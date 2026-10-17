@@ -38,7 +38,7 @@ fn harness(app: PhotocraftApp) -> Harness<'static, PhotocraftApp> {
         },
         app,
     );
-    PhotocraftApp::setup_context(&h.ctx, photocraft_ui_egui::theme::ThemeKind::ALL[0]);
+    PhotocraftApp::setup_context(&h.ctx, photocraft_ui_egui::theme::ThemeKind::Craft);
     h.run_steps(3);
     h
 }

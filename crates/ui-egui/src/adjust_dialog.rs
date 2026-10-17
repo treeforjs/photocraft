@@ -294,7 +294,7 @@ mod tests {
             let cmd = format!("image.adjustments.{kind}");
             let mut harness =
                 Harness::builder().with_size(egui::vec2(1200.0, 900.0)).build_ui_state(|ui, app| crate::dialogs::show(app, ui.ctx()), app_with_image());
-            PhotocraftApp::setup_context(&harness.ctx, crate::theme::ThemeKind::ALL[0]);
+            PhotocraftApp::setup_context(&harness.ctx, crate::theme::ThemeKind::Craft);
             let id = open(harness.state_mut(), &cmd).unwrap();
             harness.run_steps(3);
             let before = harness.state().session.active().unwrap().revision;
@@ -332,7 +332,7 @@ mod tests {
             .with_size(egui::vec2(1200.0, 900.0))
             .with_step_dt(1.0 / 60.0)
             .build_ui_state(|ui, app| crate::dialogs::show(app, ui.ctx()), app_with_image());
-        PhotocraftApp::setup_context(&h.ctx, crate::theme::ThemeKind::ALL[0]);
+        PhotocraftApp::setup_context(&h.ctx, crate::theme::ThemeKind::Craft);
         let id = open(h.state_mut(), "image.adjustments.colorBalance").unwrap();
         let d = h.state_mut().ui.dialog_mut(id).unwrap();
         for (k, v) in
@@ -412,7 +412,7 @@ mod tests {
     fn other_adjustment_dialogs_keep_cancel_under_alt() {
         use egui_kittest::kittest::Queryable;
         let mut h = Harness::builder().with_size(egui::vec2(1200.0, 900.0)).build_ui_state(|ui, app| crate::dialogs::show(app, ui.ctx()), app_with_image());
-        PhotocraftApp::setup_context(&h.ctx, crate::theme::ThemeKind::ALL[0]);
+        PhotocraftApp::setup_context(&h.ctx, crate::theme::ThemeKind::Craft);
         open(h.state_mut(), "image.adjustments.levels").unwrap();
         h.event(egui::Event::ModifiersChanged(egui::Modifiers::ALT));
         h.run_steps(3);
@@ -442,7 +442,7 @@ mod tests {
     fn cancel_leaves_the_document_untouched() {
         let mut harness =
             Harness::builder().with_size(egui::vec2(1200.0, 900.0)).build_ui_state(|ui, app| crate::dialogs::show(app, ui.ctx()), app_with_image());
-        PhotocraftApp::setup_context(&harness.ctx, crate::theme::ThemeKind::ALL[0]);
+        PhotocraftApp::setup_context(&harness.ctx, crate::theme::ThemeKind::Craft);
         let id = open(harness.state_mut(), "image.adjustments.curves").unwrap();
         harness.run_steps(2);
         harness.state_mut().ui.dialog_mut(id).unwrap().fields.insert("points".into(), json!([[0, 255], [255, 0]]));
@@ -458,7 +458,7 @@ mod tests {
     fn curves_pointer_drag_previews_until_confirm_and_cancel_preserves_document() {
         for confirm in [false, true] {
             let mut h = Harness::builder().with_size(egui::vec2(1200.0, 900.0)).build_ui_state(|ui, app| crate::dialogs::show(app, ui.ctx()), app_with_image());
-            PhotocraftApp::setup_context(&h.ctx, crate::theme::ThemeKind::ALL[0]);
+            PhotocraftApp::setup_context(&h.ctx, crate::theme::ThemeKind::Craft);
             let original = h.state().session.active().unwrap().doc.clone();
             let steps = h.state().session.active().unwrap().history.past_len();
             let id = open(h.state_mut(), "image.adjustments.curves").unwrap();
@@ -520,7 +520,7 @@ mod tests {
     fn curves_picker_controls_arm_and_disable_by_document_mode() {
         let harness = |app| {
             let mut h = Harness::builder().with_size(egui::vec2(1200.0, 900.0)).build_ui_state(|ui, app| crate::dialogs::show(app, ui.ctx()), app);
-            PhotocraftApp::setup_context(&h.ctx, crate::theme::ThemeKind::ALL[0]);
+            PhotocraftApp::setup_context(&h.ctx, crate::theme::ThemeKind::Craft);
             open(h.state_mut(), "image.adjustments.curves").unwrap();
             h.run_steps(3);
             h

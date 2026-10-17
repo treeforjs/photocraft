@@ -164,7 +164,7 @@ mod tests {
     impl Win {
         fn new(width: f32) -> Self {
             let ctx = egui::Context::default();
-            PhotocraftApp::setup_context(&ctx, crate::theme::ThemeKind::ALL[0]);
+            PhotocraftApp::setup_context(&ctx, crate::theme::ThemeKind::Craft);
             let mut app = PhotocraftApp::new(Session::new(), crate::Services::default());
             app.custom_titlebar = true;
             Self { ctx, app, width, time: 0.0, maximized: false }

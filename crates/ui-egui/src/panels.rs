@@ -706,7 +706,7 @@ mod title_tests {
             let mut app = app(custom);
             open_named(&mut app, "foo.psd");
             let ctx = egui::Context::default();
-            crate::PhotocraftApp::setup_context(&ctx, crate::theme::ThemeKind::ALL[0]);
+            crate::PhotocraftApp::setup_context(&ctx, crate::theme::ThemeKind::Craft);
             let out = ctx.run_ui(egui::RawInput::default(), |ui| super::title_bar(&mut app, ui));
             let mut out = out;
             out.textures_delta.clear();
@@ -733,7 +733,7 @@ mod title_tests {
     fn sync_window_title_sends_only_on_change() {
         let mut app = app(true);
         let ctx = egui::Context::default();
-        crate::PhotocraftApp::setup_context(&ctx, crate::theme::ThemeKind::ALL[0]);
+        crate::PhotocraftApp::setup_context(&ctx, crate::theme::ThemeKind::Craft);
         super::sync_window_title(&mut app, &ctx);
         assert_eq!(app.last_window_title, "PhotoCraft");
         let mut out = ctx.run_ui(egui::RawInput::default(), |_| {});
@@ -3685,7 +3685,7 @@ mod type_flyout_tests {
         let mut app = PhotocraftApp::new(photocraft_engine::Session::new(), crate::Services::default());
         let initial = app.ui.tool;
         let ctx = egui::Context::default();
-        PhotocraftApp::setup_context(&ctx, crate::theme::ThemeKind::ALL[0]);
+        PhotocraftApp::setup_context(&ctx, crate::theme::ThemeKind::Craft);
         frame(&mut app, &ctx, 0.0, vec![]);
         frame(&mut app, &ctx, 0.1, vec![]);
         let index = TOOL_SECTIONS.iter().flat_map(|section| section.iter()).position(|slot| slot.contains(&Tool::Type)).unwrap();
@@ -3728,7 +3728,7 @@ mod type_flyout_tests {
     fn long_press_clone_stamp_selects_pattern_stamp() {
         let mut app = PhotocraftApp::new(photocraft_engine::Session::new(), crate::Services::default());
         let ctx = egui::Context::default();
-        PhotocraftApp::setup_context(&ctx, crate::theme::ThemeKind::ALL[0]);
+        PhotocraftApp::setup_context(&ctx, crate::theme::ThemeKind::Craft);
         frame(&mut app, &ctx, 0.0, vec![]);
         frame(&mut app, &ctx, 0.1, vec![]);
         let index = TOOL_SECTIONS.iter().flat_map(|section| section.iter()).position(|slot| slot.contains(&Tool::CloneStamp)).unwrap();
@@ -3775,7 +3775,7 @@ mod toolbar_hidden_tests {
     /// Clickable tool-sized buttons the toolbar drew in its last pass.
     fn tool_buttons(app: &mut PhotocraftApp) -> usize {
         let ctx = egui::Context::default();
-        PhotocraftApp::setup_context(&ctx, crate::theme::ThemeKind::ALL[0]);
+        PhotocraftApp::setup_context(&ctx, crate::theme::ThemeKind::Craft);
         for time in [0.0, 0.1] {
             let mut out = ctx.run_ui(
                 egui::RawInput { time: Some(time), screen_rect: Some(Rect::from_min_size(egui::Pos2::ZERO, vec2(1200.0, 1800.0))), ..Default::default() },

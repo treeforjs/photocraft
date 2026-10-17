@@ -66,7 +66,7 @@ mod tests {
     #[test]
     fn the_title_bar_paints_the_icon_from_one_cached_texture() {
         let ctx = Context::default();
-        crate::PhotocraftApp::setup_context(&ctx, crate::theme::ThemeKind::ALL[0]);
+        crate::PhotocraftApp::setup_context(&ctx, crate::theme::ThemeKind::Craft);
         let mut app = crate::PhotocraftApp::new(photocraft_engine::Session::new(), crate::Services::default());
         // The system title bar hides the in-app mark (the OS draws its own icon), so paint the
         // app-drawn bar here.

@@ -694,7 +694,7 @@ mod tests {
             },
             f,
         );
-        PhotocraftApp::setup_context(&h.ctx, crate::theme::ThemeKind::ALL[0]);
+        PhotocraftApp::setup_context(&h.ctx, crate::theme::ThemeKind::Craft);
         h.run_steps(2);
         h
     }
@@ -792,7 +792,7 @@ mod tests {
             for action in ["OK", "Cancel", "Enter", "Escape"] {
                 let app = PhotocraftApp::new(photocraft_engine::Session::new(), Default::default());
                 let mut h = Harness::builder().with_size(vec2(760.0, 480.0)).build_ui_state(|ui, app| crate::dialogs::show(app, ui.ctx()), app);
-                PhotocraftApp::setup_context(&h.ctx, crate::theme::ThemeKind::ALL[0]);
+                PhotocraftApp::setup_context(&h.ctx, crate::theme::ThemeKind::Craft);
                 let original_fg = h.state().session.tools.foreground;
                 let original_bg = h.state().session.tools.background;
                 let id = open(h.state_mut(), target);

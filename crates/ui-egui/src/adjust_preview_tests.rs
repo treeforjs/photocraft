@@ -218,7 +218,7 @@ fn dialog_previews_through_the_layer() {
         let (doc, target) = document(ColorMode::Rgb, SampleType::U16, true);
         let mut harness =
             Harness::builder().with_size(egui::vec2(1200.0, 900.0)).build_ui_state(|ui, app| crate::dialogs::show(app, ui.ctx()), app_with(doc, target));
-        PhotocraftApp::setup_context(&harness.ctx, crate::theme::ThemeKind::ALL[0]);
+        PhotocraftApp::setup_context(&harness.ctx, crate::theme::ThemeKind::Craft);
         let id = crate::adjust_dialog::open(harness.state_mut(), "image.adjustments.levels").unwrap();
         harness.run_steps(2);
         let committed = harness.state().session.active().unwrap().doc.clone();

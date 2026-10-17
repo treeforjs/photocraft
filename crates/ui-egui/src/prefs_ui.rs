@@ -88,12 +88,14 @@ fn selected_theme(interface: &prefs::Interface, system: Option<egui::Theme>) -> 
     if light {
         match interface.light_theme {
             LightTheme::CraftLight => ThemeKind::CraftLight,
+            LightTheme::Cream => ThemeKind::Cream,
             LightTheme::StudioLight => ThemeKind::StudioLight,
             LightTheme::Classic => ThemeKind::Classic,
             LightTheme::Adwaita => ThemeKind::Adwaita,
         }
     } else {
         match interface.dark_theme {
+            DarkTheme::Dim => ThemeKind::Dim,
             DarkTheme::Craft => ThemeKind::Craft,
             DarkTheme::HighContrast => ThemeKind::HighContrast,
             DarkTheme::Studio => ThemeKind::Studio,
@@ -1151,8 +1153,8 @@ fn theme_card(ui: &mut egui::Ui, title: &str, active: bool, selected: &mut Strin
         .inner_margin(10.0)
         .show(ui, |ui| {
             ui.set_width(width - 20.0);
-            // Room for the longer list (five dark themes), so both cards line up.
-            ui.set_min_height(298.0);
+            // Room for the longer list (six dark themes), so both cards line up.
+            ui.set_min_height(330.0);
             ui.horizontal(|ui| {
                 ui.label(RichText::new(tl!(title)).strong().color(t.text));
                 if active {
@@ -1188,24 +1190,31 @@ fn appearance_rows(ui: &mut egui::Ui, obj: &mut Map<String, Value>, system: Opti
     let mut dark = obj.get("darkTheme").and_then(Value::as_str).unwrap_or("dark").to_string();
     ui.horizontal_top(|ui| {
         ui.set_min_width(width * 2.0 + 10.0);
-        ui.allocate_ui_with_layout(vec2(width, 300.0), egui::Layout::top_down(egui::Align::Min), |ui| {
+        ui.allocate_ui_with_layout(vec2(width, 332.0), egui::Layout::top_down(egui::Align::Min), |ui| {
             theme_card(
                 ui,
                 "Light Theme",
                 light_active,
                 &mut light,
-                &[("light", ThemeKind::CraftLight), ("studioLight", ThemeKind::StudioLight), ("classic", ThemeKind::Classic), ("adwaita", ThemeKind::Adwaita)],
+                &[
+                    ("light", ThemeKind::CraftLight),
+                    ("cream", ThemeKind::Cream),
+                    ("studioLight", ThemeKind::StudioLight),
+                    ("classic", ThemeKind::Classic),
+                    ("adwaita", ThemeKind::Adwaita),
+                ],
                 width,
             );
         });
         ui.add_space(10.0);
-        ui.allocate_ui_with_layout(vec2(width, 300.0), egui::Layout::top_down(egui::Align::Min), |ui| {
+        ui.allocate_ui_with_layout(vec2(width, 332.0), egui::Layout::top_down(egui::Align::Min), |ui| {
             theme_card(
                 ui,
                 "Dark Theme",
                 !light_active,
                 &mut dark,
                 &[
+                    ("dim", ThemeKind::Dim),
                     ("dark", ThemeKind::Craft),
                     ("highContrast", ThemeKind::HighContrast),
                     ("studio", ThemeKind::Studio),
@@ -1818,6 +1827,13 @@ mod tests {
         assert_eq!(selected_theme(&interface, Some(egui::Theme::Light)), ThemeKind::Studio);
         interface.appearance_mode = AppearanceMode::Light;
         assert_eq!(selected_theme(&interface, Some(egui::Theme::Dark)), ThemeKind::Classic);
+        // Cream is a light theme and Dim a dark one, each in its own family's card.
+        interface.light_theme = LightTheme::Cream;
+        interface.dark_theme = DarkTheme::Dim;
+        assert_eq!(selected_theme(&interface, Some(egui::Theme::Dark)), ThemeKind::Cream);
+        interface.appearance_mode = AppearanceMode::Auto;
+        assert_eq!(selected_theme(&interface, Some(egui::Theme::Dark)), ThemeKind::Dim);
+        assert_eq!(selected_theme(&interface, Some(egui::Theme::Light)), ThemeKind::Cream);
     }
 
     #[test]

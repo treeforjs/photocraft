@@ -64,8 +64,10 @@ pub const UI_COMMANDS: &[(&str, &str, &[&str], Option<&str>)] = &[
     ("window.toggle.dock", "Show/Hide Panels", &[], Some("Shift+Tab")),
     ("window.toggle.options", "Options", &["Window"], None),
     ("window.theme.toggle", "Next Appearance Mode", &["Window"], None),
-    ("window.theme.dark", "Dark Theme", &["Window", "Theme"], None),
     ("window.theme.light", "Light Theme", &["Window", "Theme"], None),
+    ("window.theme.cream", "Cream Theme", &["Window", "Theme"], None),
+    ("window.theme.dim", "Dim Theme", &["Window", "Theme"], None),
+    ("window.theme.dark", "Dark Theme", &["Window", "Theme"], None),
     ("window.theme.highContrast", "High Contrast Theme", &["Window", "Theme"], None),
     ("window.theme.studio", "Studio Theme", &["Window", "Theme"], None),
     ("window.theme.studioLight", "Studio Light Theme", &["Window", "Theme"], None),
@@ -305,9 +307,12 @@ pub(crate) fn invoke_unguarded(app: &mut PhotocraftApp, ctx: &egui::Context, id:
             crate::prefs_ui::cycle_appearance(app, ctx);
             Ok(Value::Null)
         }
-        // `pro` and `proMedium` are the retired Photoshop-grey themes; older scripts get Dark.
-        "window.theme.dark"
-        | "window.theme.light"
+        // `pro` and `proMedium` are the retired Photoshop-grey themes; older scripts get Dark
+        // and Dim.
+        "window.theme.light"
+        | "window.theme.cream"
+        | "window.theme.dim"
+        | "window.theme.dark"
         | "window.theme.highContrast"
         | "window.theme.pro"
         | "window.theme.proMedium"
@@ -1415,7 +1420,7 @@ mod tests {
             },
             app,
         );
-        PhotocraftApp::setup_context(&harness.ctx, crate::theme::ThemeKind::ALL[0]);
+        PhotocraftApp::setup_context(&harness.ctx, crate::theme::ThemeKind::Craft);
         harness.run_steps(3);
         // Nothing open: hovering a title does not open it.
         harness.get_by_label("Image").hover();
@@ -1471,7 +1476,7 @@ mod tests {
             let what = format!("custom title bar {custom}, document {doc}, scale {scale}");
             let mut h = Harness::builder().with_size(egui::vec2(1200.0 / scale, 800.0 / scale)).with_pixels_per_point(scale).with_max_steps(64).build_eframe(
                 move |cc| {
-                    PhotocraftApp::setup_context(&cc.egui_ctx, crate::theme::ThemeKind::ALL[0]);
+                    PhotocraftApp::setup_context(&cc.egui_ctx, crate::theme::ThemeKind::Craft);
                     let mut app = PhotocraftApp::new(photocraft_engine::Session::new(), crate::Services::default());
                     app.custom_titlebar = custom;
                     if doc {
@@ -1555,7 +1560,7 @@ mod tests {
             },
             app,
         );
-        PhotocraftApp::setup_context(&harness.ctx, crate::theme::ThemeKind::ALL[0]);
+        PhotocraftApp::setup_context(&harness.ctx, crate::theme::ThemeKind::Craft);
         harness.run_steps(3);
         // Opening a top-level menu with many entries must not grow its popup past the viewport.
         use egui_kittest::kittest::Queryable;
@@ -1583,7 +1588,7 @@ mod tests {
             },
             app,
         );
-        PhotocraftApp::setup_context(&harness.ctx, crate::theme::ThemeKind::ALL[0]);
+        PhotocraftApp::setup_context(&harness.ctx, crate::theme::ThemeKind::Craft);
         harness.run_steps(3);
         harness.get_by_label("Filter").click();
         harness.run_steps(3);
@@ -1601,6 +1606,31 @@ mod tests {
 
         let after = harness.get_by_label_contains("Filter Gallery…").rect().top();
         assert!(after < before - 1.0, "mouse wheel should move tall menu content: {before} -> {after}");
+    }
+
+    #[test]
+    fn cream_and_dim_theme_commands_select_their_family() {
+        use crate::theme::ThemeKind;
+        use photocraft_engine::prefs::{AppearanceMode, DarkTheme, LightTheme};
+        let mut app = PhotocraftApp::new(photocraft_engine::Session::new(), crate::Services::default());
+        let ctx = egui::Context::default();
+        invoke(&mut app, &ctx, "window.theme.cream", Value::Null).unwrap();
+        assert_eq!(app.ui.theme, ThemeKind::Cream);
+        assert_eq!(checked(&app, "window.theme.cream"), Some(true));
+        assert_eq!(app.session.prefs().interface.appearance_mode, AppearanceMode::Light);
+        assert_eq!(app.session.prefs().interface.light_theme, LightTheme::Cream);
+        assert!(!crate::theme::Tokens::get(&ctx).dark(), "Cream draws with light tokens");
+        invoke(&mut app, &ctx, "window.theme.dim", Value::Null).unwrap();
+        assert_eq!(app.ui.theme, ThemeKind::Dim);
+        assert_eq!(app.session.prefs().interface.dark_theme, DarkTheme::Dim);
+        assert_eq!(app.session.prefs().interface.appearance_mode, AppearanceMode::Dark);
+        assert!(crate::theme::Tokens::get(&ctx).dark());
+        invoke(&mut app, &ctx, "window.theme.proMedium", Value::Null).unwrap();
+        assert_eq!(app.ui.theme, ThemeKind::Dim, "the retired medium grey theme reads as Dim");
+        let ids: Vec<_> = menu_items(&app).into_iter().map(|i| i.id).filter(|id| id.starts_with("window.theme.")).collect();
+        let pos = |id: &str| ids.iter().position(|i| i == id).unwrap();
+        assert!(pos("window.theme.light") < pos("window.theme.cream") && pos("window.theme.cream") < pos("window.theme.dim"));
+        assert!(pos("window.theme.dim") < pos("window.theme.dark") && pos("window.theme.dark") < pos("window.theme.highContrast"));
     }
 
     #[test]

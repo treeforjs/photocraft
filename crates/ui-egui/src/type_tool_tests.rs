@@ -32,7 +32,7 @@ fn make_harness(ppp: f32, app: PhotocraftApp, render: bool) -> Harness<'static, 
         },
         app,
     );
-    PhotocraftApp::setup_context(&h.ctx, crate::theme::ThemeKind::ALL[0]);
+    PhotocraftApp::setup_context(&h.ctx, crate::theme::ThemeKind::Craft);
     h.run_steps(4);
     h
 }
@@ -302,7 +302,7 @@ fn size_drag_is_live_and_one_history_step_per_drag() {
         },
         app,
     );
-    PhotocraftApp::setup_context(&h.ctx, crate::theme::ThemeKind::ALL[0]);
+    PhotocraftApp::setup_context(&h.ctx, crate::theme::ThemeKind::Craft);
     h.run_steps(3);
     let steps = h.state().session.active().unwrap().history.entries().len();
     let mut last = 20.0;
@@ -1219,7 +1219,7 @@ fn paragraph_direction_from_the_options_bar_and_the_paragraph_panel() {
         },
         app,
     );
-    PhotocraftApp::setup_context(&h.ctx, crate::theme::ThemeKind::ALL[0]);
+    PhotocraftApp::setup_context(&h.ctx, crate::theme::ThemeKind::Craft);
     h.run_steps(3);
     let steps = h.state().session.active().unwrap().history.entries().len();
     // Both dropdowns show Auto; open the options bar's (the first) and pick Right to Left.

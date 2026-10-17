@@ -103,7 +103,7 @@ fn app_switches_to_the_cpu_canvas_and_keeps_the_documents() {
         },
         app,
     );
-    PhotocraftApp::setup_context(&h.ctx, photocraft_ui_egui::theme::ThemeKind::ALL[0]);
+    PhotocraftApp::setup_context(&h.ctx, photocraft_ui_egui::theme::ThemeKind::Craft);
     h.run_steps(4);
     assert!(h.state().gpu_active(), "GPU canvas in use before the loss");
     // The device is lost (e.g. the OS killed a huge submission).
