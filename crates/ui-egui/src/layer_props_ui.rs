@@ -163,6 +163,7 @@ pub fn properties(app: &mut PhotocraftApp, ui: &mut egui::Ui, layer: &Layer) {
             app.ui.status_error = true;
         }
     }
+    crate::mask_props_ui::properties(app, ui, layer);
     match &layer.content {
         LayerContent::Text(_) => crate::type_tool::type_properties(app, ui),
         LayerContent::Shape(_) => crate::vector_ui::shape_properties(app, ui, layer.id),
