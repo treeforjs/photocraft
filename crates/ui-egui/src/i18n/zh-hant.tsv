@@ -2341,6 +2341,16 @@ fontWeight	Italic	斜體
 	Quick Selection found nothing there	快速選取在該處找不到任何內容
 	Object Selection found nothing there — try a tighter rectangle	物件選取在該處找不到任何內容 — 請嘗試更緊密的矩形
 	No subject found — try a rectangle around the object	找不到主體 — 請嘗試在物件周圍繪製矩形
+	Save as JPEG	儲存為 JPEG
+	Low	低
+	High	高
+	About {size}	約 {size}
+	Size estimate unavailable	無法估算大小
+	Encoding	編碼
+	Standard: opens in every app	標準：可在任何 App 中開啟
+	Smaller file: same image, a little slower to save	較小的檔案：影像相同，儲存稍慢
+	Progressive: shows a preview while it loads on the web	漸進式：在網頁載入時顯示預覽
+	Passes	次數
 	Masks	遮色片
 	Pixel mask	像素遮色片
 	Vector mask	向量遮色片

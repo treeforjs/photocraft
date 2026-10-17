@@ -134,9 +134,9 @@ note = "file_ui.rs:188 last_web in-session only; export_dialog.rs:16 fixed defau
 [[item]]
 id = "FILE-215-19"
 target = "Save As JPEG opens a JPEG Options dialog (quality 0-12, format options)"
-status = "missing"
+status = "done"
 issue = 215
-note = "ExportSettings has jpeg_quality 1-100 only (lib.rs:118)"
+note = "jpeg_options_ui.rs: Save As to .jpg asks for quality (named stops, live size estimate) and encoding (baseline, optimized, progressive 3-5 passes), remembered in prefs.dialogs.saveJpeg; file.saveACopy takes jpegFormat/scans; codecs jpeg_progressive_scans/jpeg_optimize; tests jpeg_format_options, save_a_copy_writes_the_jpeg_format, saving_as_jpeg_asks_then_writes_with_the_answer"
 
 [[item]]
 id = "FILE-215-20"

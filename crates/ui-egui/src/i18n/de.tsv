@@ -2403,6 +2403,16 @@ fontWeight	Italic	Kursiv
 	Quick Selection found nothing there	Die Schnellauswahl hat dort nichts gefunden
 	Object Selection found nothing there — try a tighter rectangle	Die Objektauswahl hat dort nichts gefunden — versuchen Sie ein engeres Rechteck
 	No subject found — try a rectangle around the object	Kein Motiv gefunden — versuchen Sie ein Rechteck um das Objekt
+	Save as JPEG	Als JPEG speichern
+	Low	Niedrig
+	High	Hoch
+	About {size}	Etwa {size}
+	Size estimate unavailable	Größenschätzung nicht verfügbar
+	Encoding	Kodierung
+	Standard: opens in every app	Standard: öffnet sich in jeder App
+	Smaller file: same image, a little slower to save	Kleinere Datei: gleiches Bild, speichert etwas langsamer
+	Progressive: shows a preview while it loads on the web	Progressiv: zeigt beim Laden im Web eine Vorschau
+	Passes	Durchgänge
 	Masks	Masken
 	Pixel mask	Pixelmaske
 	Vector mask	Vektormaske
