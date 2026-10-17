@@ -19,7 +19,10 @@ fn harness(ppp: f32, app: PhotocraftApp) -> Harness<'static, PhotocraftApp> {
 }
 
 fn make_harness(ppp: f32, app: PhotocraftApp, render: bool) -> Harness<'static, PhotocraftApp> {
-    let builder = Harness::builder().with_size(vec2(1200.0, 800.0)).with_pixels_per_point(ppp);
+    harness_with(Harness::builder().with_size(vec2(1200.0, 800.0)).with_pixels_per_point(ppp), app, render)
+}
+
+fn harness_with(builder: egui_kittest::HarnessBuilder<PhotocraftApp>, app: PhotocraftApp, render: bool) -> Harness<'static, PhotocraftApp> {
     let builder = if render { builder.wgpu() } else { builder };
     let mut h = builder.build_ui_state(
         |ui, app: &mut PhotocraftApp| {
@@ -1251,4 +1254,46 @@ fn paragraph_direction_from_the_options_bar_and_the_paragraph_panel() {
     let new = app.session.active().unwrap().active_layer.unwrap();
     assert_ne!(new, id);
     assert_eq!(direction_of(app, new), D::Ltr);
+}
+
+/// Photoshop's click counts on type: two clicks select the word, three the line, four the
+/// paragraph, five all the text. Counted clicks must stay close in time and place.
+#[test]
+fn multiple_clicks_select_word_line_paragraph_and_all() {
+    let mut app = new_app();
+    // Paragraph text narrow enough that the first paragraph wraps onto two lines.
+    let text = "alpha beta gamma delta\nepsilon zeta";
+    let id = LayerId(app.run("type.create", json!({"text": text, "size": 30, "box": [200, 200, 260, 400]})).unwrap()["layer"].as_u64().unwrap());
+    // Real-time frames, so a few clicks fit in the click window.
+    let mut h = harness_with(Harness::builder().with_size(vec2(1200.0, 800.0)).with_step_dt(1.0 / 60.0), app, false);
+    let (l, _, _) = layout(h.state_mut(), id).unwrap();
+    assert!(l.lines.iter().filter(|ln| ln.paragraph == 0).count() >= 2, "the first paragraph wraps");
+    let first_line_end = text.get(..l.lines[0].range.end).unwrap().chars().count();
+    // Inside "beta" (characters 6..10).
+    let p = glyph(&mut h, id, 7, 0.5);
+    let expect = [(7, 7), (6, 10), (0, first_line_end), (0, 22), (0, text.chars().count())];
+    h.hover_at(p);
+    h.run_steps(1);
+    for (n, want) in expect.iter().enumerate() {
+        press(&mut h, p, true);
+        press(&mut h, p, false);
+        let (a, c) = selection(&h);
+        assert_eq!((a.min(c), a.max(c)), *want, "{} clicks", n + 1);
+    }
+    // A pause starts over: one click just places the caret.
+    h.run_steps(60);
+    click(&mut h, p);
+    assert_eq!(selection(&h), (7, 7));
+    // ⌘A selects all the text; a paste replaces the selection and leaves the caret after it.
+    h.key_press_modifiers(Modifiers::COMMAND, egui::Key::A);
+    h.run_steps(1);
+    assert_eq!(selection(&h), (0, text.chars().count()));
+    h.event(egui::Event::Paste("Hi\nthere".into()));
+    h.run_steps(1);
+    assert_eq!(super::current_text(h.state(), id).as_deref(), Some("Hi\nthere"));
+    assert_eq!(selection(&h), (8, 8));
+    assert_eq!(super::next_click_count(Some((3, 1.0, Pos2::ZERO)), 1.2, Pos2::new(3.0, 0.0), 0.4, 6.0), 4);
+    assert_eq!(super::next_click_count(Some((3, 1.0, Pos2::ZERO)), 1.2, Pos2::new(30.0, 0.0), 0.4, 6.0), 1, "moved too far");
+    assert_eq!(super::next_click_count(Some((3, 1.0, Pos2::ZERO)), 0.5, Pos2::ZERO, 0.4, 6.0), 1, "time went backwards");
+    assert_eq!(super::next_click_count(Some((u32::MAX, 1.0, Pos2::ZERO)), 1.1, Pos2::ZERO, 0.4, 6.0), u32::MAX);
 }

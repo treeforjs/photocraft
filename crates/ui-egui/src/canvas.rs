@@ -2828,8 +2828,17 @@ pub fn canvas_view(app: &mut PhotocraftApp, ui: &mut egui::Ui, idx: usize, rect:
         if tool == Tool::Crop && response.double_clicked() && response.interact_pointer_pos().is_some_and(|p| crate::crop_ui::commits_at(app, xf.to_doc(p))) {
             commit_crop(app);
         }
-        if tool.is_type() && response.double_clicked() && !crate::type_transform::visible(app, crate::workspace_ui::sticky_mods(app, mods)) {
-            crate::type_tool::select_word(app);
+        // Two clicks select a word, three a line, four a paragraph, five all the text.
+        if tool.is_type()
+            && response.clicked()
+            && let Some(p) = response.interact_pointer_pos()
+            && !crate::type_transform::visible(app, crate::workspace_ui::sticky_mods(app, mods))
+        {
+            let key = egui::Id::new("type-click-count");
+            let (now, interval) = (ui.input(|i| i.time), 0.4);
+            let n = crate::type_tool::next_click_count(ui.data(|d| d.get_temp(key)), now, p, interval, 6.0);
+            ui.data_mut(|d| d.insert_temp(key, (n, now, p)));
+            crate::type_tool::select_clicks(app, n);
         }
         if app.ui.extras.grid && app.ui.view.extras {
             crate::rulers::draw_grid(app, &painter, &xf, &doc);
