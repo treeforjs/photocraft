@@ -881,14 +881,8 @@ fn front(app: &mut PhotocraftApp, id: &str, params: &Value) -> Option<Result<Val
             let fields = app.ui.view.guide_layout.clone();
             dialog(app, fields, json!({}))
         }
-        "type.warpText" => {
-            let styles: Vec<&str> = std::iter::once("none").chain(photocraft_text::warp::STYLES.iter().map(|(_, s)| *s)).collect();
-            dialog(
-                app,
-                json!({"style": "arc", "orientation": "horizontal", "bend": 50.0, "horizontalDistortion": 0.0, "verticalDistortion": 0.0}),
-                json!({"style": styles, "orientation": ["horizontal", "vertical"]}),
-            )
-        }
+        // A live-preview dialog seeded with the layer's current warp (filter_dialog::current_warp).
+        "type.warpText" => Some(crate::filter_dialog::open(app, id).map(|d| json!({"dialog": d})).ok_or_else(|| "no type layer".to_string())),
         "file.export.layersToFiles" => {
             let (_, _, name) = doc?;
             dialog(
