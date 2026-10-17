@@ -7,6 +7,9 @@
 //! and `ui.dialog.cancel` answer it). OK runs the matching `layer.rasterize.*` command, then paints
 //! where the click was, so rasterizing and painting are two history states, as in Photoshop.
 //! Cancel does nothing.
+//!
+//! Distort, Perspective and Warp on live type ask the same question ([`intercept_transform`]):
+//! OK applies a transform already in progress, rasterizes, then starts the chosen mode.
 
 use serde_json::{Map, Value, json};
 
@@ -107,6 +110,43 @@ pub fn intercept(app: &mut PhotocraftApp, tool: Tool, x: f64, y: f64, pressure: 
     true
 }
 
+/// The transform modes that need pixels: Distort, Perspective and Warp.
+fn needs_pixels(command: &str) -> bool {
+    matches!(command, "edit.transform.distort" | "edit.transform.perspective" | "edit.transform.warp")
+}
+
+/// Distort, Perspective or Warp (`command`) on a live type layer: open the prompt and return its
+/// result instead of starting the mode. `None` when the command can go ahead: another command,
+/// automation (which gets the engine's error and can rasterize itself), a locked layer, or a box
+/// on a mask, channel, path or selection rather than the whole layer.
+pub fn intercept_transform(app: &mut PhotocraftApp, command: &str) -> Option<Result<Value, String>> {
+    if app.automation_input || !needs_pixels(command) {
+        return None;
+    }
+    let st = app.session.active()?;
+    let id = match &app.ui.transform {
+        Some(t) if t.target.is_some() || t.path.is_some() || t.selection => return None,
+        Some(t) => photocraft_doc::LayerId(t.layer),
+        None => st.active_layer?,
+    };
+    let locks = st.doc.effective_locks(id);
+    if locks.all || locks.position || !matches!(st.doc.layer(id)?.content, photocraft_doc::LayerContent::Text(_)) {
+        return None;
+    }
+    if let Some(d) = app.ui.dialogs.iter().find(|d| owns(&d.fields)) {
+        return Some(Ok(json!({"dialog": d.id, "confirmationPending": true})));
+    }
+    let mut f = Map::new();
+    f.insert(MARK.into(), json!(Kind::Type.key()));
+    f.insert("__command".into(), json!(Kind::Type.command()));
+    f.insert("__label".into(), json!("PhotoCraft"));
+    f.insert("message".into(), json!(Kind::Type.message()));
+    f.insert("layer".into(), json!(id.0));
+    f.insert("then".into(), json!(command));
+    let dialog = app.ui.open_dialog(DialogKind::Command, f);
+    Some(Ok(json!({"dialog": dialog, "confirmationPending": true})))
+}
+
 /// Open the prompt for `layer`; OK rasterizes it, then `tool` paints at `at` (x, y, pressure).
 pub fn open(app: &mut PhotocraftApp, kind: Kind, layer: photocraft_doc::LayerId, tool: Tool, at: [f64; 3]) -> u64 {
     let mut f = Map::new();
@@ -141,6 +181,15 @@ pub fn body(ui: &mut egui::Ui, f: &Map<String, Value>) {
 pub fn confirm(app: &mut PhotocraftApp, f: &Map<String, Value>) -> Result<Value, String> {
     let kind = f.get(MARK).and_then(Value::as_str).and_then(Kind::from_key).ok_or("not a rasterize prompt")?;
     let layer = f.get("layer").and_then(Value::as_u64).ok_or("the prompt has no layer")?;
+    if let Some(then) = f.get("then").and_then(Value::as_str).filter(|c| needs_pixels(c)) {
+        // Keep what the box has done so far; the new mode starts on the rasterized pixels.
+        if app.ui.transform.is_some() {
+            crate::transform_tool::commit(app);
+        }
+        let r = app.run(kind.command(), json!({ "layer": layer }))?;
+        app.pending_invoke = Some((then.to_string(), json!({})));
+        return Ok(json!({ "rasterized": r, "then": then }));
+    }
     let r = app.run(kind.command(), json!({ "layer": layer }))?;
     let tool = f.get("tool").and_then(Value::as_str).and_then(Tool::from_name);
     let at: Vec<f64> = f.get("at").and_then(Value::as_array).map(|a| a.iter().filter_map(Value::as_f64).collect()).unwrap_or_default();

@@ -485,6 +485,9 @@ pub struct PhotocraftApp {
     pub(crate) adjust_preview: Option<adjust_preview::AdjustPreview>,
     /// Synthetic input events queued by automation (`ui.click`, `ui.key`, …), injected next frame.
     pub(crate) synthetic: Vec<egui::Event>,
+    /// A UI command to run at the start of the next frame, where a context is at hand (the
+    /// transform mode the "Rasterize?" prompt was answered for).
+    pub(crate) pending_invoke: Option<(String, Value)>,
     /// True only while a frame is processing synthetic automation input. It
     /// makes shortcut- and dialog-triggered commands pass the same policy as
     /// direct control calls.
@@ -633,6 +636,7 @@ impl PhotocraftApp {
             color_range: None,
             adjust_preview: None,
             synthetic: Vec::new(),
+            pending_invoke: None,
             automation_input: false,
             channel_thumbs: None,
             channel_views: HashMap::new(),
@@ -738,6 +742,16 @@ impl PhotocraftApp {
     pub fn with_control(mut self, rx: Receiver<ControlRequest>) -> Self {
         self.control_rx = Some(rx);
         self
+    }
+
+    /// Run the command queued in `pending_invoke`, reporting an error in the status bar.
+    pub(crate) fn run_pending_invoke(&mut self, ctx: &egui::Context) {
+        if let Some((id, params)) = self.pending_invoke.take()
+            && let Err(e) = menus::invoke(self, ctx, &id, params)
+        {
+            self.ui.status = e;
+            self.ui.status_error = true;
+        }
     }
 
     /// Run an engine command, reporting errors in the status bar.
@@ -1232,6 +1246,7 @@ impl eframe::App for PhotocraftApp {
             self.checker = None;
         }
         self.drain_control(ctx);
+        self.run_pending_invoke(ctx);
         native_menu::run(self, ctx);
         if self.ui.text_edit.is_some() && !self.ui.tool.is_type() {
             type_tool::commit(self);

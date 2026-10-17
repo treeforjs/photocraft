@@ -165,3 +165,54 @@ fn the_control_channel_sees_and_confirms_the_prompt() {
     assert_eq!(r["ok"], json!(true), "{r}");
     assert_eq!(active_content(&app), "Pixel");
 }
+
+/// Distort, Perspective and Warp on live type ask first. OK rasterizes and starts the mode on the
+/// next frame (two history states: Rasterize, then the transform); Cancel leaves the type live
+/// and starts nothing. Scale on type needs no prompt, and a Scale box switched to Distort keeps
+/// its scale.
+#[test]
+fn distort_perspective_and_warp_on_type_offer_to_rasterize() {
+    let ctx = egui::Context::default();
+    for (cmd, mode) in [
+        ("edit.transform.distort", Some(crate::state::TransformMode::Distort)),
+        ("edit.transform.perspective", Some(crate::state::TransformMode::Perspective)),
+        ("edit.transform.warp", None),
+    ] {
+        let mut app = app_with(Kind::Type);
+        // Cancel: nothing changes.
+        let r = crate::menus::invoke(&mut app, &ctx, cmd, json!({})).unwrap();
+        assert_eq!(r["confirmationPending"], true, "{cmd}");
+        assert!(app.ui.transform.is_none());
+        let id = prompt(&app).unwrap().id;
+        app.ui.close_dialog(id);
+        assert_eq!(active_content(&app), "Type");
+        // OK: rasterize, then the mode.
+        crate::menus::invoke(&mut app, &ctx, cmd, json!({})).unwrap();
+        let id = prompt(&app).unwrap().id;
+        let before = past(&app);
+        crate::dialogs::confirm(&mut app, id).unwrap();
+        assert_eq!(active_content(&app), "Pixel", "{cmd}");
+        assert_eq!(past(&app), before + 1, "rasterizing is one step");
+        app.run_pending_invoke(&ctx);
+        let t = app.ui.transform.as_ref().expect("the transform started");
+        match mode {
+            Some(m) => assert_eq!(t.mode, m, "{cmd}"),
+            None => assert!(t.warp.is_some(), "{cmd}"),
+        }
+    }
+    // Scale needs no prompt; switching its box to Distort asks, and OK keeps the scale.
+    let mut app = app_with(Kind::Type);
+    crate::menus::invoke(&mut app, &ctx, "edit.transform.scale", json!({})).unwrap();
+    assert!(prompt(&app).is_none() && app.ui.transform.is_some());
+    let t = app.ui.transform.as_mut().unwrap();
+    let r = t.rect;
+    t.quad = [[r[0], r[1]], [r[2] + 20.0, r[1]], [r[2] + 20.0, r[3]], [r[0], r[3]]];
+    let wide = r[2] - r[0] + 20.0;
+    crate::menus::invoke(&mut app, &ctx, "edit.transform.distort", json!({})).unwrap();
+    let id = prompt(&app).unwrap().id;
+    crate::dialogs::confirm(&mut app, id).unwrap();
+    app.run_pending_invoke(&ctx);
+    let t = app.ui.transform.as_ref().unwrap();
+    assert_eq!(t.mode, crate::state::TransformMode::Distort);
+    assert!((t.rect[2] - t.rect[0] - wide).abs() <= 2.0, "the scale was applied first: {:?} vs {wide}", t.rect);
+}
