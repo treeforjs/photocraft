@@ -2434,6 +2434,8 @@ theme	Warm	暖色
 	How hard a pen press must be, for every tool. Double-click the graph to reset.	所有工具需要的筆壓力度。按兩下圖表可重設。
 	Import Image as Brush…	將影像匯入為筆刷…
 	New brush “{name}” from the image	從影像新增筆刷「{name}」
+	Float Panel Group	浮動面板群組
+	Dock Panel Group	停駐面板群組
 	No Suggestions	無建議
 	Add to Dictionary	加入字典
 	The text changed; right-click the word again.	文字已變更；請再次以滑鼠右鍵按一下該字詞。

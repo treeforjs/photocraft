@@ -2867,6 +2867,8 @@ theme	Warm	Chaud
 	How hard a pen press must be, for every tool. Double-click the graph to reset.	La force de pression du stylet nécessaire, pour tous les outils. Double-cliquez sur le graphique pour la réinitialiser.
 	Import Image as Brush…	Importer une image comme forme…
 	New brush “{name}” from the image	Nouvelle forme « {name} » à partir de l’image
+	Float Panel Group	Rendre le groupe de panneaux flottant
+	Dock Panel Group	Ancrer le groupe de panneaux
 	No Suggestions	Aucune suggestion
 	Add to Dictionary	Ajouter au dictionnaire
 	The text changed; right-click the word again.	Le texte a changé ; faites de nouveau un clic droit sur le mot.
