@@ -1,4 +1,5 @@
-//! Canvas context menus for the selection tools, the Pen and an active Free Transform box.
+//! Canvas context menus for the selection tools, the path and shape tools, the Eyedropper and an
+//! active Free Transform box.
 
 use egui::Context;
 use photocraft_doc::LayerContent;
@@ -118,12 +119,41 @@ pub const PEN_MENU: &[Row] = &[
     Some(("Disable Symmetry Path", "paint.symmetryDisable")),
 ];
 
-/// Tools whose plain canvas right-click offers selection actions.
+/// The Eyedropper's context menu: its Sample Size, as in Photoshop. The ids are this menu's own
+/// (`eyedropper.size.<n>`), set on the options bar's Sample Size.
+pub const EYEDROPPER_MENU: &[Row] = &[
+    Some(("Point Sample", "eyedropper.size.1")),
+    Some(("3 by 3 Average", "eyedropper.size.3")),
+    Some(("5 by 5 Average", "eyedropper.size.5")),
+    Some(("11 by 11 Average", "eyedropper.size.11")),
+    Some(("31 by 31 Average", "eyedropper.size.31")),
+    Some(("51 by 51 Average", "eyedropper.size.51")),
+    Some(("101 by 101 Average", "eyedropper.size.101")),
+];
+
+/// Tools whose plain canvas right-click opens a context menu here.
 pub fn applies(tool: Tool) -> bool {
     matches!(
         tool,
-        Tool::RectMarquee | Tool::EllipseMarquee | Tool::Lasso | Tool::PolygonLasso | Tool::MagneticLasso | Tool::MagicWand | Tool::ObjectSelection | Tool::Pen
-    )
+        Tool::RectMarquee
+            | Tool::EllipseMarquee
+            | Tool::Lasso
+            | Tool::PolygonLasso
+            | Tool::MagneticLasso
+            | Tool::MagicWand
+            | Tool::ObjectSelection
+            | Tool::Eyedropper
+    ) || path_tool(tool)
+}
+
+/// The Pen, the path selection tools and the shape tools share the path menu, as in Photoshop.
+fn path_tool(tool: Tool) -> bool {
+    matches!(tool, Tool::Pen | Tool::PathSelection | Tool::DirectSelection) || crate::vector_ui::is_shape_tool(tool)
+}
+
+/// The Sample Size an Eyedropper menu id sets.
+fn eyedropper_size(command: &str) -> Option<u32> {
+    command.strip_prefix("eyedropper.size.")?.parse().ok()
 }
 
 /// The selection tools' rows, with or without an active selection.
@@ -135,8 +165,10 @@ pub fn selection_rows(has_selection: bool) -> &'static [Row] {
 pub fn rows(menu: &CanvasToolMenu) -> &'static [Row] {
     if menu.transform {
         TRANSFORM_MENU
-    } else if menu.tool == Tool::Pen {
+    } else if path_tool(menu.tool) {
         PEN_MENU
+    } else if menu.tool == Tool::Eyedropper {
+        EYEDROPPER_MENU
     } else {
         selection_rows(menu.has_selection)
     }
@@ -150,6 +182,9 @@ pub fn available(app: &PhotocraftApp, menu: &CanvasToolMenu, command: &str) -> b
 /// Is `command` the transform box's current mode (checked in the transform menu)?
 /// Scale and Rotate are Free Transform's mode, so only Free Transform shows it checked.
 fn mode_checked(app: &PhotocraftApp, menu: &CanvasToolMenu, command: &str) -> bool {
+    if menu.tool == Tool::Eyedropper && !menu.transform {
+        return eyedropper_size(command) == Some(app.ui.tool_options.eyedropper_size);
+    }
     menu.transform
         && !matches!(command, "edit.transform.scale" | "edit.transform.rotate")
         && app.ui.transform.as_ref().is_some_and(|t| t.mode == crate::state::TransformMode::for_command(command))
@@ -167,7 +202,10 @@ pub fn open_transform(app: &mut PhotocraftApp, pos: [f32; 2]) -> bool {
 }
 
 pub fn entry_enabled(app: &PhotocraftApp, menu: &CanvasToolMenu, command: &str) -> bool {
-    if menu.transform || menu.tool != Tool::Pen {
+    if menu.tool == Tool::Eyedropper && !menu.transform {
+        return eyedropper_size(command).is_some();
+    }
+    if menu.transform || !path_tool(menu.tool) {
         return crate::menus::is_enabled(app, command);
     }
     let Some(st) = app.session.active() else { return false };
@@ -223,7 +261,10 @@ pub fn choose(app: &mut PhotocraftApp, ctx: &Context, command: &str) {
     if !available(app, &menu, command) {
         return;
     }
-    let result = if menu.tool == Tool::Pen && !menu.transform {
+    let result = if let Some(size) = eyedropper_size(command).filter(|_| menu.tool == Tool::Eyedropper && !menu.transform) {
+        app.ui.tool_options.eyedropper_size = size;
+        Ok(())
+    } else if path_tool(menu.tool) && !menu.transform {
         choose_pen(app, ctx, &menu, command)
     } else if command == "select.toWorkPath" {
         // Photoshop's Make Work Path… asks for the tolerance first.
@@ -748,5 +789,44 @@ mod tests {
             assert!(!entry_enabled(&app, menu, id), "{id} must not act on the layer replaced by the pending shape");
         }
         assert!(entry_enabled(&app, menu, "path.toSelection"));
+    }
+
+    #[test]
+    fn path_selection_and_shape_tools_share_the_path_menu() {
+        for tool in [Tool::PathSelection, Tool::DirectSelection, Tool::Rectangle, Tool::Line] {
+            let mut app = app();
+            app.ui.tool = tool;
+            work_path(&mut app);
+            assert!(open(&mut app, tool, [10.0, 10.0]), "{tool:?}");
+            let menu = app.ui.canvas_tool_menu.clone().unwrap();
+            assert_eq!(rows(&menu), PEN_MENU, "{tool:?}");
+            assert!(entry_enabled(&app, &menu, "path.toSelection"), "{tool:?}");
+            choose(&mut app, &Context::default(), "path.delete");
+            assert!(app.session.active().unwrap().doc.work_path.is_none(), "{tool:?}: Delete Path");
+        }
+    }
+
+    #[test]
+    fn eyedropper_right_click_picks_the_sample_size() {
+        let mut app = app();
+        app.ui.tool = Tool::Eyedropper;
+        let mut h = harness(app);
+        let center = h.state().last_canvas_rect.center();
+        right_click(&mut h, center, Modifiers::NONE);
+        let menu = h.state().ui.canvas_tool_menu.clone().expect("the Eyedropper opens its menu");
+        assert_eq!(rows(&menu), EYEDROPPER_MENU);
+        assert!(mode_checked(h.state(), &menu, "eyedropper.size.1"), "Point Sample is the current size");
+        // The menu lists the same sizes as the options bar.
+        let sizes: Vec<u32> = EYEDROPPER_MENU.iter().flatten().filter_map(|(_, id)| eyedropper_size(id)).collect();
+        assert_eq!(sizes, crate::eyedropper_ui::size_options().map(|(n, _)| n).to_vec());
+        let app = h.state_mut();
+        choose(app, &Context::default(), "eyedropper.size.11");
+        assert_eq!(app.ui.tool_options.eyedropper_size, 11);
+        assert!(app.ui.canvas_tool_menu.is_none());
+        // A stray id is not one of its rows.
+        assert!(open(app, Tool::Eyedropper, [10.0, 10.0]));
+        let menu = app.ui.canvas_tool_menu.clone().unwrap();
+        assert!(!available(app, &menu, "eyedropper.size.7"));
+        assert!(!available(app, &menu, "select.all"));
     }
 }
