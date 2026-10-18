@@ -43,9 +43,9 @@ note = "smart_ui.rs rows + visibility + editor; Levels/Curves/Shadows-Highlights
 [[item]]
 id = "FILE-215-6"
 target = "Smart Object corner skew and perspective (quad or homography transform)"
-status = "missing"
+status = "done"
 issue = 215
-note = "doc lib.rs:312 SmartObject.transform is an Affine"
+note = "SmartObject.perspective (homography) set by smart_cmds.rs set_placement from edit.transform quad (Distort, Perspective, Skew); rendered by place_source_projective; .pcd (format manifest perspective) and PSD (blocks.rs parse_smart_perspective, smart_map perspective_placement_round_trips_through_sold); tests smart_cmds/tests.rs distort_survives_edit_contents"
 
 [[item]]
 id = "FILE-215-7"
