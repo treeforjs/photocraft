@@ -1290,6 +1290,7 @@ impl eframe::App for PhotocraftApp {
         }
         crate::tool_memory::persist(self, ctx);
         crate::font_preview::set_preference(ctx, self.session.prefs().type_.font_preview);
+        crate::type_tool::set_font_names_in_english(ctx, self.session.prefs().type_.show_font_names_in_english);
         crate::font_recents::sync(self, ctx);
         crate::widgets::set_scrub_acceleration(ctx, self.session.prefs().enhanced_controls.scrubby_slider_acceleration);
         self.drain_control(ctx);

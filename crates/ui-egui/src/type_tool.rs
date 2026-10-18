@@ -950,6 +950,24 @@ pub fn style_label(style: &str) -> String {
     style.split(' ').map(|w| crate::i18n::tr_ctx(crate::i18n::current(), "fontWeight", w)).collect::<Vec<_>>().join(" ")
 }
 
+const FONT_NAMES_IN_ENGLISH: &str = "font-names-in-english";
+
+/// Preferences › Type › Show Font Names in English, for the font menus (which see only egui).
+/// Set every frame from `update`.
+pub(crate) fn set_font_names_in_english(ctx: &egui::Context, on: bool) {
+    ctx.data_mut(|d| d.insert_temp(egui::Id::new(FONT_NAMES_IN_ENGLISH), on));
+}
+
+/// How the font menus name `family`: as is, or in the font's own language when Show Font
+/// Names in English is off and the font has such a name. The value picked stays the family.
+pub(crate) fn family_label(ctx: &egui::Context, family: &str) -> String {
+    if ctx.data(|d| d.get_temp(egui::Id::new(FONT_NAMES_IN_ENGLISH))).unwrap_or(true) {
+        return family.to_string();
+    }
+    let prefer = crate::i18n::current().code().split('-').next().unwrap_or_default();
+    photocraft_text::shared().lock().unwrap_or_else(PoisonError::into_inner).fonts.native_family_name(family, prefer).unwrap_or_else(|| family.to_string())
+}
+
 /// Searchable font-family combo box.
 fn font_picker(ui: &mut egui::Ui, current: &mut String, width: f32) -> bool {
     family_picker_in(ui, "type-font", current, width, &families())
@@ -970,7 +988,7 @@ pub(crate) fn family_picker_in(ui: &mut egui::Ui, salt: &str, current: &mut Stri
     let mut changed = false;
     let search_id = ui.id().with(("font-search", salt));
     let combo = egui::ComboBox::from_id_salt(salt)
-        .selected_text(current.as_str())
+        .selected_text(family_label(ui.ctx(), current))
         .width(width)
         .height(FONT_MENU_HEIGHT)
         .icon(crate::widgets::chevron_icon)
@@ -1002,7 +1020,9 @@ pub(crate) fn family_picker_in(ui: &mut egui::Ui, salt: &str, current: &mut Stri
             d.insert_temp(search_id, q.clone());
         });
         let ql = q.to_lowercase();
-        let filtered: Vec<&String> = families.iter().filter(|f| ql.is_empty() || f.to_lowercase().contains(&ql)).collect();
+        // Search finds a family by either name.
+        let filtered: Vec<&String> =
+            families.iter().filter(|f| ql.is_empty() || f.to_lowercase().contains(&ql) || family_label(ui.ctx(), f).to_lowercase().contains(&ql)).collect();
         if down || up {
             let index = filtered.iter().position(|f| *f == current);
             let next = match index {
@@ -1029,7 +1049,7 @@ pub(crate) fn family_picker_in(ui: &mut egui::Ui, salt: &str, current: &mut Stri
         let row = [330.0, sample.map_or(28.0, |p| (p.height + 4.0).max(28.0))];
         // The sample is painted over a blank space the button keeps free on its right.
         let font_button = |ui: &egui::Ui, salt: &str, f: &str, selected: bool| {
-            let b = egui::Button::selectable(selected, f).truncate();
+            let b = egui::Button::selectable(selected, family_label(ui.ctx(), f)).truncate();
             match sample {
                 Some(p) => b.right_text(egui::Atom::custom(ui.id().with((salt, f)), egui::vec2(p.width, p.height))),
                 None => b,
