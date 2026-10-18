@@ -373,6 +373,8 @@ pub struct TextLayer {
     pub antialias: text::AntiAlias,
     /// Warp Text settings (applied to the glyph outlines when rendering).
     pub warp: Option<text::TextWarp>,
+    /// Type on a path: the baseline follows this path (the warp is then ignored).
+    pub on_path: Option<text::TextPath>,
 }
 
 impl Default for TextLayer {
@@ -391,6 +393,7 @@ impl Default for TextLayer {
             orientation: text::Orientation::Horizontal,
             antialias: text::AntiAlias::Smooth,
             warp: None,
+            on_path: None,
         }
     }
 }

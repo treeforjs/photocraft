@@ -270,6 +270,8 @@ pub enum ContentM {
         antialias: text::AntiAlias,
         #[serde(default)]
         warp: Option<text::TextWarp>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        on_path: Option<text::TextPath>,
     },
     Shape {
         fill: Option<Fill>,

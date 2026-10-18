@@ -10,7 +10,8 @@ use std::sync::Arc;
 
 use photocraft_color::Color;
 use photocraft_doc::text::{
-    AntiAlias, Caps, CharStyle, FontFeature, FontVariation, Kerning, Orientation, ParagraphRun, ParagraphStyle, TextAlign, TextDirection, TextRun, TextShape,
+    AntiAlias, Caps, CharStyle, FontFeature, FontVariation, Kerning, Orientation, ParagraphRun, ParagraphStyle, TextAlign, TextDirection, TextPath, TextRun,
+    TextShape,
 };
 use photocraft_doc::{Affine, Document, Layer, LayerContent, LayerId, TextLayer};
 use serde_json::{Value, json};
@@ -511,12 +512,44 @@ fn info(s: &Session, p: &Value) -> Result<Value> {
         "antialias": t.antialias,
         "orientation": t.orientation,
         "warp": t.warp,
+        "onPath": t.on_path.as_ref().map(|tp| json!({"path": crate::vector_cmds::path_json(&tp.path.transform(&t.transform)), "start": tp.start, "flip": tp.flip})),
         "runs": runs,
         "paragraphs": paragraphs,
         "lines": lines,
         "bounds": bounds,
         "pxPerPt": layout.px_per_pt,
     }))
+}
+
+/// Type on a path from `{"path": "work"|name|{path}, "start": px, "flip": bool}` (or just the
+/// path's name): the path in document space, `base` supplying what the value leaves out.
+fn on_path_param(s: &Session, cmd: &str, v: &Value, base: Option<&TextPath>) -> Result<TextPath> {
+    let (src, start, flip) = match v {
+        Value::String(_) => (Some(v), None, None),
+        Value::Object(o) => (o.get("path"), o.get("start"), o.get("flip")),
+        _ => return Err(bad(cmd, "`onPath` must be a path name or {\"path\",\"start\",\"flip\"}")),
+    };
+    let path = match src {
+        Some(Value::String(name)) => crate::vector_cmds::resolve_path(s, Some(name))?,
+        Some(p @ Value::Object(_)) => crate::vector_cmds::parse_path(p).map_err(|e| bad(cmd, e))?,
+        Some(_) => return Err(bad(cmd, "`onPath.path` must be a path name or a path")),
+        None => match base {
+            Some(b) => b.path.clone(),
+            None => crate::vector_cmds::resolve_path(s, None)?,
+        },
+    };
+    if photocraft_text::on_path::OnPath::new(&TextPath { path: path.clone(), start: 0.0, flip: false }).is_none() {
+        return Err(bad(cmd, "the path has no length to set type on"));
+    }
+    let start = match start {
+        Some(x) => x.as_f64().filter(|x| x.is_finite()).ok_or_else(|| bad(cmd, "`onPath.start` must be a number of pixels"))?.clamp(-1e7, 1e7) as f32,
+        None => base.map_or(0.0, |b| b.start),
+    };
+    let flip = match flip {
+        Some(f) => f.as_bool().ok_or_else(|| bad(cmd, "`onPath.flip` must be true or false"))?,
+        None => base.is_some_and(|b| b.flip),
+    };
+    Ok(TextPath { path, start, flip })
 }
 
 const CHAR_PARAMS: &str = r##""font":str,"fontStyle":str,"weight":100..900,"italic":bool,"size":0.1..=1296 pt,"color":"#rrggbb"|[r,g,b,a],"tracking":-1000..=10000 (1/1000 em),"leading":pt|"auto","baselineShift":pt,"horizontalScale":%,"verticalScale":%,"underline":bool,"strikethrough":bool,"fauxBold":bool,"fauxItalic":bool,"kerning":1/1000em (manual, after each character)|"metrics"|"optical"|"off","caps":"normal|small|all","ligatures":bool,"discretionaryLigatures":bool,"features":{"ss01":1},"variations":{"wght":650},"language":str"##;
@@ -528,7 +561,7 @@ pub fn specs() -> Vec<CommandSpec> {
             label: "New Type Layer",
             menu: &["Layer", "New"],
             shortcut: None,
-            params: r##"{"x":px,"y":px (baseline anchor of point text),"text":str,"box":[x,y,w,h]? (paragraph text),"name":str?,"align":"left|center|right|justify…"?,"orientation":"horizontal|vertical"="horizontal", …character keys: "font","size":pt=12,"color",…}"##,
+            params: r##"{"x":px,"y":px (baseline anchor of point text),"text":str,"box":[x,y,w,h]? (paragraph text),"name":str?,"align":"left|center|right|justify…"?,"orientation":"horizontal|vertical"="horizontal","onPath":{"path":"work"|name|{path},"start":px,"flip":bool}|name? (type on a path), …character keys: "font","size":pt=12,"color",…}"##,
             enabled: has_doc,
             journal: true,
             run: |s, p| {
@@ -548,7 +581,10 @@ pub fn specs() -> Vec<CommandSpec> {
                 style.color = Color::rgba(fg[0], fg[1], fg[2], fg[3]);
                 apply_char_props(&mut style, p);
                 apply_para_props(&mut para, p);
+                // Type on a path: the path is in document space, so the text space is too.
+                let on_path = p.get("onPath").map(|v| on_path_param(s, "type.create", v, None)).transpose()?;
                 let (shape, transform) = match p.get("box").and_then(Value::as_array) {
+                    _ if on_path.is_some() => (TextShape::Point, Affine::IDENTITY),
                     Some(b) if b.len() == 4 => {
                         let v: Vec<f32> = b.iter().map(|x| x.as_f64().unwrap_or(0.0) as f32).collect();
                         if v[2] <= 0.0 || v[3] <= 0.0 {
@@ -565,6 +601,7 @@ pub fn specs() -> Vec<CommandSpec> {
                     shape,
                     transform,
                     orientation,
+                    on_path,
                     ..Default::default()
                 };
                 t.sync_summary();
@@ -584,7 +621,7 @@ pub fn specs() -> Vec<CommandSpec> {
             label: "Edit Type",
             menu: &[],
             shortcut: None,
-            params: r##"{"layer":id?,"text":str? (replace all, styles kept),"replace":{"start":char,"end":char,"text":str}?,"runs":[{"start":char,"end":char,…character keys}]?,"box":[x,y,w,h]? (to paragraph text),"point":[x,y]? (to point text),"move":[dx,dy]?,"transform":[a,b,c,d,e,f]?,"antialias":"none|sharp|crisp|strong|smooth"?,"name":str?,"kerning":1/1000em|"metrics"|"optical"|"off"? (with "range":[startChar,endChar]?, default all),"kernPair":{"at":caretChar,"by":1/1000em}? (Alt+←/→: the pair before the caret becomes manual, its current kerning + by)}"##,
+            params: r##"{"layer":id?,"text":str? (replace all, styles kept),"replace":{"start":char,"end":char,"text":str}?,"runs":[{"start":char,"end":char,…character keys}]?,"box":[x,y,w,h]? (to paragraph text),"point":[x,y]? (to point text),"move":[dx,dy]?,"transform":[a,b,c,d,e,f]?,"antialias":"none|sharp|crisp|strong|smooth"?,"onPath":{"path"?,"start"?,"flip"?}|name|null? (type on a path; null = point text),"name":str?,"kerning":1/1000em|"metrics"|"optical"|"off"? (with "range":[startChar,endChar]?, default all),"kernPair":{"at":caretChar,"by":1/1000em}? (Alt+←/→: the pair before the caret becomes manual, its current kerning + by)}"##,
             enabled: has_doc,
             journal: true,
             run: |s, p| {
@@ -615,6 +652,27 @@ pub fn specs() -> Vec<CommandSpec> {
                             .filter(|v| v.is_finite() && v.abs() <= KERN_MAX)
                             .ok_or_else(|| bad("type.edit", "kernPair.by must be a number of 1/1000 em"))?;
                         Some((at as usize, by))
+                    }
+                };
+                // Type on a path: a new path is given in document space (stored in text space).
+                let on_path = match p.get("onPath") {
+                    None => None,
+                    Some(Value::Null) => Some(None),
+                    Some(v) => {
+                        let st = s.active().ok_or(EngineError::NoDocument)?;
+                        let current = match st.doc.layer(id).map(|l| &l.content) {
+                            Some(LayerContent::Text(t)) => t.on_path.clone(),
+                            _ => None,
+                        };
+                        let xf = match st.doc.layer(id).map(|l| &l.content) {
+                            Some(LayerContent::Text(t)) => t.transform,
+                            _ => Affine::IDENTITY,
+                        };
+                        let doc_space = current.as_ref().map(|c| TextPath { path: c.path.transform(&xf), ..c.clone() });
+                        let mut tp = on_path_param(s, "type.edit", v, doc_space.as_ref())?;
+                        let inv = xf.inverse().ok_or_else(|| bad("type.edit", "the type layer's transform cannot be inverted"))?;
+                        tp.path = tp.path.transform(&inv);
+                        Some(Some(tp))
                     }
                 };
                 let label = if kern_pair.is_some() { "Kerning" } else { "Edit Type" };
@@ -691,6 +749,18 @@ pub fn specs() -> Vec<CommandSpec> {
                             "strong" => AntiAlias::Strong,
                             _ => AntiAlias::Smooth,
                         };
+                    }
+                    if let Some(tp) = &on_path {
+                        // Released from the path: point text anchored where the path text started.
+                        if tp.is_none()
+                            && let Some((x, y)) = t.on_path.as_ref().and_then(photocraft_text::on_path::OnPath::new).and_then(|op| op.apply(0.0, 0.0))
+                        {
+                            t.transform = t.transform.mul(&Affine::translate(x, y));
+                        }
+                        t.on_path = tp.clone();
+                        if t.on_path.is_some() {
+                            t.shape = TextShape::Point;
+                        }
                     }
                     // The rename lands in the same undo step as the edit (#497).
                     *rename = name.clone();
@@ -1265,5 +1335,45 @@ mod tests {
             s.execute("edit.undo", json!({})).unwrap();
             assert!(s.active().unwrap().doc.layer(LayerId(id)).is_none());
         }
+    }
+
+    #[test]
+    fn type_on_a_path_follows_the_path_and_edits_like_type() {
+        let mut s = session();
+        // A vertical line down the canvas: the text runs downwards, turned 90°.
+        s.execute("path.set", json!({"path": {"subpaths": [{"closed": false, "knots": [[100, 5], [100, 95]]}]}})).unwrap();
+        let id = s.execute("type.create", json!({"text": "Hello", "size": 18, "onPath": "work"})).unwrap()["layer"].as_u64().unwrap();
+        let b = text_layer(&s, id).cache.unwrap().content_bounds();
+        assert!(b.height() > b.width() * 2 && b.x0 >= 75 && b.x1 <= 125, "runs down the path: {b:?}");
+        let info = s.execute("type.info", json!({"layer": id})).unwrap();
+        assert_eq!(info["onPath"]["start"], 0.0);
+        assert_eq!(info["onPath"]["path"]["subpaths"][0]["knots"][0]["anchor"], json!([100.0, 5.0]));
+        // The start moves the text along; past the end the glyphs are hidden.
+        s.execute("type.edit", json!({"layer": id, "onPath": {"start": 40}})).unwrap();
+        let moved = text_layer(&s, id).cache.unwrap().content_bounds();
+        assert!(moved.y0 >= b.y0 + 30, "{b:?} -> {moved:?}");
+        // Flipped: the text runs up the other side of the path.
+        s.execute("type.edit", json!({"layer": id, "onPath": {"start": 0, "flip": true}})).unwrap();
+        let flipped = text_layer(&s, id).cache.unwrap().content_bounds();
+        assert!((flipped.x0 + flipped.x1) / 2 != (b.x0 + b.x1) / 2, "{b:?} vs {flipped:?}");
+        // Moving the layer carries the path.
+        s.execute("type.edit", json!({"layer": id, "move": [-50, 0]})).unwrap();
+        let info = s.execute("type.info", json!({"layer": id})).unwrap();
+        assert_eq!(info["onPath"]["path"]["subpaths"][0]["knots"][0]["anchor"], json!([50.0, 5.0]));
+        // Editing text keeps it on the path; null makes it point text again; undo brings it back.
+        s.execute("type.edit", json!({"layer": id, "text": "Hi"})).unwrap();
+        assert!(text_layer(&s, id).on_path.is_some());
+        s.execute("type.edit", json!({"layer": id, "onPath": null})).unwrap();
+        let released = text_layer(&s, id);
+        assert!(released.on_path.is_none());
+        // Point text where the path text started (the flipped path's start: its far end).
+        assert_eq!((released.transform.m[4], released.transform.m[5]), (50.0, 95.0));
+        s.execute("edit.undo", json!({})).unwrap();
+        assert!(text_layer(&s, id).on_path.is_some());
+        // Bad input is refused without touching the layer.
+        for bad in [json!({"start": "far"}), json!({"flip": 1}), json!(7), json!({"path": {"subpaths": [{"closed": false, "knots": [[3, 3], [3, 3]]}]}})] {
+            assert!(s.execute("type.edit", json!({"layer": id, "onPath": bad})).is_err(), "{bad}");
+        }
+        assert!(s.execute("type.create", json!({"text": "x", "onPath": "nope"})).is_err());
     }
 }

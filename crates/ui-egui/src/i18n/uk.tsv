@@ -3552,3 +3552,6 @@ theme	Warm	Тепла
 	How hard a pen press must be, for every tool. Double-click the graph to reset.	Наскільки сильно треба натискати пером, для всіх інструментів. Подвійне клацання по графіку скидає її.
 	Import Image as Brush…	Імпортувати зображення як пензель…
 	New brush “{name}” from the image	Новий пензель «{name}» із зображення
+	Type on a Path	Текст по контуру
+	Start	Початок
+	Release from Path	Відокремити від контуру
