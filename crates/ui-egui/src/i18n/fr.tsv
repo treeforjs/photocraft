@@ -2859,7 +2859,12 @@ theme	Warm	Chaud
 	Slant	Inclinaison
 	Optical Size	Taille optique
 	Optical size follows the font size	La taille optique suit le corps
+<<<<<<< HEAD
 	Pressure curve	Courbe de pression
 	Curve:	Courbe :
 	Firm	Ferme
 	How hard a pen press must be, for every tool. Double-click the graph to reset.	La force de pression du stylet nécessaire, pour tous les outils. Double-cliquez sur le graphique pour la réinitialiser.
+=======
+	Import Image as Brush…	Importer une image comme forme…
+	New brush “{name}” from the image	Nouvelle forme « {name} » à partir de l’image
+>>>>>>> origin/main

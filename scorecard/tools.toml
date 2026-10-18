@@ -85,9 +85,9 @@ note = "paint pressure_curve.rs (monotone 5-point curve); global Preferences ›
 [[item]]
 id = "TOOL-213-12"
 target = "Import an image file as a brush tip"
-status = "missing"
+status = "done"
 issue = 213
-note = "Only brush.defineFromSelection and brush.presets.importAbr"
+note = "brush.defineFromImage (any image the importer reads, scaled to the 2500 px tip limit); Brushes panel and brush picker: Import Image as Brush… (preset_files_ui.rs)"
 
 [[item]]
 id = "TOOL-213-13"

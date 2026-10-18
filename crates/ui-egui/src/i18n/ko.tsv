@@ -3022,7 +3022,12 @@ theme	Warm	웜
 	Slant	기울기
 	Optical Size	광학 크기
 	Optical size follows the font size	광학 크기가 글꼴 크기를 따름
+<<<<<<< HEAD
 	Pressure curve	필압 곡선
 	Curve:	곡선:
 	Firm	강하게
 	How hard a pen press must be, for every tool. Double-click the graph to reset.	모든 도구에서 펜을 얼마나 세게 눌러야 하는지 정합니다. 그래프를 두 번 클릭하면 초기화됩니다.
+=======
+	Import Image as Brush…	이미지를 브러시로 가져오기…
+	New brush “{name}” from the image	이미지에서 새 브러시 “{name}”
+>>>>>>> origin/main

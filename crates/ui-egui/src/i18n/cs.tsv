@@ -2449,7 +2449,12 @@ theme	Warm	Teplý
 	Slant	Sklon
 	Optical Size	Optická velikost
 	Optical size follows the font size	Optická velikost sleduje velikost písma
+<<<<<<< HEAD
 	Pressure curve	Křivka přítlaku
 	Curve:	Křivka:
 	Firm	Pevná
 	How hard a pen press must be, for every tool. Double-click the graph to reset.	Jak silný musí být přítlak pera, pro všechny nástroje. Dvojklikem na graf jej obnovíte.
+=======
+	Import Image as Brush…	Importovat obraz jako štětec…
+	New brush “{name}” from the image	Nový štětec „{name}“ z obrazu
+>>>>>>> origin/main

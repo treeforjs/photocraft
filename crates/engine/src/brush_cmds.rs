@@ -702,11 +702,22 @@ fn define_from_selection(s: &mut Session, p: &Value) -> Result<Value> {
             v[y * w + x] = ((1.0 - l) * c[3] * sv[(y * w + x) * sc]).clamp(0.0, 1.0);
         }
     }
-    // Crop to the painted extent.
+    let (tip, tw, th) = tip_from_paint(&v, w, h, cmd)?;
+    let brush = BrushSettings { tip: TipShape::Sampled(tip), size: tw.max(th) as f32, spacing: 0.25, pressure_size: false, ..BrushSettings::default() };
+    upsert(s, BrushPreset { name: name.clone(), brush: brush.clone(), builtin: false, group: String::new(), folder: Vec::new() });
+    s.tools.brush = brush;
+    s.tools.current_preset = Some(name.clone());
+    Ok(json!({ "name": name, "width": tw, "height": th }))
+}
+
+/// A sampled tip from paint amounts `v` (`w` × `h`, 0 = none, 1 = full), cropped to the painted
+/// extent. Errors when nothing is painted or the tip passes [`MAX_TIP`].
+fn tip_from_paint(v: &[f32], w: usize, h: usize, cmd: &str) -> Result<(GrayTile, u32, u32)> {
+    let at = |x: usize, y: usize| v.get(y * w + x).copied().unwrap_or(0.0);
     let (mut x0, mut y0, mut x1, mut y1) = (w, h, 0, 0);
     for y in 0..h {
         for x in 0..w {
-            if v[y * w + x] > 1e-4 {
+            if at(x, y) > 1e-4 {
                 x0 = x0.min(x);
                 y0 = y0.min(y);
                 x1 = x1.max(x + 1);
@@ -715,17 +726,59 @@ fn define_from_selection(s: &mut Session, p: &Value) -> Result<Value> {
         }
     }
     if x1 <= x0 || y1 <= y0 {
-        return Err(bad(cmd, "the selected pixels contain no paint (all white or transparent)"));
+        return Err(bad(cmd, "the pixels contain no paint (all white or transparent)"));
     }
-    let (tw, th) = ((x1 - x0) as u32, (y1 - y0) as u32);
-    if tw.max(th) > MAX_TIP {
-        return Err(bad(cmd, format!("selection too large for a brush tip ({tw}×{th}; max {MAX_TIP} px)")));
+    let (tw, th) = (x1 - x0, y1 - y0);
+    if tw.max(th) > MAX_TIP as usize {
+        return Err(bad(cmd, format!("too large for a brush tip ({tw}×{th}; max {MAX_TIP} px)")));
     }
-    let mut data = Vec::with_capacity((tw * th) as usize);
+    let mut data = Vec::with_capacity(tw * th);
     for y in y0..y1 {
-        data.extend_from_slice(&v[y * w + x0..y * w + x1]);
+        data.extend((x0..x1).map(|x| at(x, y)));
     }
-    let tip = GrayTile::from_f32(tw, th, &data);
+    Ok((GrayTile::from_f32(tw as u32, th as u32, &data), tw as u32, th as u32))
+}
+
+/// Largest image `brush.defineFromImage` reads (pixels), before it is scaled to [`MAX_TIP`].
+const MAX_TIP_IMAGE_PIXELS: u64 = 100_000_000;
+
+/// Brushes panel › Import Image as Brush…: an image file becomes a sampled tip, dark and opaque
+/// pixels painting (as Define Brush Preset reads a selection). Larger images are scaled down to
+/// [`MAX_TIP`] on their longer side.
+fn define_from_image(s: &mut Session, p: &Value) -> Result<Value> {
+    let cmd = "brush.defineFromImage";
+    let (bytes, stem) = crate::preset_import_cmds::file_bytes(p, cmd, "image file")?;
+    let file = p.get("path").or_else(|| p.get("fileName")).and_then(Value::as_str).unwrap_or("image.png");
+    let name = match p.get("name") {
+        Some(_) => name_param(p, cmd)?,
+        None if !stem.is_empty() => stem,
+        None => "Image Brush".to_string(),
+    };
+    let doc = photocraft_io::import(file, &bytes).map_err(|e| bad(cmd, format!("{file}: {e}")))?.document;
+    let (iw, ih) = (doc.size.width, doc.size.height);
+    if iw == 0 || ih == 0 || u64::from(iw) * u64::from(ih) > MAX_TIP_IMAGE_PIXELS {
+        return Err(bad(cmd, format!("{iw}×{ih} px is not an image size a brush tip can be made from")));
+    }
+    let buf = photocraft_compose::flatten(&doc);
+    let (bw, bh) = (buf.rect.width() as usize, buf.rect.height() as usize);
+    // Scale down (area average) so the longer side fits MAX_TIP.
+    let k = (f64::from(MAX_TIP) / f64::from(iw.max(ih))).min(1.0);
+    let (w, h) = (((bw as f64 * k).round() as usize).max(1), ((bh as f64 * k).round() as usize).max(1));
+    let mut v = vec![0.0f32; w * h];
+    let mut n = vec![0u32; w * h];
+    for (i, c) in buf.px.iter().enumerate() {
+        let (x, y) = (i % bw.max(1), i / bw.max(1));
+        let (tx, ty) = (((x as f64 * k) as usize).min(w - 1), ((y as f64 * k) as usize).min(h - 1));
+        let l = photocraft_color::blend::lum([c[0], c[1], c[2]]);
+        if let (Some(a), Some(m)) = (v.get_mut(ty * w + tx), n.get_mut(ty * w + tx)) {
+            *a += ((1.0 - l) * c[3]).clamp(0.0, 1.0);
+            *m += 1;
+        }
+    }
+    for (a, m) in v.iter_mut().zip(&n) {
+        *a /= (*m).max(1) as f32;
+    }
+    let (tip, tw, th) = tip_from_paint(&v, w, h, cmd)?;
     let brush = BrushSettings { tip: TipShape::Sampled(tip), size: tw.max(th) as f32, spacing: 0.25, pressure_size: false, ..BrushSettings::default() };
     upsert(s, BrushPreset { name: name.clone(), brush: brush.clone(), builtin: false, group: String::new(), folder: Vec::new() });
     s.tools.brush = brush;
@@ -899,6 +952,14 @@ pub fn specs() -> Vec<CommandSpec> {
         spec!("brush.presets.delete", "Delete Brush Preset", r##"{"name":string}"##, always, presets_delete, true),
         spec!("brush.presets.setCurrent", "Set Current Brush Preset", r##"{"name":string}"##, always, presets_set_current, true),
         spec!("brush.defineFromSelection", "Define Brush Preset…", r##"{"name":string}"##, has_selection_and_pixels, define_from_selection, true),
+        spec!(
+            "brush.defineFromImage",
+            "Import Image as Brush…",
+            r##"{"path":"image file"?,"data":base64 bytes?,"fileName":string?="image.png" (with data, for the format),"name":string?=file name} → {name, width, height}"##,
+            always,
+            define_from_image,
+            true
+        ),
         spec!("brush.get", "Get Brush", "{}", always, |s, _| Ok(brush_json(&s.tools.brush)), false),
         spec!("tools.setBrush", "Set Brush", r##"{"preset":name?,"reset":bool?,…BrushSettings fields (camelCase, deep-merged)}"##, always, set_brush, true),
     ]

@@ -2511,7 +2511,12 @@ theme	Warm	Caldo
 	Slant	Inclinazione
 	Optical Size	Dimensione ottica
 	Optical size follows the font size	La dimensione ottica segue la dimensione del font
+<<<<<<< HEAD
 	Pressure curve	Curva di pressione
 	Curve:	Curva:
 	Firm	Decisa
 	How hard a pen press must be, for every tool. Double-click the graph to reset.	Quanto deve premere la penna, per tutti gli strumenti. Doppio clic sul grafico per ripristinarla.
+=======
+	Import Image as Brush…	Importa immagine come pennello…
+	New brush “{name}” from the image	Nuovo pennello “{name}” dall’immagine
+>>>>>>> origin/main

@@ -39,6 +39,8 @@ pub enum Pick {
     NewPreset,
     /// Import brushes (.abr) with the file dialog.
     Import,
+    /// Make a brush tip from an image file (TOOL-213-12).
+    ImportImage,
 }
 
 impl Pick {
@@ -87,6 +89,9 @@ pub fn apply(app: &mut PhotocraftApp, ctx: &egui::Context, picks: Vec<Pick>) {
             }
             Pick::Import => {
                 let _ = app.open_dialog_file();
+            }
+            Pick::ImportImage => {
+                let _ = crate::preset_files_ui::import_image_brush(app);
             }
         }
     }
@@ -205,6 +210,10 @@ fn gear_menu(ui: &mut egui::Ui, current: Option<&str>, presets: &[BrushPreset], 
         ui.separator();
         if ui.button(tl!("Import Brushes…")).clicked() {
             picks.push(Pick::Import);
+            ui.close();
+        }
+        if ui.button(tl!("Import Image as Brush…")).clicked() {
+            picks.push(Pick::ImportImage);
             ui.close();
         }
     });

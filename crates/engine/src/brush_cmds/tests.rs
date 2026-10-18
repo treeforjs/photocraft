@@ -295,6 +295,7 @@ fn set_brush_keeps_untouched_bitmaps_and_replaces_touched_ones() {
     eprintln!("merge_brush on a 2500 px tip: {ms:.2} ms per edit");
 }
 
+<<<<<<< HEAD
 /// TOOL-213-11: a dynamic's pressure curve and the global one are set through the commands
 /// agents use; hostile values never escape 0–1.
 #[test]
@@ -312,6 +313,54 @@ fn pressure_curves_are_set_by_commands() {
     s.execute("tools.setBrush", json!({"shapeDynamics": {"size": {"pressureCurve": [9, -9, 0.5, 1e30, 0]}}})).unwrap();
     let c = s.tools.brush.shape_dynamics.size.pressure_curve;
     assert!((0..=10).all(|k| (0.0..=1.0).contains(&c.apply(k as f32 / 10.0))));
+=======
+/// TOOL-213-12: an image file becomes a sampled tip (dark and opaque paints), cropped to what
+/// paints and scaled down past the tip limit; bad files are errors.
+#[test]
+fn define_brush_from_an_image_file() {
+    let mut src = session(30, 20);
+    src.edit("setup", |doc, active| {
+        let surf = doc.layer_mut(active.unwrap()).unwrap().surface_mut().unwrap();
+        surf.fill_rect(Rect::new(0, 0, 30, 20), &[1.0, 1.0, 1.0, 1.0]);
+        surf.fill_rect(Rect::new(4, 5, 12, 9), &[0.0, 0.0, 0.0, 1.0]);
+        Ok(())
+    })
+    .unwrap();
+    let png = photocraft_io::export(&src.active().unwrap().doc, "tip.png", &Default::default()).unwrap().bytes;
+    let mut s = session(40, 40);
+    let data = photocraft_paint::tile::b64_encode(&png);
+    let r = s.execute("brush.defineFromImage", json!({"data": data, "fileName": "tip.png", "name": "Bar"})).unwrap();
+    assert_eq!((r["width"].as_u64(), r["height"].as_u64()), (Some(8), Some(4)));
+    assert!(matches!(&s.tools.brush.tip, TipShape::Sampled(t) if t.width == 8 && t.get(0, 0) == 1.0));
+    assert_eq!(s.tools.current_preset.as_deref(), Some("Bar"));
+    // From a path, named after the file.
+    let dir = std::env::temp_dir().join(format!("pc-tip-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let path = dir.join("Stamp.png");
+    std::fs::write(&path, &png).unwrap();
+    let r = s.execute("brush.defineFromImage", json!({"path": path.to_string_lossy()})).unwrap();
+    assert_eq!(r["name"], "Stamp");
+    // A huge image is scaled to fit the tip limit.
+    let mut big = session(6000, 100);
+    big.edit("setup", |doc, active| {
+        doc.layer_mut(active.unwrap()).unwrap().surface_mut().unwrap().fill_rect(Rect::new(0, 0, 6000, 100), &[0.0, 0.0, 0.0, 1.0]);
+        Ok(())
+    })
+    .unwrap();
+    let png = photocraft_io::export(&big.active().unwrap().doc, "big.png", &Default::default()).unwrap().bytes;
+    std::fs::write(&path, &png).unwrap();
+    let r = s.execute("brush.defineFromImage", json!({"path": path.to_string_lossy(), "name": "Wide"})).unwrap();
+    assert_eq!(r["width"].as_u64(), Some(u64::from(crate::brush_cmds::MAX_TIP)));
+    // Not an image, all white, missing: errors that change nothing.
+    std::fs::write(&path, b"not an image").unwrap();
+    let n = s.tools.presets.len();
+    assert!(s.execute("brush.defineFromImage", json!({"path": path.to_string_lossy()})).is_err());
+    let white = photocraft_io::export(&session(8, 8).active().unwrap().doc, "w.png", &Default::default()).unwrap().bytes;
+    assert!(s.execute("brush.defineFromImage", json!({"data": photocraft_paint::tile::b64_encode(&white)})).is_err());
+    assert!(s.execute("brush.defineFromImage", json!({})).is_err());
+    assert_eq!(s.tools.presets.len(), n);
+    let _ = std::fs::remove_dir_all(&dir);
+>>>>>>> origin/main
 }
 
 #[test]

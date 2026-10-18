@@ -678,6 +678,9 @@ pub fn show(app: &mut PhotocraftApp, ui: &mut egui::Ui) {
             if icons::button(ui, "folder-open", 24.0, false, "Import Brushes… (.abr)").clicked() {
                 let _ = app.open_dialog_file();
             }
+            if icons::button(ui, "image", 24.0, false, tl!("Import Image as Brush…")).clicked() {
+                let _ = crate::preset_files_ui::import_image_brush(app);
+            }
         });
     });
     // Forget previews of presets that no longer exist.
