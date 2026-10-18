@@ -4237,7 +4237,8 @@ pub fn commit_crop(app: &mut PhotocraftApp) {
     }
 }
 
-/// "mask" when the Layers panel targets (or the canvas shows) the active layer's mask, else "pixels".
+/// "mask" when the Layers panel targets (or the canvas shows) the active layer's mask,
+/// "filterMask" when it targets a smart object's filter mask, else "pixels".
 pub fn paint_target(app: &PhotocraftApp) -> serde_json::Value {
     use photocraft_engine::channel_cmds::ChannelTarget;
     let Some(st) = app.session.active() else { return json!("pixels") };
@@ -4246,6 +4247,9 @@ pub fn paint_target(app: &PhotocraftApp) -> serde_json::Value {
         ChannelTarget::Alpha(i) if i < st.doc.channels.len() => return json!({ "channel": i }),
         ChannelTarget::Composite if st.doc.quick_mask.is_some() => return json!("quickMask"),
         _ => {}
+    }
+    if app.ui.filter_mask_target && crate::smart_ui::active_filter_mask(st) {
+        return json!("filterMask");
     }
     let has_mask = st.active_layer.and_then(|id| st.doc.layer(id)).is_some_and(|l| l.mask.is_some());
     // Viewing the mask (⌥-click its thumbnail, #196) paints the mask.

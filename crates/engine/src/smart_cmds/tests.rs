@@ -976,3 +976,35 @@ fn inspect_reports_the_smart_source() {
     assert_eq!(source(&s)["kind"], "embedded");
     assert!(source(&s)["fileName"].is_string());
 }
+
+#[test]
+fn painting_the_filter_mask_hides_the_filter_there_and_undoes() {
+    let mut s = session(8);
+    paint(&mut s);
+    let original = flat(&s);
+    convert(&mut s);
+    s.execute("filter.blur.gaussianBlur", json!({"radius": 3})).unwrap();
+    let blurred = flat(&s);
+    let at = |v: &Vec<[f32; 4]>, x: i32, y: i32| v[(y * W + x) as usize];
+    assert_ne!(at(&blurred, 10, 20), at(&original, 10, 20));
+    // No mask yet: painting it is refused rather than painting the smart object's pixels.
+    let stroke = json!({"points": [[10, 20]], "size": 12, "hardness": 1.0, "color": "#000000", "target": "filterMask"});
+    assert!(s.execute("paint.stroke", stroke.clone()).is_err());
+    s.execute("layer.smartFilter.addFilterMask", json!({})).unwrap();
+    assert!(!s.is_enabled("layer.smartFilter.addFilterMask"));
+    assert_eq!(flat(&s), blurred, "a new filter mask reveals the whole filter");
+    s.execute("paint.stroke", stroke).unwrap();
+    let painted = flat(&s);
+    assert!(max_diff(&[at(&painted, 10, 20)], &[at(&original, 10, 20)]) < 1e-3, "black on the filter mask shows the unfiltered pixels");
+    assert_eq!(at(&painted, 30, 20), at(&blurred, 30, 20), "away from the stroke the filter stays");
+    // The smart object's source is untouched: only the mask changed.
+    assert!(active_smart(&s).filter_mask.unwrap().value(10, 20) < 0.01);
+    s.execute("edit.undo", json!({})).unwrap();
+    assert_eq!(flat(&s), blurred, "undo puts the filter back");
+    s.execute("edit.redo", json!({})).unwrap();
+    assert_eq!(flat(&s), painted);
+    // Fills and adjustments reach the filter mask too: ⌘I inverts it.
+    s.execute("image.adjustments.invert", json!({"target": "filterMask"})).unwrap();
+    let inverted = flat(&s);
+    assert_eq!(at(&inverted, 30, 20), at(&original, 30, 20), "the inverted mask hides the filter away from the stroke");
+}

@@ -407,6 +407,34 @@ pub fn render_below_filter(doc: &Document, sm: &SmartObject, index: usize) -> Re
     render(doc, &below)
 }
 
+/// After an edit painted (or filled, filtered, …) the filter mask of smart layer `id`, re-renders
+/// the layer so the canvas shows the new mask. Commands that already re-rendered it (a new cache)
+/// and other edits leave the cache alone.
+pub(crate) fn refresh_after_filter_mask_edit(before: &Document, doc: &mut Document, id: Option<LayerId>) -> Result<()> {
+    let Some(id) = id else { return Ok(()) };
+    let changed = match (before.layer(id).map(|l| &l.content), doc.layer(id).map(|l| &l.content)) {
+        (Some(LayerContent::Smart(a)), Some(LayerContent::Smart(b))) => {
+            let same_cache = match (&a.cache, &b.cache) {
+                (Some(x), Some(y)) => crate::layer_multi_cmds::surfaces_equal(x, y),
+                (None, None) => true,
+                _ => false,
+            };
+            same_cache && !crate::layer_multi_cmds::masks_equal(&a.filter_mask, &b.filter_mask)
+        }
+        _ => false,
+    };
+    if !changed {
+        return Ok(());
+    }
+    let Some(mut layer) = doc.layer(id).cloned() else { return Ok(()) };
+    if refresh_layer(doc, &mut layer)?
+        && let Some(slot) = doc.layer_mut(id)
+    {
+        *slot = layer;
+    }
+    Ok(())
+}
+
 /// Re-renders smart layer `l` (which lives in `doc`) in place. Returns false if its source is
 /// unavailable (the cache is then left alone).
 pub fn refresh_layer(doc: &Document, l: &mut Layer) -> Result<bool> {
@@ -1024,6 +1052,10 @@ fn has_linked(s: &Session) -> std::result::Result<(), String> {
 fn has_smart_filters(s: &Session) -> std::result::Result<(), String> {
     if active_smart(s)?.smart_filters.is_empty() { Err("the smart object has no smart filters".into()) } else { Ok(()) }
 }
+fn can_add_filter_mask(s: &Session) -> std::result::Result<(), String> {
+    has_smart_filters(s)?;
+    if active_smart(s)?.filter_mask.is_some() { Err("the smart object already has a filter mask".into()) } else { Ok(()) }
+}
 fn has_filter_mask(s: &Session) -> std::result::Result<(), String> {
     active_smart(s)?.filter_mask.as_ref().map(|_| ()).ok_or_else(|| "the smart object has no filter mask".into())
 }
@@ -1140,6 +1172,13 @@ pub fn specs() -> Vec<CommandSpec> {
                 })
             }
         ),
+        // A white (reveal all) filter mask to paint on: `"target":"filterMask"` then paints it.
+        spec!("layer.smartFilter.addFilterMask", "Add Filter Mask", SF, r##"{"layer":id?}"##, can_add_filter_mask, |s, p| {
+            edit_filters(s, p, "Add Filter Mask", |sm| {
+                sm.filter_mask = Some(LayerMask::reveal_all());
+                Ok(())
+            })
+        }),
         spec!("layer.smartFilter.deleteFilterMask", "Delete Filter Mask", SF, r##"{"layer":id?}"##, has_filter_mask, |s, p| {
             edit_filters(s, p, "Delete Filter Mask", |sm| {
                 sm.filter_mask = None;
