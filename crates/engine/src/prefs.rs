@@ -590,6 +590,8 @@ impl TransparencyAndGamut {
 #[serde(default, rename_all = "camelCase")]
 pub struct UnitsAndRulers {
     pub rulers: Unit,
+    /// Turn View › Rulers on when a document is created or opened.
+    pub show_rulers_for_new_documents: bool,
     pub type_units: TypeUnit,
     pub column_width: f64,
     pub gutter: f64,
@@ -602,6 +604,7 @@ impl Default for UnitsAndRulers {
     fn default() -> Self {
         Self {
             rulers: Unit::Pixels,
+            show_rulers_for_new_documents: false,
             type_units: TypeUnit::Points,
             column_width: 180.0,
             gutter: 12.0,

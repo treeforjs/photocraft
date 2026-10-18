@@ -101,6 +101,18 @@ pub fn content_rect(app: &PhotocraftApp, rect: Rect) -> Rect {
 }
 
 /// Tick step (document px) so major ticks are at least ~60 screen px apart: 1, 2, 5, 10, 20, 50…
+/// Preferences › Units & Rulers › Show Rulers for New Documents: a document created or opened
+/// since the last frame turns View › Rulers on.
+pub(crate) fn show_for_new_documents(app: &mut PhotocraftApp) {
+    let newest = app.session.documents().iter().map(|st| st.doc.id.0).max().unwrap_or(0);
+    if newest > app.newest_doc {
+        app.newest_doc = newest;
+        if app.session.prefs().units_and_rulers.show_rulers_for_new_documents {
+            app.ui.extras.rulers = true;
+        }
+    }
+}
+
 #[cfg(test)]
 fn tick_step(zoom: f32) -> f64 {
     nice_step(60.0 / zoom.max(1e-4) as f64, true)
@@ -163,7 +175,7 @@ pub fn draw_guides(app: &PhotocraftApp, painter: &egui::Painter, xf: &ViewXform,
                 if drag.is_some_and(|d| d.vertical == vertical && d.index == Some(i)) {
                     continue;
                 }
-                line(vertical, *p as f64, guide);
+                line(vertical, *p, guide);
             }
         }
     }
@@ -182,12 +194,12 @@ pub fn guide_at(app: &PhotocraftApp, x: f64, y: f64) -> Option<(bool, usize)> {
     let doc = &app.session.active()?.doc;
     let tol = 4.0 / app.point_zoom().max(0.01) as f64;
     for (i, g) in doc.guides.vertical.iter().enumerate() {
-        if (*g as f64 - x).abs() <= tol {
+        if (*g - x).abs() <= tol {
             return Some((true, i));
         }
     }
     for (i, g) in doc.guides.horizontal.iter().enumerate() {
-        if (*g as f64 - y).abs() <= tol {
+        if (*g - y).abs() <= tol {
             return Some((false, i));
         }
     }
@@ -322,6 +334,36 @@ pub fn draw_rulers(app: &mut PhotocraftApp, ui: &mut egui::Ui, full: Rect, xf: &
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn rulers_turn_on_for_new_documents_when_preferred() {
+        let mut app = PhotocraftApp::new(photocraft_engine::Session::new(), Default::default());
+        app.ui.extras.rulers = false;
+        app.run("file.new", json!({"width": 10, "height": 10})).unwrap();
+        show_for_new_documents(&mut app);
+        assert!(!app.ui.extras.rulers, "off by default");
+        app.run("prefs.set", json!({"path": "unitsAndRulers.showRulersForNewDocuments", "value": true})).unwrap();
+        show_for_new_documents(&mut app);
+        assert!(!app.ui.extras.rulers, "an existing document isn't new");
+        app.run("file.new", json!({"width": 10, "height": 10})).unwrap();
+        show_for_new_documents(&mut app);
+        assert!(app.ui.extras.rulers);
+        // Hiding them again sticks until the next new document.
+        app.ui.extras.rulers = false;
+        show_for_new_documents(&mut app);
+        assert!(!app.ui.extras.rulers);
+    }
+
+    #[test]
+    fn guides_keep_their_position_on_huge_canvases() {
+        let mut app = PhotocraftApp::new(photocraft_engine::Session::new(), Default::default());
+        app.run("file.new", json!({"width": 300000, "height": 10})).unwrap();
+        // An f32 steps by 1/64 px out here, so 250000.01 would land on 250000.015625.
+        app.run("view.newGuide", json!({"orientation": "vertical", "position": 250_000.01})).unwrap();
+        assert_eq!(app.session.active().unwrap().doc.guides.vertical, vec![250_000.01]);
+        app.run("view.newGuide", json!({"orientation": "vertical", "position": 299_999.9})).unwrap();
+        assert_eq!(app.session.active().unwrap().doc.guides.vertical.get(1), Some(&299_999.9));
+    }
 
     #[test]
     fn percentage_grid_spacing_uses_both_canvas_dimensions() {
