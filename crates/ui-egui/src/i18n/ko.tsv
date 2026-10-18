@@ -2965,9 +2965,9 @@ fontWeight	Italic	기울임
 	Simulate Pressure	필압 시뮬레이션
 	High contrast	고대비
 	High Contrast Theme	고대비 테마
-	Cream	크림
+theme	Warm	웜
 	Dim	딤
-	Cream Theme	크림 테마
+	Warm Theme	웜 테마
 	Dim Theme	딤 테마
 	Paragraph direction	단락 방향
 	Auto Direction	자동 방향
@@ -2987,6 +2987,32 @@ fontWeight	Italic	기울임
 	Edit points to modify the curve	점을 편집하여 곡선 수정
 	Draw to modify the curve	그려서 곡선 수정
 	Drag to draw the curve · Smooth softens it	드래그하여 곡선 그리기 · 매끄럽게로 부드럽게
+	Numerals	숫자
+	Stylistic Sets	스타일 세트
+	Tabular Lining	고정폭 라이닝
+	Proportional Lining	비례 라이닝
+	Tabular Oldstyle	고정폭 올드스타일
+	Proportional Oldstyle	비례 올드스타일
+	Set 1	세트 1
+	Set 2	세트 2
+	Set 3	세트 3
+	Set 4	세트 4
+	Set 5	세트 5
+	Set 6	세트 6
+	Set 7	세트 7
+	Set 8	세트 8
+	Set 9	세트 9
+	Set 10	세트 10
+	Set 11	세트 11
+	Set 12	세트 12
+	Set 13	세트 13
+	Set 14	세트 14
+	Set 15	세트 15
+	Set 16	세트 16
+	Set 17	세트 17
+	Set 18	세트 18
+	Set 19	세트 19
+	Set 20	세트 20
 	Slant	기울기
 	Optical Size	광학 크기
 	Optical size follows the font size	광학 크기가 글꼴 크기를 따름

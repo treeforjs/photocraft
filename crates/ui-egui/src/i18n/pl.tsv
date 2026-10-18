@@ -3403,9 +3403,9 @@ cameraRaw	Roughness	Chropowatość
 	Simulate Pressure	Symuluj nacisk
 	High contrast	Wysoki kontrast
 	High Contrast Theme	Motyw o wysokim kontraście
-	Cream	Kremowy
+theme	Warm	Ciepły
 	Dim	Przyciemniony
-	Cream Theme	Motyw kremowy
+	Warm Theme	Motyw ciepły
 	Dim Theme	Motyw przyciemniony
 	Paragraph direction	Kierunek akapitu
 	Auto Direction	Kierunek automatyczny
@@ -3424,6 +3424,32 @@ cameraRaw	Roughness	Chropowatość
 	Edit points to modify the curve	Edytuj punkty, aby zmienić krzywą
 	Draw to modify the curve	Rysuj, aby zmienić krzywą
 	Drag to draw the curve · Smooth softens it	Przeciągnij, aby narysować krzywą · Wygładź ją zmiękcza
+	Numerals	Cyfry
+	Stylistic Sets	Zestawy stylistyczne
+	Tabular Lining	Tabelaryczne nautyczne
+	Proportional Lining	Proporcjonalne nautyczne
+	Tabular Oldstyle	Tabelaryczne nautyczne nieregularne
+	Proportional Oldstyle	Proporcjonalne nautyczne nieregularne
+	Set 1	Zestaw 1
+	Set 2	Zestaw 2
+	Set 3	Zestaw 3
+	Set 4	Zestaw 4
+	Set 5	Zestaw 5
+	Set 6	Zestaw 6
+	Set 7	Zestaw 7
+	Set 8	Zestaw 8
+	Set 9	Zestaw 9
+	Set 10	Zestaw 10
+	Set 11	Zestaw 11
+	Set 12	Zestaw 12
+	Set 13	Zestaw 13
+	Set 14	Zestaw 14
+	Set 15	Zestaw 15
+	Set 16	Zestaw 16
+	Set 17	Zestaw 17
+	Set 18	Zestaw 18
+	Set 19	Zestaw 19
+	Set 20	Zestaw 20
 	Slant	Pochylenie
 	Optical Size	Rozmiar optyczny
 	Optical size follows the font size	Rozmiar optyczny zgodny z rozmiarem czcionki

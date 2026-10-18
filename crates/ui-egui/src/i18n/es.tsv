@@ -2453,9 +2453,10 @@ fontWeight	Italic	Cursiva
 	Tool	Herramienta
 	High contrast	Alto contraste
 	High Contrast Theme	Tema de alto contraste
-	Cream	Crema
+theme	Warm	Cálido
+	Warm	Cálido
 	Dim	Atenuado
-	Cream Theme	Tema crema
+	Warm Theme	Tema cálido
 	Dim Theme	Tema atenuado
 	Paragraph direction	Dirección del párrafo
 	Auto Direction	Dirección automática
@@ -2475,6 +2476,32 @@ fontWeight	Italic	Cursiva
 	Edit points to modify the curve	Editar puntos para modificar la curva
 	Draw to modify the curve	Dibujar para modificar la curva
 	Drag to draw the curve · Smooth softens it	Arrastre para dibujar la curva · Suavizar la suaviza
+	Numerals	Numerales
+	Stylistic Sets	Conjuntos estilísticos
+	Tabular Lining	Tabulares de caja alta
+	Proportional Lining	Proporcionales de caja alta
+	Tabular Oldstyle	Tabulares estilo antiguo
+	Proportional Oldstyle	Proporcionales estilo antiguo
+	Set 1	Conjunto 1
+	Set 2	Conjunto 2
+	Set 3	Conjunto 3
+	Set 4	Conjunto 4
+	Set 5	Conjunto 5
+	Set 6	Conjunto 6
+	Set 7	Conjunto 7
+	Set 8	Conjunto 8
+	Set 9	Conjunto 9
+	Set 10	Conjunto 10
+	Set 11	Conjunto 11
+	Set 12	Conjunto 12
+	Set 13	Conjunto 13
+	Set 14	Conjunto 14
+	Set 15	Conjunto 15
+	Set 16	Conjunto 16
+	Set 17	Conjunto 17
+	Set 18	Conjunto 18
+	Set 19	Conjunto 19
+	Set 20	Conjunto 20
 	Slant	Inclinación
 	Optical Size	Tamaño óptico
 	Optical size follows the font size	El tamaño óptico sigue al tamaño de fuente
