@@ -180,3 +180,57 @@ fn every_theme_shows_the_type_options() {
         assert!(combos.iter().any(|c| c.contains(&font)), "{theme:?}: the font picker shows {font:?}; combo boxes: {combos:?}");
     }
 }
+
+/// TOOL-214-4: a drag from where Auto-Select picks nothing (here the pasteboard: the Background
+/// fills the canvas) draws a box and selects the layers whose pixels it meets, moving nothing;
+/// Shift adds to the selected layers.
+#[test]
+fn a_drag_from_an_empty_spot_box_selects_layers() {
+    let (mut app, a, b) = app();
+    drag(&mut app, [-4.0, -4.0], [24.0, 24.0], egui::Modifiers::NONE);
+    assert_eq!(app.session.active().unwrap().selected_layers(), vec![a], "the box met A only");
+    assert_eq!(bounds(&app, a), Rect::new(8, 8, 24, 24), "nothing moved");
+    assert_eq!(bounds(&app, b), Rect::new(40, 40, 56, 56));
+    assert!(app.move_box.is_none(), "the box ends with the drag");
+    // Shift adds B, boxed from the far corner back over it.
+    drag(&mut app, [70.0, 70.0], [-20.0, -20.0], egui::Modifiers::SHIFT);
+    let mut sel = app.session.active().unwrap().selected_layers();
+    sel.sort_by_key(|l| l.0);
+    assert_eq!(sel, vec![a, b]);
+    assert_eq!(active(&app), Some(b));
+    // A click on the pasteboard (no drag) changes nothing.
+    drag(&mut app, [-4.0, -4.0], [0.0, 0.0], egui::Modifiers::NONE);
+    assert_eq!(app.session.active().unwrap().selected_layers().len(), 2);
+    // With Auto-Select off the same drag moves the selected layers, as before.
+    app.ui.tool_options.move_auto_select = false;
+    drag(&mut app, [-4.0, -4.0], [2.0, 0.0], egui::Modifiers::NONE);
+    assert_eq!(bounds(&app, a), Rect::new(10, 8, 26, 24));
+}
+
+/// While the box is dragged it is drawn; over a layer's pixels the Move tool outlines that layer.
+#[test]
+fn the_box_and_the_hover_outline_are_drawn() {
+    let (mut app, _a, _b) = app();
+    let ctx = egui::Context::default();
+    ctx.begin_pass(egui::RawInput::default());
+    let shapes = {
+        let painter = ctx.layer_painter(egui::LayerId::background());
+        let xf = crate::canvas::ViewXform {
+            rect: egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(64.0, 64.0)),
+            center: [32.0, 32.0],
+            zoom: 1.0,
+            rotation: 0.0,
+            flip: false,
+        };
+        let doc = app.session.active().unwrap().doc.clone();
+        // Over A: its outline.
+        crate::move_ui::draw_overlay(&mut app, &painter, &xf, &doc, Some(egui::pos2(16.0, 16.0)));
+        // Over the Background only: nothing.
+        crate::move_ui::draw_overlay(&mut app, &painter, &xf, &doc, Some(egui::pos2(32.0, 2.0)));
+        app.move_box = Some(crate::move_ui::MoveBox { start: [0.0, 0.0], end: [10.0, 10.0], add: false });
+        crate::move_ui::draw_overlay(&mut app, &painter, &xf, &doc, None);
+        ctx.graphics(|g| g.get(egui::LayerId::background()).map_or(0, |l| l.all_entries().len()))
+    };
+    ctx.end_pass().textures_delta.clear();
+    assert_eq!(shapes, 3, "A's outline, then the box's fill and edge");
+}
