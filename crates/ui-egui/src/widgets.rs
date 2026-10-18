@@ -595,6 +595,9 @@ fn slider_with(ui: &mut Ui, value: &mut f32, range: std::ops::RangeInclusive<f32
         painter.circle_filled(knob, kr, if t.pro { Color32::from_gray(236) } else { Color32::WHITE });
         if t.pro {
             painter.circle_stroke(knob, kr, Stroke::new(1.0, Color32::from_gray(40)));
+        } else if !t.kind.is_dark() {
+            // A white knob vanishes on a light surface; outline it.
+            painter.circle_stroke(knob, kr, Stroke::new(1.0, t.field_border));
         }
         if resp.hovered() || resp.dragged() {
             painter.circle_stroke(knob, 9.5, Stroke::new(2.0, t.accent_soft));
@@ -1270,6 +1273,45 @@ fn product(s: &str, ppi: Option<f64>) -> Option<f64> {
 mod tests {
     use egui::{Key, Modifiers};
     use egui_kittest::{Harness, kittest::Queryable};
+
+    /// Every circle outline a slider at 50% draws under `kind`, as (colour, radius).
+    fn knob_outlines(kind: crate::theme::ThemeKind) -> Vec<(egui::Color32, f32)> {
+        let ctx = egui::Context::default();
+        crate::theme::apply(&ctx, kind);
+        let mut out = Vec::new();
+        let mut output = egui::FullOutput::default();
+        // An area is invisible on its first pass, while it measures itself.
+        for _ in 0..2 {
+            ctx.begin_pass(egui::RawInput::default());
+            egui::Area::new(egui::Id::new("knob")).show(&ctx, |ui| {
+                let mut v = 0.5;
+                super::slider(ui, &mut v, 0.0..=1.0, None);
+            });
+            output = ctx.end_pass();
+            output.textures_delta.clear();
+        }
+        let mut stack: Vec<egui::Shape> = std::mem::take(&mut output.shapes).into_iter().map(|c| c.shape).collect();
+        while let Some(shape) = stack.pop() {
+            match shape {
+                egui::Shape::Vec(v) => stack.extend(v),
+                egui::Shape::Circle(c) if c.stroke.width > 0.0 => out.push((c.stroke.color, c.radius)),
+                _ => {}
+            }
+        }
+        out
+    }
+
+    #[test]
+    fn slider_knobs_are_outlined_on_light_surfaces() {
+        for kind in crate::theme::ThemeKind::ALL {
+            let outlined = !knob_outlines(kind).is_empty();
+            // Classic draws a bevelled knob instead of a circle.
+            if kind == crate::theme::ThemeKind::Classic {
+                continue;
+            }
+            assert!(outlined || kind.is_dark(), "{kind:?}: a light theme's knob needs an outline");
+        }
+    }
 
     /// Sets up a test with one value field. Its state is its value and how many times it changed.
     fn field(value: f32, range: std::ops::RangeInclusive<f32>) -> Harness<'static, (f32, u32)> {
