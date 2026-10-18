@@ -155,9 +155,9 @@ note = "Window > Libraries (ui-egui libraries_ui.rs, Color card tab): colours, g
 [[item]]
 id = "FILE-216-1"
 target = "Every corpus fetched and enforced in CI, cached by pin"
-status = "missing"
+status = "done"
 issue = 216
-note = "No corpus step in ci.yml; in progress in #190"
+note = "ci.yml `corpus` job runs `cargo xtask corpus --all` then `cargo xtask test-corpus` on every PR and main; corpora pinned in xtask/src/corpus_pins.rs, sha256-verified, cached by a key hashed from the pins"
 
 [[item]]
 id = "FILE-216-2"
@@ -183,9 +183,9 @@ note = "The round trip is our export -> our import"
 [[item]]
 id = "FILE-216-5"
 target = "Save-path tests: layered TIFF, PDF, SVG, ACO/ASE, .shc, Smart Filters, atomic-save failure"
-status = "missing"
+status = "partial"
 issue = 216
-note = "Features absent; no atomic-save failure-injection test"
+note = "Covered: layered TIFF (io/tests/tiff_layers.rs), ACO/ASE (engine swatch_cmds/tests.rs round trips), Smart Filters through PSD (engine/tests/smart_psd.rs), atomic-save failure injection (format/src/atomic/tests.rs via atomic_write_with). Missing because the savers don't exist yet: PDF, SVG and .shc"
 
 [[item]]
 id = "FILE-216-6"
