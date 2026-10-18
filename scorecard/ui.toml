@@ -127,9 +127,9 @@ note = "color_panel_ui.rs: a dropdown switches the Color panel between the spect
 [[item]]
 id = "UI-217-18"
 target = "Alt+wheel zooms in gentle ~5 % steps; zoom controls uncramped"
-status = "partial"
+status = "done"
 issue = 217
-note = "Alt+wheel zooms (wheel_nav.rs, alt_scroll_zooms_ten_percent_per_notch) in 10 % steps, not ~5 %"
+note = "Alt+wheel zooms ×1.05 a notch (wheel_nav.rs NOTCH, alt_scroll_zooms_five_percent_per_notch); the Pro status bar zoom field is as wide as the Studio one (78 pt)"
 
 [[item]]
 id = "UI-217-19"

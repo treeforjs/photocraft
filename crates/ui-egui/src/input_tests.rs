@@ -367,7 +367,7 @@ fn the_wheel_reaches_12800_percent_and_stops_dead_there() {
     h.hover_at(p);
     h.run_steps(2);
     let d0 = doc_at(&h, p);
-    for _ in 0..14 {
+    for _ in 0..26 {
         wheel(&h, 1.0, Modifiers::ALT);
         h.run_steps(30);
     }
@@ -381,10 +381,10 @@ fn the_wheel_reaches_12800_percent_and_stops_dead_there() {
     }
     assert_eq!(zoom(&h), crate::zoom_levels::MAX);
     assert_eq!(h.state().ui.views[0].center, c, "at the limit the image doesn't move");
-    // One notch back: 12800 / 1.1, still around the pointer.
+    // One notch back: 12800 / 1.05, still around the pointer.
     wheel(&h, -1.0, Modifiers::ALT);
     h.run_steps(30);
-    assert!((zoom(&h) - crate::zoom_levels::MAX / 1.1).abs() < 1e-2, "{}", zoom(&h));
+    assert!((zoom(&h) - crate::zoom_levels::MAX / crate::wheel_nav::NOTCH).abs() < 1e-2, "{}", zoom(&h));
     let d2 = doc_at(&h, p);
     assert!((d2[0] - d0[0]).abs() < 0.02 && (d2[1] - d0[1]).abs() < 0.02, "{d0:?} -> {d2:?}");
 }
@@ -397,7 +397,7 @@ fn alt_scroll_zooms_in_steps_around_the_pointer() {
     h.hover_at(p);
     h.run_steps(2);
     let (z0, d0) = (zoom(&h), doc_at(&h, p));
-    // One notch with ⌥ held: ×1.1 (Photoshop), the point under the pointer stays put. The modifiers are
+    // One notch with ⌥ held: ×1.05 (gentler than Photoshop's ×1.1), the point under the pointer stays put. The modifiers are
     // released right after the event, while egui still smooths the notch over later frames, which
     // must neither ease the zoom nor turn into a pan (#1490).
     wheel(&h, 1.0, Modifiers::ALT);
@@ -405,13 +405,13 @@ fn alt_scroll_zooms_in_steps_around_the_pointer() {
     let at_once = zoom(&h);
     h.run_steps(40);
     let (z1, d1) = (zoom(&h), doc_at(&h, p));
-    assert!((z1 / z0 - 1.1).abs() < 1e-3, "one ⌥ notch is ×1.1: {z0} -> {z1}");
+    assert!((z1 / z0 - 1.05).abs() < 1e-3, "one ⌥ notch is ×1.05: {z0} -> {z1}");
     assert_eq!(at_once, z1, "the notch is applied the frame it arrives, with no easing");
     assert!((d1[0] - d0[0]).abs() < 0.05 && (d1[1] - d0[1]).abs() < 0.05, "centred on the pointer: {d0:?} -> {d1:?}");
     // Three notches back out.
     wheel(&h, -3.0, Modifiers::ALT);
     h.run_steps(40);
-    assert!((zoom(&h) / z1 - 1.1f32.powi(-3)).abs() < 1e-3, "{z1} -> {}", zoom(&h));
+    assert!((zoom(&h) / z1 - crate::wheel_nav::NOTCH.powi(-3)).abs() < 1e-3, "{z1} -> {}", zoom(&h));
 
     // A plain notch still pans, and does not zoom.
     let (z2, c2) = (zoom(&h), h.state().ui.views[0].center);
@@ -447,7 +447,7 @@ fn alt_scroll_zooms_while_a_temporary_tool_is_held() {
     let z0 = zoom(&h);
     wheel(&h, 2.0, Modifiers::ALT);
     h.run_steps(40);
-    assert!((zoom(&h) / z0 - 1.1f32.powi(2)).abs() < 1e-3, "{z0} -> {}", zoom(&h));
+    assert!((zoom(&h) / z0 - crate::wheel_nav::NOTCH.powi(2)).abs() < 1e-3, "{z0} -> {}", zoom(&h));
     h.event(egui::Event::Key { key: Key::Space, physical_key: None, pressed: false, repeat: false, modifiers: Modifiers::NONE });
     h.run_steps(2);
     assert_eq!(h.state().ui.tool, crate::state::Tool::Brush);

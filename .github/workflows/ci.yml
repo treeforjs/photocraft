@@ -81,7 +81,7 @@ jobs:
       - uses: actions/checkout@v4
 
       # Unused toolchains in the image (Android SDK, .NET, GHC, CodeQL) are deleted in the
-      # background: the space is free before the craft-fonts build needs it, and nothing waits.
+      # background: the space is free before the build needs it, and nothing waits.
       - name: Install Linux system dependencies (egui/winit/rfd)
         if: runner.os == 'Linux'
         run: |
@@ -112,32 +112,6 @@ jobs:
       - name: Test
         run: cargo test --workspace --locked --features heif
 
-      # The same codecs without the optional decoder: HEIC must stay a clear "not in this build"
-      # error for distributors who leave it out.
-      - name: Test without heif
-        if: runner.os == 'Linux'
-        run: cargo test -p photocraft-heif -p photocraft-codecs -p photocraft-io --locked
-
-      # The same tests built with the optional craft-fonts input (crates/text/build.rs), so the
-      # Japanese font tests that skip without it run here. Linux only. Keep the exact `--workspace
-      # --features heif` of the Test step: any other package or feature selection resolves a
-      # different feature set, recompiles the whole dependency graph into the same target dir and
-      # runs the runner out of disk (as `-p photocraft-text -p photocraft-ui-egui` did after #800).
-      - name: Check out craft-fonts
-        if: runner.os == 'Linux'
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-        with:
-          repository: storytold/craft-fonts
-          ref: abb83316d96aa59c1cf64784289e378fe9fa5695
-          path: craft-fonts
-
-      - name: Test with craft-fonts
-        if: runner.os == 'Linux'
-        env:
-          CRAFT_FONTS_DIR: ${{ github.workspace }}/craft-fonts
-          CRAFT_FONTS_REQUIRED: "1"
-        run: cargo test --workspace --locked --features heif
-
       - name: Clippy
         run: cargo clippy --workspace --all-targets --locked --features heif -- -D warnings
 
@@ -149,6 +123,56 @@ jobs:
       - name: Scorecard up to date
         if: runner.os == 'Linux'
         run: cargo xtask scorecard --check
+
+  # The second and third test builds, on their own runner so they run alongside `test` instead
+  # of after it (they added 9 to 14 minutes to every run when they shared its runner). Linux only.
+  test-variants:
+    name: test (craft-fonts, without heif)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Linux system dependencies (egui/winit/rfd)
+        run: |
+          nohup sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup \
+            /opt/hostedtoolcache/CodeQL </dev/null >/dev/null 2>&1 &
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libxkbcommon-dev libwayland-dev libx11-dev libxrandr-dev libxi-dev \
+            libgl1-mesa-dev libgtk-3-dev
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      # Restores the `test` job's dependency cache (`shared-key: test` is the same cache key that
+      # job's id gives it) and never saves one of its own: the dependencies are the same, and a
+      # second multi-GB cache would push the others out of the repo's 10 GB budget.
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: test
+          save-if: false
+
+      # The same tests built with the optional craft-fonts input (crates/text/build.rs), so the
+      # Japanese font tests that skip without it run here. Keep the exact `--workspace --features
+      # heif` of the `test` job: any other package or feature selection resolves a different
+      # feature set and recompiles the whole dependency graph (and once ran the runner out of
+      # disk, as `-p photocraft-text -p photocraft-ui-egui` did after #800).
+      - name: Check out craft-fonts
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          repository: storytold/craft-fonts
+          ref: abb83316d96aa59c1cf64784289e378fe9fa5695
+          path: craft-fonts
+
+      - name: Test with craft-fonts
+        env:
+          CRAFT_FONTS_DIR: ${{ github.workspace }}/craft-fonts
+          CRAFT_FONTS_REQUIRED: "1"
+        run: cargo test --workspace --locked --features heif
+
+      # The same codecs without the optional decoder: HEIC must stay a clear "not in this build"
+      # error for distributors who leave it out.
+      - name: Test without heif
+        run: cargo test -p photocraft-heif -p photocraft-codecs -p photocraft-io --locked
 
   corpus:
     # Real-file corpus tests (cargo feature `corpus`), on every PR and on main. The corpora are
