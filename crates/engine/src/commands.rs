@@ -71,11 +71,18 @@ pub(crate) fn paint_surface<'a>(doc: &'a mut Document, id: LayerId, p: &Value) -
         check_pixels_unlocked(doc, id)?;
     }
     let l = doc.layer_mut(id).ok_or(EngineError::NoLayer(id))?;
-    if is_mask_target(p) {
-        l.mask.as_mut().map(|m| &mut m.surface).ok_or_else(|| EngineError::Other("layer has no mask".into()))
-    } else {
-        l.surface_mut().ok_or_else(|| EngineError::Other("not a pixel layer".into()))
+    if is_mask_target(p) { target_mask(l, p).map(|m| &mut m.surface) } else { l.surface_mut().ok_or_else(|| EngineError::Other("not a pixel layer".into())) }
+}
+
+/// The mask a `"target":"mask"` or `"target":"filterMask"` edit writes to on layer `l`.
+pub(crate) fn target_mask<'a>(l: &'a mut photocraft_doc::Layer, p: &Value) -> Result<&'a mut photocraft_doc::LayerMask> {
+    if is_filter_mask_target(p) {
+        return match &mut l.content {
+            LayerContent::Smart(sm) => sm.filter_mask.as_mut().ok_or_else(|| EngineError::Other("the smart object has no filter mask".into())),
+            _ => Err(EngineError::Other("not a smart object".into())),
+        };
     }
+    l.mask.as_mut().ok_or_else(|| EngineError::Other("layer has no mask".into()))
 }
 
 /// Refuse a layer whose pixels are locked (directly or through a group), with Photoshop's message.
@@ -88,8 +95,13 @@ pub(crate) fn check_pixels_unlocked(doc: &Document, id: LayerId) -> Result<()> {
     Ok(())
 }
 
+/// The params target a mask (the layer mask, or a smart object's filter mask) rather than pixels.
 pub(crate) fn is_mask_target(p: &Value) -> bool {
-    p.get("target").and_then(Value::as_str) == Some("mask")
+    matches!(p.get("target").and_then(Value::as_str), Some("mask" | "filterMask"))
+}
+
+pub(crate) fn is_filter_mask_target(p: &Value) -> bool {
+    p.get("target").and_then(Value::as_str) == Some("filterMask")
 }
 
 fn can_undo(s: &Session) -> std::result::Result<(), String> {
@@ -290,7 +302,7 @@ fn destructive_adjust(s: &mut Session, label: &str, adj: Adjustment, p: &Value) 
         return s.edit(label, |doc, _| {
             let sel = doc.selection.clone();
             let l = doc.layer_mut(id).ok_or(EngineError::NoLayer(id))?;
-            let mask = l.mask.as_mut().ok_or_else(|| EngineError::Other("layer has no mask".into()))?;
+            let mask = target_mask(l, p)?;
             pixels::adjust_mask(&mut mask.surface, &adj, sel.as_ref());
             Ok(Value::Null)
         });

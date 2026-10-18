@@ -1455,20 +1455,28 @@ impl PhotocraftApp {
     /// ⌘I then inverts the mask, as in Photoshop (#780). A targeted alpha channel or Quick Mask
     /// mode wins, as the engine routes those itself.
     pub fn with_mask_target(&self, id: &str, params: Value) -> Value {
-        if !self.ui.mask_target || !photocraft_engine::channel_cmds::follows_target(id) || params.get("target").is_some() {
+        let targeted = self.ui.mask_target || self.ui.filter_mask_target;
+        if !targeted || !photocraft_engine::channel_cmds::follows_target(id) || params.get("target").is_some() {
             return params;
         }
         let Some(st) = self.session.active() else { return params };
         let composite = st.channel_view.target == photocraft_engine::channel_cmds::ChannelTarget::Composite && st.doc.quick_mask.is_none();
-        if !composite || st.active_layer.and_then(|id| st.doc.layer(id)).is_none_or(|l| l.mask.is_none()) {
+        let target = if self.ui.filter_mask_target && smart_ui::active_filter_mask(st) {
+            "filterMask"
+        } else if self.ui.mask_target && st.active_layer.and_then(|id| st.doc.layer(id)).is_some_and(|l| l.mask.is_some()) {
+            "mask"
+        } else {
+            return params;
+        };
+        if !composite {
             return params;
         }
         match params {
             Value::Object(mut m) => {
-                m.insert("target".into(), Value::from("mask"));
+                m.insert("target".into(), Value::from(target));
                 Value::Object(m)
             }
-            _ => serde_json::json!({ "target": "mask" }),
+            _ => serde_json::json!({ "target": target }),
         }
     }
 
@@ -1476,6 +1484,10 @@ impl PhotocraftApp {
     /// active layer (a shape layer's path is its content, not a mask).
     fn sync_mask_targets(&mut self) {
         let Some(st) = self.session.active() else { return };
+        // Targeting the layer or its masks (or another layer) leaves the filter mask.
+        if self.ui.filter_mask_target && (self.ui.mask_target || self.ui.vector_mask_target || !smart_ui::active_filter_mask(st)) {
+            self.ui.filter_mask_target = false;
+        }
         if photocraft_engine::mask_view_cmds::current(st).is_some() {
             self.ui.mask_target = true;
             self.ui.vector_mask_target = false;

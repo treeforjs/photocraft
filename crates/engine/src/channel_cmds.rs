@@ -483,6 +483,8 @@ fn mask_plane(s: &Session, p: &Value, cmd: &str) -> Result<Option<Vec<f32>>> {
 pub(crate) enum Target {
     Pixels,
     Mask,
+    /// The active smart object's filter mask (`"target":"filterMask"`).
+    FilterMask,
     Alpha(usize),
     QuickMask,
 }
@@ -491,6 +493,7 @@ pub(crate) fn target_of(p: &Value) -> Target {
     match p.get("target") {
         Some(Value::String(s)) => match s.as_str() {
             "mask" => Target::Mask,
+            "filterMask" => Target::FilterMask,
             "quickMask" => Target::QuickMask,
             _ => Target::Pixels,
         },
@@ -544,6 +547,13 @@ fn edits_mask(id: &str) -> bool {
 /// The precondition of `id` when `p` targets the active layer's mask (`"target":"mask"`): the
 /// layer needs a mask. None when another precondition applies.
 pub(crate) fn mask_target_enabled(s: &Session, id: &str, p: &Value) -> Option<std::result::Result<(), String>> {
+    // A smart object's filter mask takes paint, fills, filters and adjustments like a layer mask.
+    if target_of(p) == Target::FilterMask && (routed(id) || edits_mask(id)) {
+        return Some(crate::active_layer_of(s).and_then(|l| match &l.content {
+            photocraft_doc::LayerContent::Smart(sm) if sm.filter_mask.is_some() => Ok(()),
+            _ => Err("the active layer has no filter mask".into()),
+        }));
+    }
     if target_of(p) != Target::Mask || !edits_mask(id) {
         return None;
     }

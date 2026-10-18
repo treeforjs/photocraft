@@ -1993,11 +1993,17 @@ fn layers(app: &mut PhotocraftApp, ui: &mut egui::Ui) {
         if id == "ui.maskTarget" {
             app.ui.mask_target = p.as_bool().unwrap_or(false);
             app.ui.vector_mask_target = false;
+            app.ui.filter_mask_target = false;
+            continue;
+        }
+        if id == "ui.filterMaskTarget" {
+            crate::smart_ui::target_filter_mask(app, p.as_u64().unwrap_or(0));
             continue;
         }
         if id == "ui.vectorMaskTarget" {
             app.ui.vector_mask_target = p.as_bool().unwrap_or(false);
             app.ui.mask_target = false;
+            app.ui.filter_mask_target = false;
             continue;
         }
         if p.is_null() {

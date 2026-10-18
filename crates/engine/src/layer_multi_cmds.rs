@@ -372,7 +372,7 @@ pub(crate) fn note_damage(s: &mut Session, before: &Document, ids: &[LayerId]) {
 /// Whether two surfaces hold identical pixels: same format and default pixel, and the same
 /// copy-on-write tile pointers at the same coordinates. Both documents stay alive during the
 /// comparison, so tile addresses cannot be reused under it.
-fn surfaces_equal(a: &photocraft_raster::Surface, b: &photocraft_raster::Surface) -> bool {
+pub(crate) fn surfaces_equal(a: &photocraft_raster::Surface, b: &photocraft_raster::Surface) -> bool {
     a.format() == b.format()
         && a.default_pixel() == b.default_pixel()
         && a.tile_count() == b.tile_count()
@@ -394,7 +394,7 @@ fn blobs_equal(a: &Option<std::sync::Arc<Vec<u8>>>, b: &Option<std::sync::Arc<Ve
 }
 
 /// Layer masks (also the smart-filter mask): scalars plus tile-pointer surface identity.
-fn masks_equal(a: &Option<photocraft_doc::LayerMask>, b: &Option<photocraft_doc::LayerMask>) -> bool {
+pub(crate) fn masks_equal(a: &Option<photocraft_doc::LayerMask>, b: &Option<photocraft_doc::LayerMask>) -> bool {
     match (a, b) {
         (None, None) => true,
         (Some(x), Some(y)) => {
