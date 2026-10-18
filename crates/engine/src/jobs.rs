@@ -438,7 +438,8 @@ impl Session {
                     e => EngineError::Other(e.to_string()),
                 })
             },
-            move |s, r: photocraft_io::ImportResult| {
+            move |s, mut r: photocraft_io::ImportResult| {
+                crate::file_cmds::raw_output(s, &mut r);
                 let (index, color) = s.open_document(r.document, None);
                 if let Some(st) = s.active_mut() {
                     st.source_read_only = r.source_read_only;

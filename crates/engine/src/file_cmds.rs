@@ -368,7 +368,8 @@ pub fn open_bytes_as(s: &mut Session, name: &str, bytes: &[u8], as_ext: Option<&
         Some(ext) => format!("{}.{}", stem(name), ext.trim_start_matches('.')),
         None => name.to_string(),
     };
-    let r = photocraft_io::import(&decode_name, bytes).map_err(|e| EngineError::Other(format!("{decode_name}: {e}")))?;
+    let mut r = photocraft_io::import(&decode_name, bytes).map_err(|e| EngineError::Other(format!("{decode_name}: {e}")))?;
+    raw_output(s, &mut r);
     let mut doc = r.document;
     let path = match template_name(s, name) {
         Some(untitled) => {
@@ -387,6 +388,59 @@ pub fn open_bytes_as(s: &mut Session, name: &str, bytes: &[u8], as_ext: Option<&
     }
     // Import notes (e.g. how a camera raw was developed, or that only its preview opened).
     Ok(json!({"document": i, "color": color, "warnings": r.warnings}))
+}
+
+/// Preferences › Camera Raw Defaults' output settings on an import that developed a raw from
+/// its sensor data (16-bit ProPhoto RGB): convert it to the chosen colour space and bit depth
+/// and set its resolution, and say so in the import note. Anything else is left alone, and a
+/// conversion that fails keeps the developed document with a note instead of failing the open.
+pub fn raw_output(s: &Session, r: &mut photocraft_io::ImportResult) {
+    if !photocraft_io::raw::is_developed(&r.warnings) {
+        return;
+    }
+    let raw = &s.prefs().raw_defaults;
+    let doc = &mut r.document;
+    if raw.resolution.is_finite() {
+        doc.resolution_dpi = raw.resolution.clamp(1.0, 30000.0) as f32;
+    }
+    use crate::prefs::{RawColorSpace, RawDepth};
+    use photocraft_cms::Builtin;
+    let space = match raw.color_space {
+        RawColorSpace::Srgb => Builtin::Srgb,
+        RawColorSpace::AdobeRgb => Builtin::AdobeRgbCompat,
+        RawColorSpace::ProPhoto => Builtin::ProPhotoCompat,
+        RawColorSpace::DisplayP3 => Builtin::DisplayP3,
+    };
+    let depth = match raw.bit_depth {
+        RawDepth::Eight => photocraft_color::SampleType::U8,
+        RawDepth::Sixteen => photocraft_color::SampleType::U16,
+    };
+    let dst = space.profile();
+    let mut space_name = raw_space_name(space);
+    if space != Builtin::ProPhotoCompat {
+        // Converted at 16 bits, before any reduction to 8.
+        if let Err(e) = crate::color_cmds::convert_document(doc, dst, photocraft_cms::Intent::RelativeColorimetric, true) {
+            r.warnings.push(format!("could not convert the developed raw to {}: {e}", dst.description));
+            space_name = raw_space_name(Builtin::ProPhotoCompat);
+        }
+    }
+    if doc.depth != depth {
+        crate::image_cmds::convert_doc_depth(doc, depth);
+    }
+    let into = photocraft_io::raw::developed_into();
+    let bits = if depth == photocraft_color::SampleType::U8 { 8 } else { 16 };
+    for w in r.warnings.iter_mut().filter(|w| w.ends_with(&into)) {
+        let head = w.get(..w.len().saturating_sub(into.len())).unwrap_or_default().to_string();
+        *w = format!("{head}into {bits}-bit {space_name}");
+    }
+}
+
+/// How a raw's output colour space reads in its import note.
+fn raw_space_name(space: photocraft_cms::Builtin) -> String {
+    match space {
+        photocraft_cms::Builtin::ProPhotoCompat => photocraft_io::raw::OUTPUT_SPACE.to_string(),
+        other => other.profile().description.clone(),
+    }
 }
 
 fn open_as(s: &mut Session, p: &Value) -> Result<Value> {
