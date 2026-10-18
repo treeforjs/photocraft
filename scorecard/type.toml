@@ -21,9 +21,9 @@ note = "type_tool.rs: a Direction dropdown (Auto, Left to Right, Right to Left) 
 [[item]]
 id = "TYPE-218-3"
 target = "Thai/Khmer/Indic fallback fonts; golden shaping tests for complex scripts and RTL"
-status = "missing"
+status = "done"
 issue = 218
-note = "fonts.rs:28 fallback covers Arabic/Hebrew; no per-script golden tests (only a bidi test)"
+note = "fonts::THAI_FAMILIES + COMPLEX_SCRIPT_FAMILIES (Khmer, Indic) per platform in the fallback stack; text/src/shaping_tests.rs checks Arabic joining and lam-alef, Hebrew points, Thai marks, Devanagari/Bengali pre-base matras and ksha, Tamil split vowels, Khmer coeng, RTL order and fallback from Inter; CI installs fonts-noto-core and fails on a skip"
 
 [[item]]
 id = "TYPE-218-4"
