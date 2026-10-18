@@ -30,11 +30,16 @@ pub struct PsdExportOptions {
     pub merged_matte: bool,
     /// Compression of the merged image (32-bit float documents are always written raw).
     pub merged_compression: Compression,
+    /// Write the real merged composite next to the layers (Preferences › File Handling ›
+    /// Maximize PSD and PSB File Compatibility). `false` writes a white placeholder instead, as
+    /// Photoshop does: smaller and faster to save, but readers that only understand the
+    /// composite see a blank image. A file without layer data always gets the real composite.
+    pub maximize_compatibility: bool,
 }
 
 impl Default for PsdExportOptions {
     fn default() -> Self {
-        PsdExportOptions { force_psb: false, merged_matte: true, merged_compression: Compression::Rle }
+        PsdExportOptions { force_psb: false, merged_matte: true, merged_compression: Compression::Rle, maximize_compatibility: true }
     }
 }
 
@@ -1031,6 +1036,33 @@ fn merged_planes(doc: &Document, fmt: &PixelFormat, cmyk: bool, matte: bool) -> 
     (planes, has_alpha, translucent)
 }
 
+/// The merged image's colour planes filled with white (the placeholder written without
+/// Maximize Compatibility), encoded as [`merged_planes`] encodes white.
+fn white_planes(doc: &Document, fmt: &PixelFormat) -> Vec<u8> {
+    let sample = fmt.sample;
+    let cc = fmt.mode.color_channels();
+    let n = doc.size.area() as usize;
+    let white = photocraft_raster::from_rgba(fmt, [1.0, 1.0, 1.0, 1.0]);
+    let lab16 = fmt.mode == ColorMode::Lab && sample == SampleType::U16;
+    let mut planes = Vec::with_capacity(n.saturating_mul(cc).saturating_mul(sample.bytes()));
+    for c in 0..cc {
+        let v = white.get(c).copied().unwrap_or(1.0);
+        let x = if cmyk_of(fmt) { 1.0 - v } else { v };
+        let x = if lab16 && (c == 1 || c == 2) { x * (crate::pixels::LAB16_CHROMA_MAX / 65535.0) } else { x };
+        let mut px = Vec::with_capacity(sample.bytes());
+        encode_be(x, sample, &mut px);
+        let start = planes.len();
+        planes.extend_from_slice(&px);
+        // Doubling copies keep this fast for large canvases.
+        while planes.len() - start < n * px.len() {
+            let have = planes.len() - start;
+            let take = have.min(n * px.len() - have);
+            planes.extend_from_within(start..start + take);
+        }
+    }
+    planes
+}
+
 /// Converts a document to a PSD file model (see [`document_to_psd_with`]).
 pub fn document_to_psd(doc: &Document) -> PsdFile {
     document_to_psd_with(doc, &PsdExportOptions::default()).0
@@ -1245,7 +1277,10 @@ fn document_to_psd_nested(doc: &Document, opts: &PsdExportOptions, depth: u32) -
     // Merged composite, rendered and encoded in bands (no full-size float composite). Matting
     // against white only changes pixels with alpha < 1; if some are slightly translucent but all
     // round to opaque (so no alpha channel is written), encode once more without the matte.
-    let (mut planes, has_alpha, translucent) = merged_planes(doc, &fmt, cmyk_of(&fmt), opts.merged_matte);
+    // Without Maximize Compatibility a layered file carries a white placeholder (no render).
+    let real_merged = opts.maximize_compatibility || ex.records.is_empty();
+    let (mut planes, has_alpha, translucent) =
+        if real_merged { merged_planes(doc, &fmt, cmyk_of(&fmt), opts.merged_matte) } else { (white_planes(doc, &fmt), false, false) };
     if !has_alpha && translucent && opts.merged_matte {
         planes = merged_planes(doc, &fmt, cmyk_of(&fmt), false).0;
     }
@@ -1430,7 +1465,7 @@ fn document_to_psd_nested(doc: &Document, opts: &PsdExportOptions, depth: u32) -
     if let Some(Some(data)) = slices_resource {
         resources.push(ImageResource::new(crate::slices_map::SLICES, data));
     }
-    resources.push(version_info_resource(true));
+    resources.push(version_info_resource(real_merged));
 
     let has_layers = !ex.records.is_empty();
     let placement = match (has_layers, sample) {

@@ -2184,6 +2184,9 @@
 	Content-Aware Move Tool	Inhaltsbasiert-verschieben-Werkzeug
 	TIFF Options	TIFF-Optionen
 	Including layers will increase file size.	Das Einbeziehen von Ebenen vergrößert die Datei.
+	PSD Options	PSD-Optionen
+	Maximize Compatibility	Kompatibilität maximieren
+	Keeps a flattened copy of the image so other apps can read the file. Off saves smaller files faster.	Speichert eine reduzierte Kopie des Bildes, damit andere Apps die Datei lesen können. Aus speichert kleinere Dateien schneller.
 	Discard Layers and Save a Copy	Ebenen verwerfen und Kopie speichern
 	Don't show again	Nicht mehr anzeigen
 	Save failed: {error}	Speichern fehlgeschlagen: {error}

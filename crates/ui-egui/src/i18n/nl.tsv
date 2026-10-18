@@ -2173,6 +2173,9 @@
 	Content-Aware Move Tool	Inhoudsbewust verplaatsen
 	TIFF Options	TIFF-opties
 	Including layers will increase file size.	Lagen meenemen vergroot de bestandsgrootte.
+	PSD Options	PSD-opties
+	Maximize Compatibility	Compatibiliteit maximaliseren
+	Keeps a flattened copy of the image so other apps can read the file. Off saves smaller files faster.	Bewaart een samengevoegde kopie van de afbeelding zodat andere apps het bestand kunnen lezen. Uit slaat kleinere bestanden sneller op.
 	Discard Layers and Save a Copy	Lagen negeren en kopie opslaan
 	Don't show again	Niet meer tonen
 	Save failed: {error}	Opslaan mislukt: {error}

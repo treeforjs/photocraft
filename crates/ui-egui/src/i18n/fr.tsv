@@ -2576,6 +2576,9 @@ cameraRaw	Blending	Fusion
 	Content-Aware Move Tool	Outil Déplacement selon le contenu
 	TIFF Options	Options TIFF
 	Including layers will increase file size.	L'inclusion des calques augmentera la taille du fichier.
+	PSD Options	Options PSD
+	Maximize Compatibility	Optimiser la compatibilité
+	Keeps a flattened copy of the image so other apps can read the file. Off saves smaller files faster.	Conserve une copie aplatie de l'image pour que d'autres applications puissent lire le fichier. Désactivé, les fichiers sont plus petits et enregistrés plus vite.
 	Discard Layers and Save a Copy	Supprimer les calques et enregistrer une copie
 	Don't show again	Ne plus afficher
 	Save failed: {error}	Échec de l'enregistrement : {error}

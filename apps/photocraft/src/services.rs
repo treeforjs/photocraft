@@ -185,6 +185,7 @@ fn export_options(settings: &photocraft_ui_egui::ExportSettings) -> photocraft_i
         opts.encode.webp_quality = q;
     }
     opts.tiff_layers = settings.tiff_layers;
+    opts.maximize_compatibility = settings.maximize_compatibility;
     opts.xmp = if settings.xmp_all { photocraft_io::XmpEmbed::All } else { photocraft_io::XmpEmbed::None };
     opts
 }
