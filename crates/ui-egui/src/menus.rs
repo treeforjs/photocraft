@@ -819,6 +819,10 @@ pub fn menu_items(app: &PhotocraftApp) -> Vec<MenuItem> {
     {
         item.label = crate::layer_menu_ui::mask_toggle_label(mask.enabled).into();
     }
+    // "Reveal in Finder" names the platform's own file manager.
+    for item in items.iter_mut().filter(|i| i.label == "Reveal in Finder") {
+        item.label = crate::shortcuts::reveal_label().into();
+    }
     // The File quick-export command uses the format selected in Export Preferences.
     // On the web it intentionally downloads PNG until the quick-export service supports
     // the other formats; the Layer quick-export command also always produces PNG.

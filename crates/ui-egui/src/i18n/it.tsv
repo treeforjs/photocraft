@@ -81,6 +81,8 @@
 	Import	Importa
 	Browse…	Sfoglia…
 	Reveal in Finder	Mostra nel Finder
+	Reveal in Explorer	Mostra in Esplora risorse
+	Show in File Manager	Mostra nel gestore file
 	File Info…	Info file…
 	Print…	Stampa…
 	Print One Copy	Stampa una copia
@@ -2169,7 +2171,7 @@
 	Details	Dettagli
 
 	Rendering mode	Modalità rendering
-	Freeze Lasso: drag to freeze an area, Alt-drag to thaw it (L)	Lazo congela: trascina per congelare un'area, Alt-trascina per scongelare (L)
+	Freeze Lasso: drag to freeze an area, {key}-drag to thaw it (L)	Lazo congela: trascina per congelare un'area, {key}-trascina per scongelare (L)
 
 
 	Shadow Clipping Warning (U)	Avviso clipping ombre (U)
