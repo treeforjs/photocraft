@@ -686,7 +686,7 @@ pub(crate) fn is_work(name: Option<&str>) -> bool {
 /// The path a command targets: `"work"`/absent → the work path (falling back to the active
 /// layer's shape path or vector mask when there is none), `"layer"` → the active layer's,
 /// otherwise a saved path by name.
-fn resolve_path(s: &Session, name: Option<&str>) -> Result<Path> {
+pub(crate) fn resolve_path(s: &Session, name: Option<&str>) -> Result<Path> {
     let d = s.active().ok_or(EngineError::NoDocument)?;
     let layer_path = || -> Option<Path> {
         let l = d.doc.layer(d.active_layer?)?;

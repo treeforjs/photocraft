@@ -67,6 +67,15 @@ fn draw(layout: &TextLayout, transform: &Xform, sink: &mut impl LineSink, only_c
         };
         let coords: Vec<NormalizedCoord> = face.coords.iter().map(|&c| NormalizedCoord::from_bits(c)).collect();
         let glyph = glyph_xform(layout, g, face.skew_deg);
+        // Type on a path: each glyph is turned rigidly onto the path, not bent point by point.
+        let on_path = warp.and_then(Warp::path);
+        let (glyph, warp) = match on_path {
+            Some(p) => {
+                let Some(frame) = path_frame(p, layout, g, &font, &coords, face.size_px) else { continue };
+                (frame.mul(&glyph), None)
+            }
+            None => (glyph, warp),
+        };
         let bold = st.faux_bold || face.embolden;
         let r = (face.size_px * FAUX_BOLD_RADIUS) as f64;
         let offsets: &[(f64, f64)] =
@@ -123,6 +132,29 @@ fn glyph_xform(layout: &TextLayout, g: &PlacedGlyph, face_skew_deg: f32) -> Xfor
         // 90° clockwise: the glyph's up direction (and its baseline shift) points right.
         GlyphOrient::Rotated => Xform([0.0, 1.0, -1.0, 0.0, x, y]).mul(&Xform([hs, 0.0, skew, -vs, 0.0, -shift])),
     }
+}
+
+/// The bend of a type layer's `layout`: its path for type on a path, else its Warp Text.
+pub fn layer_warp(layout: &TextLayout, layer: &photocraft_doc::TextLayer) -> Option<Warp> {
+    match &layer.on_path {
+        Some(p) => Warp::on_path(p),
+        None => layout_warp(layout, layer.warp.as_ref()),
+    }
+}
+
+/// Text space → path for glyph `g` of type on a path: turned with the path at the centre of
+/// its advance. `None` when that lies past either end of the path (the glyph is hidden).
+fn path_frame(
+    path: &crate::on_path::OnPath,
+    layout: &TextLayout,
+    g: &PlacedGlyph,
+    font: &skrifa::FontRef,
+    coords: &[NormalizedCoord],
+    size_px: f32,
+) -> Option<Xform> {
+    let hs = layout.styles.get(g.style as usize).map_or(1.0, |st| if st.horizontal_scale > 0.0 { st.horizontal_scale } else { 1.0 });
+    let adv = font.glyph_metrics(Size::new(size_px), LocationRef::new(coords)).advance_width(GlyphId::new(g.id)).unwrap_or(0.0) * hs;
+    path.glyph_frame(f64::from(g.x) + f64::from(adv) / 2.0).map(Xform)
 }
 
 /// The warp to apply to `layout` (None when `warp` is absent, `warpNone` or flat).
@@ -300,6 +332,13 @@ pub fn outlines(layout: &TextLayout, transform: &Affine, warp: Option<&Warp>) ->
         };
         let coords: Vec<NormalizedCoord> = face.coords.iter().map(|&c| NormalizedCoord::from_bits(c)).collect();
         let glyph = glyph_xform(layout, g, face.skew_deg);
+        let (glyph, warp) = match warp.and_then(Warp::path) {
+            Some(p) => {
+                let Some(frame) = path_frame(p, layout, g, &font, &coords, face.size_px) else { continue };
+                (frame.mul(&glyph), None)
+            }
+            None => (glyph, warp),
+        };
         let mut rec = Recorder { glyph, post: Xform(transform.m), warp, out: Vec::new() };
         let settings = DrawSettings::unhinted(Size::new(face.size_px), LocationRef::new(&coords));
         if outline.draw(settings, &mut rec).is_ok() && !rec.out.is_empty() {

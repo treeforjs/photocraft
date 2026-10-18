@@ -10,6 +10,7 @@ use egui::{Color32, Pos2, Stroke};
 use photocraft_doc::{Document, LayerContent, LayerId, TextLayer};
 use photocraft_geom::{Affine, Point};
 use photocraft_text::TextLayout;
+use photocraft_text::on_path::OnPath;
 use serde_json::json;
 
 use crate::PhotocraftApp;
@@ -46,9 +47,18 @@ pub fn layout(app: &mut PhotocraftApp, id: LayerId) -> Option<(Arc<TextLayout>, 
     Some((l, transform, t.text.clone()))
 }
 
-fn to_text(aff: &Affine, x: f64, y: f64) -> (f32, f32) {
+/// The path a type layer's text follows (type on a path), prepared for mapping.
+pub(crate) fn text_path(app: &PhotocraftApp, id: LayerId) -> Option<OnPath> {
+    OnPath::new(text_layer(&app.session.active()?.doc, id)?.on_path.as_ref()?)
+}
+
+/// Document point → text space (through the path, for type on a path).
+fn to_text(aff: &Affine, bend: Option<&OnPath>, x: f64, y: f64) -> (f32, f32) {
     let p = aff.inverse().unwrap_or(Affine::IDENTITY).apply(Point::new(x, y));
-    (p.x as f32, p.y as f32)
+    match bend.and_then(|b| b.to_text(p.x, p.y)) {
+        Some((tx, ty)) => (tx as f32, ty as f32),
+        None => (p.x as f32, p.y as f32),
+    }
 }
 
 /// Topmost visible type layer whose laid-out text contains the document point.
@@ -66,7 +76,7 @@ fn hit_layer(app: &mut PhotocraftApp, x: f64, y: f64) -> Option<LayerId> {
             !r.is_empty() && x >= f64::from(r.x0) - s && x <= f64::from(r.x1) + s && y >= f64::from(r.y0) - s && y <= f64::from(r.y1) + s
         });
         let Some((l, aff, _)) = layout(app, *id) else { return shown };
-        let (tx, ty) = to_text(&aff, x, y);
+        let (tx, ty) = to_text(&aff, text_path(app, *id).as_ref(), x, y);
         shown || photocraft_text::text_point_inside(&l, tx, ty, slop)
     })
 }
@@ -120,7 +130,7 @@ pub fn edit_active(app: &mut PhotocraftApp) -> Result<(), String> {
 
 pub(crate) fn hit_offset(app: &mut PhotocraftApp, id: LayerId, x: f64, y: f64) -> usize {
     let Some((l, aff, text)) = layout(app, id) else { return 0 };
-    let (tx, ty) = to_text(&aff, x, y);
+    let (tx, ty) = to_text(&aff, text_path(app, id).as_ref(), x, y);
     photocraft_text::hit_char(&l, &text, tx, ty).0
 }
 
@@ -175,7 +185,7 @@ fn resize_box(app: &mut PhotocraftApp, ed: &TextEdit, i: u8, x: f64, y: f64) {
     let id = LayerId(ed.layer);
     let Some((bx, by, w, h)) = box_shape(app, id) else { return };
     let Some((_, aff, _)) = layout(app, id) else { return };
-    let (px, py) = to_text(&aff, x, y);
+    let (px, py) = to_text(&aff, None, x, y);
     let (l, r, t, b) = handle_sides(i);
     let (mut x0, mut y0, mut x1, mut y1) = (bx, by, bx + w, by + h);
     if l {
@@ -270,6 +280,9 @@ pub fn pointer_up(app: &mut PhotocraftApp, start: [f64; 2], end: [f64; 2]) {
     });
     if w >= min && h >= min {
         p["box"] = json!([start[0].min(end[0]).round(), start[1].min(end[1]).round(), w.round(), h.round()]);
+    } else if let Some((path, at)) = path_at(app, start[0], start[1]) {
+        // A click on a path sets type on it, starting where it was clicked (Photoshop).
+        p["onPath"] = json!({"path": photocraft_engine::vector_cmds::path_json(&path), "start": at.round()});
     } else {
         p["x"] = json!(start[0].round());
         p["y"] = json!(start[1].round());
@@ -286,6 +299,23 @@ pub fn pointer_up(app: &mut PhotocraftApp, start: [f64; 2], end: [f64; 2]) {
         let n = text.chars().count();
         app.ui.text_edit = Some(TextEdit { layer: id, caret: n, anchor: 0, session: key, created: true, dragging: false, resize: None, preedit: None });
     }
+}
+
+/// The path under a document point for setting type on it: the Work Path, else the active
+/// shape layer's path, when the point is within a few screen pixels of it. Returns the path and
+/// the distance along it of the nearest point.
+pub(crate) fn path_at(app: &PhotocraftApp, x: f64, y: f64) -> Option<(photocraft_doc::Path, f64)> {
+    let st = app.session.active()?;
+    let tol = 5.0 / f64::from(app.point_zoom().max(0.01));
+    let shape = st.active_layer.and_then(|id| st.doc.layer(id)).and_then(|l| match &l.content {
+        LayerContent::Shape(sh) => Some(sh.path.clone()),
+        _ => None,
+    });
+    [st.doc.work_path.clone(), shape].into_iter().flatten().find_map(|path| {
+        let track = OnPath::new(&photocraft_doc::text::TextPath { path: path.clone(), start: 0.0, flip: false })?;
+        let (s, d) = track.to_text(x, y)?;
+        (d.abs() <= tol).then_some((path, s))
+    })
 }
 
 fn session_key(app: &mut PhotocraftApp) -> String {
@@ -634,10 +664,18 @@ pub fn draw_overlay(app: &mut PhotocraftApp, painter: &egui::Painter, xf: &ViewX
     let id = LayerId(ed.layer);
     let Some((l, aff, text)) = layout(app, id) else { return };
     let t = crate::theme::Tokens::get(painter.ctx());
+    // Type on a path: text space runs along the path.
+    let bend = text_path(app, id);
     // Text space → screen.
     let scr_t = |x: f32, y: f32| -> Pos2 {
-        let p = aff.apply(Point::new(x as f64, y as f64));
+        let (bx, by) = bend.as_ref().and_then(|b| b.apply(f64::from(x), f64::from(y))).unwrap_or((f64::from(x), f64::from(y)));
+        let p = aff.apply(Point::new(bx, by));
         xf.to_screen(p.x as f32, p.y as f32)
+    };
+    // Along a path, straight text-space spans are drawn in short pieces so they follow it.
+    let pieces = |x0: f32, x1: f32| -> Vec<(f32, f32)> {
+        let n = if bend.is_some() { ((x1 - x0).abs() / 3.0).ceil().clamp(1.0, 512.0) as usize } else { 1 };
+        (0..n).map(|i| (x0 + (x1 - x0) * i as f32 / n as f32, x0 + (x1 - x0) * (i + 1) as f32 / n as f32)).collect()
     };
     // Line space (lines, clusters, carets) → screen: vertical type turns it 90° clockwise.
     let scr = |x: f32, y: f32| -> Pos2 {
@@ -675,7 +713,9 @@ pub fn draw_overlay(app: &mut PhotocraftApp, painter: &egui::Painter, xf: &ViewX
             for ln in &l.lines {
                 // Horizontal: just under the baseline; vertical: the column's centre line.
                 let y = if l.vertical { ln.baseline } else { ln.baseline + ln.descent * 0.25 };
-                painter.line_segment([scr(ln.x0.min(0.0), y), scr(ln.x1.max(ln.x0 + 1.0), y)], Stroke::new(1.0, t.accent.gamma_multiply(0.8)));
+                for (a, b) in pieces(ln.x0.min(0.0), ln.x1.max(ln.x0 + 1.0)) {
+                    painter.line_segment([scr(a, y), scr(b, y)], Stroke::new(1.0, t.accent.gamma_multiply(0.8)));
+                }
             }
         }
     }
@@ -724,7 +764,9 @@ pub fn draw_overlay(app: &mut PhotocraftApp, painter: &egui::Painter, xf: &ViewX
             }
             if x0 < x1 {
                 let (top, bot) = (ln.baseline - ln.ascent, ln.baseline + ln.descent);
-                painter.add(egui::Shape::convex_polygon(vec![scr(x0, top), scr(x1, top), scr(x1, bot), scr(x0, bot)], fill, Stroke::NONE));
+                for (a, b) in pieces(x0, x1) {
+                    painter.add(egui::Shape::convex_polygon(vec![scr(a, top), scr(b, top), scr(b, bot), scr(a, bot)], fill, Stroke::NONE));
+                }
             }
         }
     } else {
@@ -1367,6 +1409,42 @@ fn cell_width(avail: f32, n: usize) -> f32 {
 pub fn type_properties(app: &mut PhotocraftApp, ui: &mut egui::Ui) {
     type_sections(app, ui, true, true);
     type_options(app, ui);
+    path_options(app, ui);
+}
+
+/// Type on a Path: where the text starts along the path, which side it runs on, and Release
+/// from Path (back to point text).
+fn path_options(app: &mut PhotocraftApp, ui: &mut egui::Ui) {
+    use crate::props_layout::COL_GAP;
+    let Some((layer, _)) = target(app) else { return };
+    let Some(tp) = app.session.active().and_then(|st| text_layer(&st.doc, LayerId(layer))).and_then(|t| t.on_path.clone()) else { return };
+    if !crate::props_layout::section(ui, "typeOnPath", tl!("Type on a Path")) {
+        return;
+    }
+    let t = crate::theme::Tokens::get(ui.ctx());
+    let mut edit = None;
+    ui.horizontal(|ui| {
+        ui.spacing_mut().item_spacing.x = COL_GAP;
+        ui.label(egui::RichText::new(tl!("Start")).color(t.text_dim).size(12.0));
+        let mut start = tp.start;
+        if crate::widgets::value_field(ui, &mut start, -100_000.0..=100_000.0, "px", 72.0).changed() {
+            edit = Some(json!({"onPath": {"start": start}, "coalesce": format!("type-path-start-{layer}")}));
+        }
+        let mut flip = tp.flip;
+        if crate::widgets::toggle(ui, &mut flip, tl!("Flip")).changed() {
+            edit = Some(json!({"onPath": {"flip": flip}}));
+        }
+    });
+    if crate::widgets::secondary_button(ui, tl!("Release from Path"), ui.available_width()).clicked() {
+        edit = Some(json!({"onPath": null}));
+    }
+    if let Some(mut p) = edit {
+        p["layer"] = json!(layer);
+        if let Err(e) = app.run("type.edit", p) {
+            app.ui.status = e;
+            app.ui.status_error = true;
+        }
+    }
 }
 
 /// Window › Character / Paragraph (#150): the same controls as Properties, in their own dock
