@@ -4207,6 +4207,8 @@ pub fn commit_crop(app: &mut PhotocraftApp) {
     if angle != 0.0 {
         p["angle"] = json!(angle);
     }
+    let dpi = app.session.active().map_or(72.0, |s| f64::from(s.doc.resolution_dpi));
+    crate::crop_size::commit_params(&app.ui.tool_options, dpi, &mut p);
     if app.run("image.crop", p).is_ok()
         && let Some(i) = app.session.active_index()
     {

@@ -2422,6 +2422,12 @@ theme	Warm	暖色
 	Edit points to modify the curve	编辑点以修改曲线
 	Draw to modify the curve	绘制以修改曲线
 	Drag to draw the curve · Smooth softens it	拖动以绘制曲线 · 平滑可使其柔和
+	W x H x Resolution	宽 x 高 x 分辨率
+	New Crop Preset…	新建裁剪预设…
+	px/in	像素/英寸
+	px/cm	像素/厘米
+	W	宽
+	H	高
 	Numerals	数字
 	Stylistic Sets	样式集
 	Tabular Lining	等宽对齐数字

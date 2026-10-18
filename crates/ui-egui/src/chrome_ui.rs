@@ -208,6 +208,7 @@ pub const CROP_RATIOS: &[(&str, &str)] = &[
     ("5:7", "5 : 7"),
     ("2:3", "2 : 3 (4 : 6)"),
     ("16:9", "16 : 9"),
+    (crate::crop_size::SIZE, "W x H x Resolution"),
 ];
 
 /// Width/height of a crop ratio key (`original` uses the document size).
