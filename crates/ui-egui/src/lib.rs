@@ -541,6 +541,8 @@ pub struct PhotocraftApp {
     pub(crate) guide_drag: Option<rulers::GuideDrag>,
     /// Move tool box-select being dragged (see `move_ui::MoveBox`).
     pub(crate) move_box: Option<move_ui::MoveBox>,
+    /// The newest document id seen, for Show Rulers for New Documents (rulers.rs).
+    pub(crate) newest_doc: u64,
     /// Crop tool gesture in progress (see `crop_ui`).
     pub(crate) crop: crop_ui::CropState,
     /// Type tool layout cache: ((doc, revision, layer), layout).
@@ -650,6 +652,7 @@ impl PhotocraftApp {
             type_transform_preview: None,
             guide_drag: None,
             move_box: None,
+            newest_doc: 0,
             crop: Default::default(),
             hover_doc: None,
             clone_preview: None,
@@ -1248,6 +1251,7 @@ impl eframe::App for PhotocraftApp {
         self.last_frame_time = now;
         self.sync_views();
         widgets::set_field_resolution(ctx, self.session.active().map(|st| st.doc.resolution_dpi));
+        rulers::show_for_new_documents(self);
         self.check_gpu(ctx);
         #[cfg(all(debug_assertions, not(target_arch = "wasm32")))]
         if self.live_tokens.poll(ctx, self.ui.theme) {

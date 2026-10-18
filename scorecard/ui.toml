@@ -141,9 +141,9 @@ note = "shortcuts::pretty renders every shortcut and inline modifier hint per pl
 [[item]]
 id = "UI-217-20"
 target = "'Show rulers in new documents' preference; guides stored as f64"
-status = "missing"
+status = "done"
 issue = 217
-note = "No rulers pref; doc lib.rs:523 guides are Vec<f32>"
+note = "Preferences > Units & Rulers > Show rulers for new documents (prefs.rs UnitsAndRulers, rulers.rs show_for_new_documents); doc Guides are Vec<f64> (test guides_keep_their_position_on_huge_canvases)"
 
 [[item]]
 id = "UI-217-21"

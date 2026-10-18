@@ -3466,3 +3466,4 @@ theme	Warm	ウォーム
 	How hard a pen press must be, for every tool. Double-click the graph to reset.	すべてのツールに必要なペンの押す強さ。グラフをダブルクリックするとリセットします。
 	Import Image as Brush…	画像をブラシとして読み込み…
 	New brush “{name}” from the image	画像から新規ブラシ「{name}」
+	Show rulers for new documents	新規ドキュメントで定規を表示
