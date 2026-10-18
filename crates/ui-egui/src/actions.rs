@@ -173,7 +173,7 @@ pub(crate) fn report_play(app: &mut PhotocraftApp, v: &Value) {
 }
 
 fn visible_steps(app: &PhotocraftApp, action: usize) -> Vec<(String, Value)> {
-    app.session.actions.list.get(action).into_iter().flat_map(|a| a.steps.iter()).chain(actions_cmds::pending_steps(&app.session, action)).cloned().collect()
+    app.session.actions.list.get(action).into_iter().flat_map(|a| a.steps.iter().cloned()).chain(actions_cmds::pending_steps(&app.session, action)).collect()
 }
 
 fn step_label(id: &str, params: &Value) -> String {

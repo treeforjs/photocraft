@@ -7,6 +7,13 @@
 //! action. Playback runs those steps with [`Session::execute`]
 //! and stops at the first error, leaving one history step per step that ran.
 //!
+//! Recorded steps are document-independent, as Photoshop's are: an explicit layer id becomes
+//! `{"$layer":"active"}` when it named the layer that was active when the step ran, or
+//! `{"$layer":{"name":…}}` otherwise, and [`Session::execute`] resolves those references
+//! against whatever document the step replays on. Keystrokes typed into one text layer
+//! (consecutive `type.edit` replacements inside the text the previous one inserted) merge into
+//! a single step, and history-coalescing keys are dropped.
+//!
 //! An untrusted session installs [`Session::authorize`]. `actions.play` calls it for every nested
 //! step, because the outer `actions.play` id would otherwise hide a recorded `file.*` command from
 //! the top-level check.
@@ -54,6 +61,9 @@ pub struct ActionState {
     /// Bumped whenever `list` changes, so the preset store can skip unchanged writes.
     #[serde(skip)]
     pub rev: u64,
+    /// Document-independent params for journal entries made while recording, by journal index.
+    #[serde(skip)]
+    pub(crate) portable: Vec<(usize, Value)>,
 }
 
 impl ActionState {
@@ -185,14 +195,124 @@ fn record(s: &mut Session, p: &Value) -> Result<Value> {
         s.actions.list.len() - 1
     };
     s.actions.recording = Some((s.journal.len(), idx));
+    s.actions.portable.clear();
     let name = s.actions.list.get(idx).map(|a| a.name.clone()).unwrap_or_default();
     Ok(json!({"action": name, "index": idx}))
 }
 
-/// Replayable journal entries not yet committed to this action while recording.
-pub fn pending_steps(s: &Session, action: usize) -> impl Iterator<Item = &(String, Value)> {
+/// Replayable journal entries not yet committed to this action while recording, in their
+/// document-independent form with typing merged.
+pub fn pending_steps(s: &Session, action: usize) -> Vec<(String, Value)> {
     let from = s.actions.recording.filter(|(_, i)| *i == action).map_or(s.journal.len(), |(from, _)| from);
-    s.journal.iter().skip(from).filter(|(id, _)| replayable(id))
+    let mut out = Vec::new();
+    for (i, (id, p)) in s.journal.iter().enumerate().skip(from) {
+        if !replayable(id) {
+            continue;
+        }
+        let p = s.actions.portable.iter().find(|(j, _)| *j == i).map_or_else(|| p.clone(), |(_, v)| v.clone());
+        push_merged(&mut out, (id.clone(), p));
+    }
+    out
+}
+
+/// Key of a layer reference in a recorded step.
+const LAYER_REF: &str = "$layer";
+
+/// The document-independent form of a step about to run, or `None` when it is already
+/// portable. Called before the command runs, so "active" means the layer it targets now.
+pub(crate) fn portable(s: &Session, p: &Value) -> Option<Value> {
+    let obj = p.as_object()?;
+    let st = s.active();
+    let to_ref = |v: &Value| -> Option<Value> {
+        let n = v.as_u64()?;
+        let st = st?;
+        if st.active_layer.map(|l| l.0) == Some(n) {
+            return Some(json!({ LAYER_REF: "active" }));
+        }
+        Some(json!({ LAYER_REF: { "name": st.doc.layer(photocraft_doc::LayerId(n))?.name } }))
+    };
+    let mut out = obj.clone();
+    let mut changed = out.remove("coalesce").is_some();
+    if let Some(r) = obj.get("layer").and_then(to_ref) {
+        out.insert("layer".into(), r);
+        changed = true;
+    }
+    if let Some(Value::Array(ids)) = obj.get("layers")
+        && !ids.is_empty()
+        && let Some(refs) = ids.iter().map(to_ref).collect::<Option<Vec<_>>>()
+    {
+        out.insert("layers".into(), Value::Array(refs));
+        changed = true;
+    }
+    changed.then_some(Value::Object(out))
+}
+
+/// Replaces the layer references of a recorded step (see [`portable`]) with the ids they
+/// name in the active document. Params without references pass through unchanged.
+pub(crate) fn resolve_refs(s: &Session, cmd: &str, p: Value) -> Result<Value> {
+    let Value::Object(mut obj) = p else { return Ok(p) };
+    let is_ref = |v: &Value| v.get(LAYER_REF).is_some();
+    let has = obj.get("layer").is_some_and(is_ref) || obj.get("layers").and_then(Value::as_array).is_some_and(|a| a.iter().any(is_ref));
+    if !has {
+        return Ok(Value::Object(obj));
+    }
+    let one = |v: &Value| -> Result<Value> {
+        let Some(r) = v.get(LAYER_REF) else { return Ok(v.clone()) };
+        let st = s.active().ok_or_else(|| bad(cmd, "no document is open"))?;
+        if r.as_str() == Some("active") {
+            return st.active_layer.map(|l| json!(l.0)).ok_or_else(|| bad(cmd, "no active layer"));
+        }
+        let name = r.get("name").and_then(Value::as_str).ok_or_else(|| bad(cmd, "a layer reference needs \"active\" or a \"name\""))?;
+        // Topmost layer with that name, as the Layers panel lists it.
+        st.doc.walk().iter().rev().find(|(_, _, l)| l.name == name).map(|(_, _, l)| json!(l.id.0)).ok_or_else(|| bad(cmd, format!("no layer named “{name}”")))
+    };
+    if let Some(v) = obj.get("layer") {
+        let r = one(v)?;
+        obj.insert("layer".into(), r);
+    }
+    if let Some(Value::Array(a)) = obj.get("layers") {
+        let r = a.iter().map(one).collect::<Result<Vec<_>>>()?;
+        obj.insert("layers".into(), Value::Array(r));
+    }
+    Ok(Value::Object(obj))
+}
+
+/// Appends a step, merging a keystroke into the previous `type.edit` when it only edits the
+/// text that one inserted (typing, Backspace inside it), so typed text is one step.
+fn push_merged(steps: &mut Vec<(String, Value)>, step: (String, Value)) {
+    if let Some(last) = steps.last_mut()
+        && let Some(merged) = merge_typing(last, &step)
+    {
+        last.1 = merged;
+        return;
+    }
+    steps.push(step);
+}
+
+fn merge_typing(a: &(String, Value), b: &(String, Value)) -> Option<Value> {
+    if a.0 != "type.edit" || b.0 != "type.edit" {
+        return None;
+    }
+    let (pa, pb) = (a.1.as_object()?, b.1.as_object()?);
+    let only = |o: &serde_json::Map<String, Value>| o.keys().all(|k| k == "layer" || k == "replace");
+    if !only(pa) || !only(pb) || pa.get("layer") != pb.get("layer") {
+        return None;
+    }
+    let part = |o: &serde_json::Map<String, Value>| -> Option<(u64, u64, String)> {
+        let r = o.get("replace")?;
+        Some((r.get("start")?.as_u64()?, r.get("end")?.as_u64()?, r.get("text")?.as_str()?.to_string()))
+    };
+    let ((s1, e1, t1), (s2, e2, t2)) = (part(pa)?, part(pb)?);
+    let chars: Vec<char> = t1.chars().collect();
+    let end1 = s1.checked_add(chars.len() as u64)?;
+    if s2 < s1 || e2 < s2 || e2 > end1 {
+        return None;
+    }
+    let (rs, re) = (usize::try_from(s2 - s1).ok()?, usize::try_from(e2 - s1).ok()?);
+    let text: String = chars.get(..rs)?.iter().chain(t2.chars().collect::<Vec<_>>().iter()).chain(chars.get(re..)?.iter()).collect();
+    let mut out = pa.clone();
+    out.insert("replace".into(), json!({"start": s1, "end": e1, "text": text}));
+    Some(Value::Object(out))
 }
 
 fn flush_recording(s: &mut Session) -> Result<()> {
@@ -200,8 +320,9 @@ fn flush_recording(s: &mut Session) -> Result<()> {
     if idx >= s.actions.list.len() {
         return Err(bad("actions.stop", "the action being recorded no longer exists"));
     }
-    let steps: Vec<_> = pending_steps(s, idx).cloned().collect();
+    let steps = pending_steps(s, idx);
     s.actions.recording = Some((s.journal.len(), idx));
+    s.actions.portable.clear();
     if !steps.is_empty() {
         s.actions.list[idx].steps.extend(steps);
         s.actions.touch();
@@ -311,7 +432,7 @@ fn move_item(s: &mut Session, p: &Value) -> Result<Value> {
     let to = index("to")?;
     if p.get("step").is_some() {
         let step = index("step")?;
-        let len = s.actions.list[idx].steps.len().saturating_add(pending_steps(s, idx).count());
+        let len = s.actions.list[idx].steps.len().saturating_add(pending_steps(s, idx).len());
         if step >= len || to >= len {
             return Err(bad("actions.move", "step or destination is out of range"));
         }
@@ -357,7 +478,7 @@ fn delete(s: &mut Session, p: &Value) -> Result<Value> {
     let idx = resolve(&s.actions.list, p, "actions.delete")?;
     if let Some(step) = p.get("step") {
         let step = step.as_u64().and_then(|i| usize::try_from(i).ok()).ok_or_else(|| bad("actions.delete", "step must be a non-negative integer"))?;
-        let len = s.actions.list[idx].steps.len().saturating_add(pending_steps(s, idx).count());
+        let len = s.actions.list[idx].steps.len().saturating_add(pending_steps(s, idx).len());
         if step >= len {
             return Err(bad("actions.delete", "step is out of range"));
         }
@@ -556,6 +677,97 @@ mod tests {
         assert!(listed["recording"].is_null());
     }
 
+    fn layer_named<'a>(s: &'a Session, name: &str) -> &'a photocraft_doc::Layer {
+        s.active().unwrap().doc.walk().into_iter().map(|(_, _, l)| l).find(|l| l.name == name).unwrap()
+    }
+
+    #[test]
+    fn recorded_layer_ids_replay_by_reference_on_another_document() {
+        // AUTO-219-1: the active layer is implicit and other layers are named, so the action
+        // targets the same layers on a document whose layer ids differ.
+        let mut s = Session::new();
+        s.execute("file.new", json!({"width": 16, "height": 16})).unwrap();
+        s.execute("layer.new.layer", json!({"name": "Shade"})).unwrap();
+        s.execute("layer.new.layer", json!({"name": "Top"})).unwrap();
+        let (shade, top) = (layer_named(&s, "Shade").id.0, layer_named(&s, "Top").id.0);
+        s.execute("actions.record", json!({"name": "Fade"})).unwrap();
+        s.execute("layer.setProps", json!({"layer": shade, "opacity": 0.5})).unwrap();
+        s.execute("layer.setProps", json!({"layer": top, "opacity": 0.25})).unwrap();
+        s.execute("layer.setProps", json!({"layers": [shade, top], "visible": true})).ok();
+        s.execute("actions.stop", json!({})).unwrap();
+        let steps = &s.actions.list[0].steps;
+        assert_eq!(steps[0].1, json!({"layer": {"$layer": {"name": "Shade"}}, "opacity": 0.5}));
+        assert_eq!(steps[1].1, json!({"layer": {"$layer": "active"}, "opacity": 0.25}));
+        assert!(!serde_json::to_string(steps).unwrap().contains(&format!(":{shade}")), "{steps:?}");
+
+        s.execute("file.new", json!({"width": 16, "height": 16})).unwrap();
+        for name in ["Extra", "Shade", "Other", "Top", "Last"] {
+            s.execute("layer.new.layer", json!({"name": name})).unwrap();
+        }
+        assert_ne!(layer_named(&s, "Shade").id.0, shade, "the ids differ on the second document");
+        let r = s.execute("actions.play", json!({"action": "Fade"})).unwrap();
+        assert!(r.get("failed").is_none(), "{r}");
+        assert_eq!(layer_named(&s, "Shade").opacity, 0.5);
+        assert_eq!(layer_named(&s, "Last").opacity, 0.25, "the active layer, whatever its name");
+        assert_eq!(layer_named(&s, "Top").opacity, 1.0);
+        assert_eq!(layer_named(&s, "Extra").opacity, 1.0);
+    }
+
+    #[test]
+    fn a_missing_named_layer_fails_the_step_cleanly() {
+        let mut s = Session::new();
+        s.execute("file.new", json!({"width": 8, "height": 8})).unwrap();
+        let err = s.execute("layer.setProps", json!({"layer": {"$layer": {"name": "Nope"}}, "opacity": 0.5})).unwrap_err();
+        assert!(err.to_string().contains("Nope"), "{err}");
+        for bad in [json!({"$layer": 7}), json!({"$layer": {"name": 3}}), json!({"$layer": null})] {
+            assert!(s.execute("layer.setProps", json!({"layer": bad, "opacity": 0.5})).is_err());
+        }
+        // Without a document an active reference is an error, not a panic.
+        let mut empty = Session::new();
+        assert!(empty.execute("layer.setProps", json!({"layer": {"$layer": "active"}})).is_err());
+    }
+
+    #[test]
+    fn typed_keystrokes_record_as_one_step() {
+        let mut s = Session::new();
+        s.execute("file.new", json!({"width": 64, "height": 32})).unwrap();
+        s.execute("actions.record", json!({"name": "Type"})).unwrap();
+        let id = s.execute("type.create", json!({"x": 4, "y": 20, "text": "H"})).unwrap()["layer"].as_u64().unwrap();
+        for (start, end, text) in [(1, 1, "i"), (2, 2, "!!"), (3, 4, "")] {
+            s.execute("type.edit", json!({"layer": id, "replace": {"start": start, "end": end, "text": text}, "coalesce": "typing-1"})).unwrap();
+        }
+        // A style change is its own step, and typing after it starts a new one.
+        s.execute("type.edit", json!({"layer": id, "antialias": "crisp"})).unwrap();
+        s.execute("type.edit", json!({"layer": id, "replace": {"start": 3, "end": 3, "text": "?"}, "coalesce": "typing-2"})).unwrap();
+        assert_eq!(pending_steps(&s, 0).len(), 4, "the panel shows the merged steps while recording");
+        s.execute("actions.stop", json!({})).unwrap();
+        let steps = &s.actions.list[0].steps;
+        let ids: Vec<&str> = steps.iter().map(|(id, _)| id.as_str()).collect();
+        assert_eq!(ids, ["type.create", "type.edit", "type.edit", "type.edit"]);
+        assert_eq!(steps[1].1, json!({"layer": {"$layer": "active"}, "replace": {"start": 1, "end": 1, "text": "i!"}}));
+        assert_eq!(steps[3].1, json!({"layer": {"$layer": "active"}, "replace": {"start": 3, "end": 3, "text": "?"}}));
+
+        s.execute("file.new", json!({"width": 64, "height": 32})).unwrap();
+        s.execute("layer.new.layer", json!({})).unwrap();
+        let r = s.execute("actions.play", json!({"action": "Type"})).unwrap();
+        assert!(r.get("failed").is_none(), "{r}");
+        assert_eq!(s.execute("type.info", json!({})).unwrap()["text"], "Hi!?");
+    }
+
+    #[test]
+    fn merge_typing_only_merges_edits_inside_the_inserted_text() {
+        let edit = |s: u64, e: u64, t: &str| ("type.edit".to_string(), json!({"layer": 1, "replace": {"start": s, "end": e, "text": t}}));
+        assert_eq!(merge_typing(&edit(0, 0, "ab"), &edit(2, 2, "c")), Some(edit(0, 0, "abc").1));
+        assert_eq!(merge_typing(&edit(5, 7, "xy"), &edit(5, 6, "")), Some(edit(5, 7, "y").1));
+        assert_eq!(merge_typing(&edit(0, 0, "ab"), &edit(3, 3, "c")), None, "past the inserted text");
+        assert_eq!(merge_typing(&edit(4, 4, "ab"), &edit(3, 3, "c")), None, "before it");
+        assert_eq!(merge_typing(&edit(0, 0, "ab"), &edit(2, 1, "c")), None, "a reversed range");
+        let other = ("type.edit".to_string(), json!({"layer": 2, "replace": {"start": 2, "end": 2, "text": "c"}}));
+        assert_eq!(merge_typing(&edit(0, 0, "ab"), &other), None, "another layer");
+        assert_eq!(merge_typing(&edit(0, 0, "é✓"), &edit(1, 2, "e")), Some(edit(0, 0, "ée").1), "char offsets, not bytes");
+        assert_eq!(merge_typing(&edit(u64::MAX, u64::MAX, "a"), &edit(u64::MAX, u64::MAX, "b")), None, "overflow");
+    }
+
     #[test]
     fn play_on_another_document_matches_pixels_at_each_depth() {
         for depth in [8, 16, 32] {
@@ -661,7 +873,7 @@ mod tests {
             assert!(s.execute("actions.delete", json!({"action": 0, "step": step})).is_err());
             assert_eq!(s.actions, before, "invalid deletion is atomic");
         }
-        assert_eq!(pending_steps(&s, 0).count(), 2);
+        assert_eq!(pending_steps(&s, 0).len(), 2);
         let result = s.execute("actions.delete", json!({"action": 0, "step": 1})).unwrap();
         assert_eq!(result["steps"], 1);
         assert_eq!(s.journal, journal, "deleting a recording does not erase executed commands");
@@ -691,7 +903,7 @@ mod tests {
         s.execute("actions.record", json!({"name": "Parent"})).unwrap();
         s.execute("layer.new.layer", json!({"name": "Before"})).unwrap();
         s.execute("actions.play", json!({"action": 0})).unwrap();
-        assert_eq!(pending_steps(&s, 1).cloned().collect::<Vec<_>>(), [("actions.play".into(), json!({"action": "Child"}))]);
+        assert_eq!(pending_steps(&s, 1), [("actions.play".into(), json!({"action": "Child"}))]);
         s.execute("layer.new.layer", json!({"name": "After"})).unwrap();
         s.execute("actions.stop", json!({})).unwrap();
         assert_eq!(s.actions.list[1].steps.iter().map(|st| st.0.as_str()).collect::<Vec<_>>(), ["layer.new.layer", "actions.play", "layer.new.layer"]);

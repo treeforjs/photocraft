@@ -14,9 +14,9 @@ note = "docs/parity.md: all menu items live; menus.rs is_live"
 [[item]]
 id = "AUTO-219-1"
 target = "Record actions in a document-independent form (implicit layer, merged type keystrokes)"
-status = "missing"
+status = "done"
 issue = 219
-note = "actions.rs:47 copies raw journal entries with explicit layer ids"
+note = "actions_cmds.rs portable/resolve_refs: layer ids record as {\"$layer\":\"active\"} or by name and resolve on replay in Session dispatch; consecutive type.edit keystrokes merge (merge_typing); recorded_layer_ids_replay_by_reference_on_another_document, typed_keystrokes_record_as_one_step"
 
 [[item]]
 id = "AUTO-219-2"
