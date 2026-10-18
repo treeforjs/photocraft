@@ -493,15 +493,20 @@ fn convert_depth(s: &mut Session, depth: SampleType) -> Result<Value> {
         return Ok(Value::Null);
     }
     s.edit("Bit Depth", |doc, _| {
-        convert_layers_depth(&mut doc.layers, depth);
-        for ch in doc.channels.iter_mut().chain(doc.quick_mask.as_mut()) {
-            let f = ch.surface.format().with_sample(depth);
-            ch.surface = ch.surface.convert(f);
-        }
-        doc.depth = depth;
+        convert_doc_depth(doc, depth);
         Ok(())
     })?;
     Ok(Value::Null)
+}
+
+/// Converts every pixel surface of `doc` (layers, masks, alpha channels, quick mask) to `depth`.
+pub(crate) fn convert_doc_depth(doc: &mut Document, depth: SampleType) {
+    convert_layers_depth(&mut doc.layers, depth);
+    for ch in doc.channels.iter_mut().chain(doc.quick_mask.as_mut()) {
+        let f = ch.surface.format().with_sample(depth);
+        ch.surface = ch.surface.convert(f);
+    }
+    doc.depth = depth;
 }
 
 /// Image → Duplicate.

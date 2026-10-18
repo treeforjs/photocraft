@@ -408,6 +408,13 @@ document. `app.open` and other automation opens never show the dialog. The prefe
 `rawDefaults.openInCameraRaw` (default `true`) turns it off; `rawDefaults.applyAutoTone` (default
 `false`) opens it with Auto applied.
 
+Every open of a developed raw (and the dialog's re-develop) then applies the Camera Raw
+Defaults' output settings: `rawDefaults.colorSpace` (`adobeRgb` default, `srgb`, `displayP3`,
+or `proPhoto`, the develop's own space; converted relative colorimetric with black point
+compensation), `rawDefaults.bitDepth` (`16` default, or `8`, reduced after the conversion) and
+`rawDefaults.resolution` (ppi, default 300, clamped to 1–30000). The import note says what the
+raw was developed into. Preview-only opens (the embedded JPEG) are left as they are.
+
 Imported PSD Camera Raw filters whose processing settings are all mapped or neutral use this
 same editor. `params.__cameraRawPsd` is reserved import/export metadata: preserve it when editing
 stored parameters. Other processing fields or versions remain opaque Photoshop filters. See
