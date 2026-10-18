@@ -33,7 +33,10 @@ fn appearance_defaults_and_legacy_theme_migrate() {
         ("pro", AppearanceMode::Dark, DarkTheme::Craft, LightTheme::CraftLight),
         ("proMedium", AppearanceMode::Dark, DarkTheme::Dim, LightTheme::CraftLight),
         ("dim", AppearanceMode::Dark, DarkTheme::Dim, LightTheme::CraftLight),
-        ("cream", AppearanceMode::Light, DarkTheme::Craft, LightTheme::Cream),
+        ("warm", AppearanceMode::Light, DarkTheme::Craft, LightTheme::Warm),
+        // Warm was called Cream, then Paper; older settings still load as Warm.
+        ("cream", AppearanceMode::Light, DarkTheme::Craft, LightTheme::Warm),
+        ("paper", AppearanceMode::Light, DarkTheme::Craft, LightTheme::Warm),
         ("classic", AppearanceMode::Light, DarkTheme::Craft, LightTheme::Classic),
     ] {
         let mut s = Session::new();
@@ -51,28 +54,38 @@ fn appearance_defaults_and_legacy_theme_migrate() {
     assert_eq!(DarkTheme::parse("pro"), Some(DarkTheme::Craft));
     assert_eq!(DarkTheme::Craft.name(), "dark");
     assert_eq!(DarkTheme::Dim.name(), "dim");
-    assert_eq!(LightTheme::Cream.name(), "cream");
+    assert_eq!(LightTheme::Warm.name(), "warm");
+    for old in ["cream", "paper"] {
+        assert_eq!((LightTheme::parse(old), Theme::parse(old)), (Some(LightTheme::Warm), Some(Theme::Warm)));
+        let mut s = Session::new();
+        s.load_prefs_json(&json!({"interface": {"appearanceMode": "light", "lightTheme": old, "theme": old}}).to_string()).unwrap();
+        assert_eq!((s.prefs().interface.light_theme, s.prefs().interface.theme), (LightTheme::Warm, Theme::Warm));
+        let saved = s.prefs_to_json();
+        assert!(saved.contains("\"warm\"") && !saved.contains(&format!("\"{old}\"")), "saved under the new name");
+        s.execute("prefs.set", json!({"path": "interface.theme", "value": old})).unwrap();
+        assert_eq!(s.prefs().interface.light_theme, LightTheme::Warm);
+    }
 }
 
 #[test]
-fn cream_and_dim_are_offered_and_select_their_family() {
-    // Choice lists keep the shared craft order: Light, Cream / Dim, Dark, High contrast.
-    assert_eq!(&LightTheme::NAMES[..2], &["light", "cream"]);
+fn warm_and_dim_are_offered_and_select_their_family() {
+    // Choice lists keep the shared craft order: Light, Warm / Dim, Dark, High contrast.
+    assert_eq!(&LightTheme::NAMES[..2], &["light", "warm"]);
     assert_eq!(&DarkTheme::NAMES[..3], &["dim", "dark", "highContrast"]);
-    assert_eq!(&Theme::NAMES[..5], &["light", "cream", "dim", "dark", "highContrast"]);
+    assert_eq!(&Theme::NAMES[..5], &["light", "warm", "dim", "dark", "highContrast"]);
     let mut s = Session::new();
-    s.execute("prefs.set", json!({"path": "interface.theme", "value": "cream"})).unwrap();
-    assert_eq!(s.prefs().interface.appearance_mode, AppearanceMode::Light, "Cream is a light theme");
-    assert_eq!(s.prefs().interface.light_theme, LightTheme::Cream);
+    s.execute("prefs.set", json!({"path": "interface.theme", "value": "warm"})).unwrap();
+    assert_eq!(s.prefs().interface.appearance_mode, AppearanceMode::Light, "Warm is a light theme");
+    assert_eq!(s.prefs().interface.light_theme, LightTheme::Warm);
     s.execute("prefs.set", json!({"path": "interface.theme", "value": "dim"})).unwrap();
     assert_eq!(s.prefs().interface.appearance_mode, AppearanceMode::Dark);
     assert_eq!(s.prefs().interface.dark_theme, DarkTheme::Dim);
-    assert_eq!(s.prefs().interface.light_theme, LightTheme::Cream, "the light choice is kept");
+    assert_eq!(s.prefs().interface.light_theme, LightTheme::Warm, "the light choice is kept");
     let mut restarted = Session::new();
     restarted.load_prefs_json(&s.prefs_to_json()).unwrap();
     assert_eq!(restarted.prefs().interface, s.prefs().interface);
     assert!(s.execute("prefs.set", json!({"path": "interface.lightTheme", "value": "dim"})).is_err());
-    assert!(s.execute("prefs.set", json!({"path": "interface.darkTheme", "value": "cream"})).is_err());
+    assert!(s.execute("prefs.set", json!({"path": "interface.darkTheme", "value": "warm"})).is_err());
 }
 
 #[test]

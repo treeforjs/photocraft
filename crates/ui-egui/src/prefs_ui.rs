@@ -88,7 +88,7 @@ fn selected_theme(interface: &prefs::Interface, system: Option<egui::Theme>) -> 
     if light {
         match interface.light_theme {
             LightTheme::CraftLight => ThemeKind::CraftLight,
-            LightTheme::Cream => ThemeKind::Cream,
+            LightTheme::Warm => ThemeKind::Warm,
             LightTheme::StudioLight => ThemeKind::StudioLight,
             LightTheme::Classic => ThemeKind::Classic,
             LightTheme::Adwaita => ThemeKind::Adwaita,
@@ -1166,8 +1166,9 @@ fn theme_card(ui: &mut egui::Ui, title: &str, active: bool, selected: &mut Strin
             theme_preview(ui, preview, width - 20.0);
             ui.add_space(6.0);
             for (id, _) in options {
+                // Theme names have their own context: "Warm" the theme is not the colour-temperature "Warm".
                 let label = choice_label(id);
-                ui.radio_value(selected, (*id).to_string(), tl!(&label));
+                ui.radio_value(selected, (*id).to_string(), crate::i18n::tr_ctx(crate::i18n::current(), "theme", &label));
             }
         });
 }
@@ -1198,7 +1199,7 @@ fn appearance_rows(ui: &mut egui::Ui, obj: &mut Map<String, Value>, system: Opti
                 &mut light,
                 &[
                     ("light", ThemeKind::CraftLight),
-                    ("cream", ThemeKind::Cream),
+                    ("warm", ThemeKind::Warm),
                     ("studioLight", ThemeKind::StudioLight),
                     ("classic", ThemeKind::Classic),
                     ("adwaita", ThemeKind::Adwaita),
@@ -1827,13 +1828,13 @@ mod tests {
         assert_eq!(selected_theme(&interface, Some(egui::Theme::Light)), ThemeKind::Studio);
         interface.appearance_mode = AppearanceMode::Light;
         assert_eq!(selected_theme(&interface, Some(egui::Theme::Dark)), ThemeKind::Classic);
-        // Cream is a light theme and Dim a dark one, each in its own family's card.
-        interface.light_theme = LightTheme::Cream;
+        // Warm is a light theme and Dim a dark one, each in its own family's card.
+        interface.light_theme = LightTheme::Warm;
         interface.dark_theme = DarkTheme::Dim;
-        assert_eq!(selected_theme(&interface, Some(egui::Theme::Dark)), ThemeKind::Cream);
+        assert_eq!(selected_theme(&interface, Some(egui::Theme::Dark)), ThemeKind::Warm);
         interface.appearance_mode = AppearanceMode::Auto;
         assert_eq!(selected_theme(&interface, Some(egui::Theme::Dark)), ThemeKind::Dim);
-        assert_eq!(selected_theme(&interface, Some(egui::Theme::Light)), ThemeKind::Cream);
+        assert_eq!(selected_theme(&interface, Some(egui::Theme::Light)), ThemeKind::Warm);
     }
 
     #[test]
