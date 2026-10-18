@@ -2732,6 +2732,9 @@ theme	Warm	Тёплая
 	Soft	Мягкая
 	Import Image as Brush…	Импортировать изображение как кисть…
 	New brush “{name}” from the image	Новая кисть «{name}» из изображения
+	Type on a Path	Текст по контуру
+	Start	Начало
+	Release from Path	Отделить от контура
 	Float Panel Group	Открепить группу панелей
 	Dock Panel Group	Закрепить группу панелей
 	No Suggestions	Нет вариантов
