@@ -148,3 +148,50 @@ fn installed_yoon_numeric_faces() {
         }
     }
 }
+
+/// `source` with its `name` table replaced by Windows Unicode records of (language id, name id,
+/// value).
+fn renamed_font(source: &[u8], names: &[(u16, u16, &str)]) -> Vec<u8> {
+    let mut bytes = source.to_vec();
+    let count = u16::from_be_bytes(bytes[4..6].try_into().unwrap()) as usize;
+    let name_record = (0..count).map(|i| 12 + i * 16).find(|r| &bytes[*r..r + 4] == b"name").unwrap();
+    let mut sorted = names.to_vec();
+    sorted.sort_by_key(|(lang, id, _)| (*lang, *id));
+    let mut table = Vec::new();
+    let mut strings = Vec::new();
+    for value in [0u16, sorted.len() as u16, (6 + sorted.len() * 12) as u16] {
+        table.extend(value.to_be_bytes());
+    }
+    for (lang, id, value) in sorted {
+        let encoded: Vec<_> = value.encode_utf16().flat_map(u16::to_be_bytes).collect();
+        for n in [3, 1, lang, id, encoded.len() as u16, strings.len() as u16] {
+            table.extend(n.to_be_bytes());
+        }
+        strings.extend(encoded);
+    }
+    table.extend(strings);
+    let offset = bytes.len() as u32;
+    bytes[name_record + 8..name_record + 12].copy_from_slice(&offset.to_be_bytes());
+    bytes[name_record + 12..name_record + 16].copy_from_slice(&(table.len() as u32).to_be_bytes());
+    bytes.extend(table);
+    bytes
+}
+
+#[test]
+fn native_family_names_come_from_the_name_table() {
+    let mut db = FontDb::new();
+    db.register_font_data(renamed_font(
+        &INTER_REGULAR,
+        &[(0x409, 1, "Kaku Test"), (0x409, 2, "Regular"), (0x409, 6, "KakuTest-Regular"), (0x411, 1, "角テスト"), (0x412, 1, "각 테스트"), (0x411, 2, "標準")],
+    ));
+    assert!(db.has_family("Kaku Test"));
+    assert_eq!(db.native_family_name("Kaku Test", "ko").as_deref(), Some("각 테스트"));
+    // Cached per family, whatever the later preference.
+    assert_eq!(db.native_family_name("Kaku Test", "ja").as_deref(), Some("각 테스트"));
+    let mut db = FontDb::new();
+    db.register_font_data(renamed_font(&INTER_REGULAR, &[(0x409, 1, "Kaku Test"), (0x411, 1, "角テスト"), (0x412, 1, "각 테스트")]));
+    assert_eq!(db.native_family_name("Kaku Test", "").as_deref(), Some("角テスト"), "first non-English name");
+    // English-only fonts have none.
+    assert_eq!(db.native_family_name(DEFAULT_FAMILY, "ja"), None);
+    assert_eq!(db.native_family_name("No Such Family", "ja"), None);
+}
