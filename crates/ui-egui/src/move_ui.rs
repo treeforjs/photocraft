@@ -227,6 +227,82 @@ pub(crate) fn finish(app: &mut PhotocraftApp, dx: f64, dy: f64) {
     crate::canvas::shown_as_document(app, p.doc, is_preview_key);
 }
 
+/// A Move tool box-select in progress (TOOL-214-4): with Auto-Select on, a drag that starts where
+/// no layer has pixels draws a marquee, and the release selects every layer whose pixels meet it
+/// (`layer.pickInRect`; Shift adds to the selected layers). Corners are document pixels.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub(crate) struct MoveBox {
+    pub start: [f64; 2],
+    pub end: [f64; 2],
+    pub add: bool,
+}
+
+/// Does a Move tool press at (x, y) start a box-select? Auto-Select runs first (it selects the layer
+/// it hits); a press it can't pick anything at starts the box instead of moving.
+pub(crate) fn begin_box(app: &mut PhotocraftApp, picked: &Result<serde_json::Value, String>, x: f64, y: f64, add: bool) -> bool {
+    if !picked.as_ref().is_ok_and(|v| v.get("layer").is_some_and(serde_json::Value::is_null)) {
+        return false;
+    }
+    app.move_box = Some(MoveBox { start: [x, y], end: [x, y], add });
+    true
+}
+
+/// Ends a box-select at (x, y): selects the layers it met (a click with no drag changes nothing).
+pub(crate) fn finish_box(app: &mut PhotocraftApp, x: f64, y: f64) {
+    let Some(b) = app.move_box.take() else { return };
+    let (w, h) = (x - b.start[0], y - b.start[1]);
+    // Less than a document pixel each way is a click, as in Photoshop.
+    if !(w.abs() >= 1.0 || h.abs() >= 1.0) {
+        return;
+    }
+    let target = app.ui.tool_options.move_target.clone();
+    let mode = if b.add { "add" } else { "replace" };
+    let r = app.run("layer.pickInRect", json!({"x": b.start[0], "y": b.start[1], "width": w, "height": h, "target": target, "mode": mode}));
+    if let Err(e) = r {
+        app.ui.status = e;
+        app.ui.status_error = true;
+    }
+}
+
+/// The Move tool's canvas overlays: the box-select marquee while one is dragged, else (Auto-Select
+/// on, nothing dragged) an outline round the layer a click would pick, as Photoshop highlights it.
+pub(crate) fn draw_overlay(app: &mut PhotocraftApp, painter: &egui::Painter, xf: &crate::canvas::ViewXform, doc: &Document, hover: Option<egui::Pos2>) {
+    if app.ui.tool != Tool::Move {
+        return;
+    }
+    let t = crate::theme::Tokens::get(painter.ctx());
+    let quad = |r: [f64; 4]| -> Vec<egui::Pos2> {
+        let [x0, y0, x1, y1] = r.map(|v| v as f32);
+        vec![xf.to_screen(x0, y0), xf.to_screen(x1, y0), xf.to_screen(x1, y1), xf.to_screen(x0, y1)]
+    };
+    if let Some(b) = app.move_box {
+        let pts = quad([b.start[0], b.start[1], b.end[0], b.end[1]]);
+        painter.add(egui::Shape::convex_polygon(pts.clone(), t.accent.gamma_multiply(0.12), egui::Stroke::NONE));
+        painter.add(egui::Shape::closed_line(pts, egui::Stroke::new(1.0, t.accent)));
+        return;
+    }
+    let pick = app.ui.tool_options.move_auto_select != painter.ctx().input(|i| i.modifiers.command);
+    let Some(p) = hover.filter(|_| pick && app.drag.is_none() && app.ui.transform.is_none() && app.guide_drag.is_none()) else { return };
+    let d = xf.to_doc(p);
+    let (x, y) = (d[0].floor(), d[1].floor());
+    if !(x.is_finite() && y.is_finite()) || x.abs() > f64::from(i32::MAX / 2) || y.abs() > f64::from(i32::MAX / 2) {
+        return;
+    }
+    let hits = photocraft_engine::pick_cmds::layers_at(doc, x as i32, y as i32);
+    let Some(layer) = hits.iter().filter_map(|id| doc.layer(*id)).find(|l| !doc.effective_locks(l.id).all) else { return };
+    // The Background fills the canvas, whose edge already shows.
+    if layer.artboard().is_some() || (layer.name == "Background" && layer.locks.transparency) {
+        return;
+    }
+    let Some(surface) = layer.surface() else { return };
+    let r = app.cached_bounds(layer.id.0, surface);
+    if r.is_empty() {
+        return;
+    }
+    let pts = quad([f64::from(r.x0), f64::from(r.y0), f64::from(r.x1), f64::from(r.y1)]);
+    painter.add(egui::Shape::closed_line(pts, egui::Stroke::new(1.5, t.accent)));
+}
+
 #[cfg(test)]
 mod tests {
     use photocraft_geom::Rect;
