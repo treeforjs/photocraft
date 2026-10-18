@@ -1132,6 +1132,7 @@ fn build() -> Vec<CommandSpec> {
     v.extend(crate::eraser_cmds::specs());
     v.extend(crate::preset_import_cmds::specs());
     v.extend(crate::swatch_cmds::specs());
+    v.extend(crate::library_cmds::specs());
     v.extend(crate::retouch_cmds::specs());
     v.extend(crate::redeye_cmds::specs());
     v.extend(crate::image_cmds::specs());

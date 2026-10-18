@@ -2448,3 +2448,16 @@ theme	Warm	暖色
 	Canvas pattern in light themes	淺色主題中的畫布圖樣
 	Add Filter Mask	新增濾鏡遮色片
 	Filter mask	濾鏡遮色片
+	Libraries	資料庫
+	+ Color	+ 顏色
+	+ Graphic	+ 圖形
+	+ Pattern	+ 圖樣
+	Add the foreground color	加入前景色
+	Add the selected layers	加入選取的圖層
+	Add the pattern selected in the Patterns panel	加入在「圖樣」面板中選取的圖樣
+	Save colors, graphics and patterns here to use them in any document.	將顏色、圖形和圖樣儲存在這裡，即可在任何文件中使用。
+	Place	置入
+	Place Linked	置入連結
+	Place as an embedded smart object (a copy)	以內嵌的智慧型物件置入（拷貝）
+	Place as a linked smart object that refers to the library's file	以參照資料庫檔案的連結智慧型物件置入
+	Added to the document's patterns:	已加入文件的圖樣：

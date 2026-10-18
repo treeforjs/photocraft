@@ -48,8 +48,15 @@ impl PresetUi {
     }
 }
 
-const PANELS: [&str; 6] =
-    ["window.panel.gradients", "window.panel.patterns", "window.panel.styles", "window.panel.shapes", "window.panel.toolPresets", "window.panel.cloneSource"];
+const PANELS: [&str; 7] = [
+    "window.panel.gradients",
+    "window.panel.patterns",
+    "window.panel.libraries",
+    "window.panel.styles",
+    "window.panel.shapes",
+    "window.panel.toolPresets",
+    "window.panel.cloneSource",
+];
 const MIN_THUMB: f32 = 20.0;
 
 /// Window-menu ids handled here.
@@ -62,6 +69,7 @@ fn color_tab(id: &str) -> Option<usize> {
     match id {
         "window.panel.gradients" => Some(2),
         "window.panel.patterns" => Some(3),
+        "window.panel.libraries" => Some(crate::libraries_ui::TAB),
         _ => None,
     }
 }

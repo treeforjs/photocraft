@@ -2502,3 +2502,16 @@ theme	Warm	Warm
 	Canvas pattern in light themes	Leinwandmuster in hellen Designs
 	Add Filter Mask	Filtermaske hinzufügen
 	Filter mask	Filtermaske
+	Libraries	Bibliotheken
+	+ Color	+ Farbe
+	+ Graphic	+ Grafik
+	+ Pattern	+ Muster
+	Add the foreground color	Vordergrundfarbe hinzufügen
+	Add the selected layers	Ausgewählte Ebenen hinzufügen
+	Add the pattern selected in the Patterns panel	Im Muster-Bedienfeld ausgewähltes Muster hinzufügen
+	Save colors, graphics and patterns here to use them in any document.	Speichern Sie hier Farben, Grafiken und Muster, um sie in jedem Dokument zu verwenden.
+	Place	Platzieren
+	Place Linked	Verknüpft platzieren
+	Place as an embedded smart object (a copy)	Als eingebettetes Smartobjekt platzieren (eine Kopie)
+	Place as a linked smart object that refers to the library's file	Als verknüpftes Smartobjekt platzieren, das auf die Bibliotheksdatei verweist
+	Added to the document's patterns:	Zu den Mustern des Dokuments hinzugefügt:

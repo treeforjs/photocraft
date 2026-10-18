@@ -305,6 +305,8 @@ fn command_uses_ambient_path(id: &str, params: &Value) -> bool {
         }
         // With a `path` the file is written there; without one the bytes come back as `data`.
         "swatches.export" => params.get("path").is_some(),
+        // Window › Libraries: Add Graphic from File reads the file at `path`.
+        "library.addFile" => params.get("path").is_some(),
         "plugin.reload" => true,
         _ => false,
     }
@@ -973,6 +975,7 @@ mod tests {
             ("gradient.presets.importGrd", serde_json::json!({"path": "/outside/set.grd"})),
             ("plugin.install", serde_json::json!({"path": "/outside/plugin.wasm"})),
             ("plugin.reload", serde_json::json!({"path": "/outside/plugins"})),
+            ("library.addFile", serde_json::json!({"path": "/outside/logo.png"})),
             ("prefs.set", serde_json::json!({"path": "historyLog.filePath", "value": "/outside/log"})),
             ("prefs.set", serde_json::json!({"values": {"interface.language": "fr", "historyLog.filePath": "/outside/log"}})),
         ] {

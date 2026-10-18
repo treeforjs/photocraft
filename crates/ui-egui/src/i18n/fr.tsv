@@ -2881,3 +2881,15 @@ theme	Warm	Chaud
 	Canvas pattern in light themes	Motif du canevas dans les thèmes clairs
 	Add Filter Mask	Ajouter un masque de filtre
 	Filter mask	Masque de filtre
+	+ Color	+ Couleur
+	+ Graphic	+ Graphique
+	+ Pattern	+ Motif
+	Add the foreground color	Ajouter la couleur de premier plan
+	Add the selected layers	Ajouter les calques sélectionnés
+	Add the pattern selected in the Patterns panel	Ajouter le motif sélectionné dans le panneau Motifs
+	Save colors, graphics and patterns here to use them in any document.	Enregistrez ici des couleurs, des graphiques et des motifs pour les utiliser dans n’importe quel document.
+	Place	Importer
+	Place Linked	Importer lié
+	Place as an embedded smart object (a copy)	Importer comme objet dynamique incorporé (une copie)
+	Place as a linked smart object that refers to the library's file	Importer comme objet dynamique lié qui renvoie au fichier de la bibliothèque
+	Added to the document's patterns:	Ajouté aux motifs du document :

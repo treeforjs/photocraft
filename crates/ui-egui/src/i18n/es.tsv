@@ -2531,3 +2531,16 @@ theme	Warm	Cálido
 	Canvas pattern in light themes	Patrón del lienzo en temas claros
 	Add Filter Mask	Añadir máscara de filtro
 	Filter mask	Máscara de filtro
+	Libraries	Bibliotecas
+	+ Color	+ Color
+	+ Graphic	+ Gráfico
+	+ Pattern	+ Motivo
+	Add the foreground color	Añadir el color frontal
+	Add the selected layers	Añadir las capas seleccionadas
+	Add the pattern selected in the Patterns panel	Añadir el motivo seleccionado en el panel Motivos
+	Save colors, graphics and patterns here to use them in any document.	Guarde aquí colores, gráficos y motivos para usarlos en cualquier documento.
+	Place	Colocar
+	Place Linked	Colocar vinculado
+	Place as an embedded smart object (a copy)	Colocar como objeto inteligente incrustado (una copia)
+	Place as a linked smart object that refers to the library's file	Colocar como objeto inteligente vinculado que remite al archivo de la biblioteca
+	Added to the document's patterns:	Añadido a los motivos del documento:

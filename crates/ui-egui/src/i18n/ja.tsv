@@ -3480,3 +3480,14 @@ theme	Warm	ウォーム
 	Canvas pattern in light themes	ライトテーマでカンバスのパターンを表示
 	Add Filter Mask	フィルターマスクを追加
 	Filter mask	フィルターマスク
+	+ Color	+ カラー
+	+ Graphic	+ グラフィック
+	+ Pattern	+ パターン
+	Add the foreground color	描画色を追加
+	Add the selected layers	選択したレイヤーを追加
+	Add the pattern selected in the Patterns panel	パターンパネルで選択したパターンを追加
+	Save colors, graphics and patterns here to use them in any document.	カラー、グラフィック、パターンをここに保存すると、どのドキュメントでも使えます。
+	Place	配置
+	Place as an embedded smart object (a copy)	埋め込みスマートオブジェクトとして配置（コピー）
+	Place as a linked smart object that refers to the library's file	ライブラリのファイルを参照するリンクスマートオブジェクトとして配置
+	Added to the document's patterns:	ドキュメントのパターンに追加しました：

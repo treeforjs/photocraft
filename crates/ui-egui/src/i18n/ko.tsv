@@ -3044,3 +3044,15 @@ theme	Warm	웜
 	Canvas pattern in light themes	밝은 테마의 캔버스 패턴
 	Add Filter Mask	필터 마스크 추가
 	Filter mask	필터 마스크
+	Libraries	라이브러리
+	+ Color	+ 색상
+	+ Graphic	+ 그래픽
+	+ Pattern	+ 패턴
+	Add the foreground color	전경색 추가
+	Add the selected layers	선택한 레이어 추가
+	Add the pattern selected in the Patterns panel	패턴 패널에서 선택한 패턴 추가
+	Save colors, graphics and patterns here to use them in any document.	색상, 그래픽, 패턴을 여기에 저장하면 어느 문서에서나 사용할 수 있습니다.
+	Place	배치
+	Place as an embedded smart object (a copy)	포함된 고급 개체로 배치(사본)
+	Place as a linked smart object that refers to the library's file	라이브러리 파일을 참조하는 연결된 고급 개체로 배치
+	Added to the document's patterns:	문서 패턴에 추가됨:
