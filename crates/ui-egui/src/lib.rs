@@ -1270,6 +1270,7 @@ impl eframe::App for PhotocraftApp {
         crate::tool_memory::persist(self, ctx);
         crate::font_preview::set_preference(ctx, self.session.prefs().type_.font_preview);
         crate::font_recents::sync(self, ctx);
+        crate::widgets::set_scrub_acceleration(ctx, self.session.prefs().enhanced_controls.scrubby_slider_acceleration);
         self.drain_control(ctx);
         self.run_pending_invoke(ctx);
         native_menu::run(self, ctx);
