@@ -56,13 +56,44 @@ fn inflate_font(deflated: &[u8]) -> Vec<u8> {
 }
 
 /// Families tried (if installed) after the requested one, for missing glyphs. The Thai and CJK
-/// families ([`THAI_FAMILIES`], [`crate::cjk::families`]) go between these two lists, in the UI locale's script order.
+/// families ([`THAI_FAMILIES`], [`COMPLEX_SCRIPT_FAMILIES`], [`crate::cjk::families`]) go between these two lists, in the UI locale's script order.
 const FALLBACK_CANDIDATES: &[&str] = &["Noto Sans", "Segoe UI", "DejaVu Sans", "Geeza Pro", "Arial Hebrew", "Noto Sans Arabic", "Noto Sans Hebrew"];
 /// Thai-capable families: Windows (Leelawadee UI since Windows 8; Tahoma and Leelawadee on
 /// older systems), macOS (Thonburi, Sukhumvit Set) and Linux (Noto). Text in a font without Thai
 /// glyphs falls back to these, as with Photoshop's missing glyph protection (#1909).
 pub const THAI_FAMILIES: &[&str] =
     &["Leelawadee UI", "Leelawadee", "Tahoma", "Thonburi", "Sukhumvit Set", "Noto Sans Thai", "Noto Sans Thai Looped", "Noto Sans Thai UI"];
+/// Khmer and Indic (Devanagari, Bengali, Gurmukhi, Gujarati, Tamil, Telugu, Kannada, Malayalam)
+/// families: Windows (Nirmala UI covers every Indic script since Windows 8.1, Leelawadee UI and
+/// Khmer UI cover Khmer), macOS (Kohinoor and the Sangam MN / MT families) and Linux (Noto). Text
+/// in a font without these glyphs falls back to them, like Thai.
+pub const COMPLEX_SCRIPT_FAMILIES: &[&str] = &[
+    "Nirmala UI",
+    "Khmer UI",
+    "Kohinoor Devanagari",
+    "Kohinoor Bangla",
+    "Kohinoor Gujarati",
+    "Kohinoor Telugu",
+    "Devanagari Sangam MN",
+    "Bangla Sangam MN",
+    "Gurmukhi Sangam MN",
+    "Gujarati Sangam MN",
+    "Tamil Sangam MN",
+    "Telugu Sangam MN",
+    "Kannada Sangam MN",
+    "Malayalam Sangam MN",
+    "Khmer Sangam MN",
+    "Khmer MN",
+    "Noto Sans Devanagari",
+    "Noto Sans Bengali",
+    "Noto Sans Gurmukhi",
+    "Noto Sans Gujarati",
+    "Noto Sans Tamil",
+    "Noto Sans Telugu",
+    "Noto Sans Kannada",
+    "Noto Sans Malayalam",
+    "Noto Sans Khmer",
+];
 /// Broad-coverage and emoji fonts, tried after the CJK script fonts so shared Han characters get
 /// the locale's forms instead of Arial Unicode's.
 const FALLBACK_LAST: &[&str] = &["Arial Unicode MS", "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji"];
@@ -71,6 +102,7 @@ const FALLBACK_LAST: &[&str] = &["Arial Unicode MS", "Apple Color Emoji", "Segoe
 pub fn fallback_candidates(order: &[crate::cjk::CjkScript; 4]) -> Vec<&'static str> {
     let mut v = FALLBACK_CANDIDATES.to_vec();
     v.extend_from_slice(THAI_FAMILIES);
+    v.extend_from_slice(COMPLEX_SCRIPT_FAMILIES);
     for s in order {
         // craft-fonts' Japanese fonts (if built in) go ahead of the installed Japanese fonts, in
         // the Japanese slot of the locale order, so shared Han keeps the locale's forms.

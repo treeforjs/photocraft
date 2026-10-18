@@ -172,6 +172,19 @@ jobs:
           CRAFT_FONTS_REQUIRED: "1"
         run: cargo test --workspace --locked --features heif
 
+      # Golden shaping tests for complex scripts (crates/text/src/shaping_tests.rs) need a font
+      # per script, so they skip on a bare runner. Install Noto here, after every other test has
+      # run (system fonts would change what the UI tests measure), and make a skip a failure. Same
+      # flags and env as the step above, so nothing recompiles.
+      - name: Complex-script shaping with Noto fonts
+        env:
+          CRAFT_FONTS_DIR: ${{ github.workspace }}/craft-fonts
+          CRAFT_FONTS_REQUIRED: "1"
+          PHOTOCRAFT_SCRIPT_FONTS_REQUIRED: "1"
+        run: |
+          sudo apt-get install -y --no-install-recommends fonts-noto-core
+          cargo test --workspace --locked --features heif shaping_tests
+
       # The same codecs without the optional decoder: HEIC must stay a clear "not in this build"
       # error for distributors who leave it out.
       - name: Test without heif
