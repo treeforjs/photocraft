@@ -539,6 +539,16 @@ pub struct ToolOptions {
     /// Delete Cropped Pixels.
     #[serde(default)]
     pub crop_ratio: String,
+    /// Crop W x H x Resolution (`crop_ratio` "size", see `crop_size`): width and height as typed
+    /// with their unit ("4 in", "1200 px"), the resolution and its unit ("ppi" or "ppcm").
+    #[serde(default)]
+    pub crop_width: String,
+    #[serde(default)]
+    pub crop_height: String,
+    #[serde(default)]
+    pub crop_resolution: String,
+    #[serde(default = "default_crop_res_unit")]
+    pub crop_res_unit: String,
     #[serde(default = "yes")]
     pub crop_delete: bool,
     /// Crop overlay (#1919): the guide in the crop box, when it shows and its orientation
@@ -625,6 +635,10 @@ fn default_eyedropper_sample() -> String {
     "all".into()
 }
 
+fn default_crop_res_unit() -> String {
+    "ppi".into()
+}
+
 impl Default for ToolOptions {
     fn default() -> Self {
         Self {
@@ -679,6 +693,10 @@ impl Default for ToolOptions {
             move_target: default_move_target(),
             move_show_transform: false,
             crop_ratio: String::new(),
+            crop_width: String::new(),
+            crop_height: String::new(),
+            crop_resolution: String::new(),
+            crop_res_unit: default_crop_res_unit(),
             crop_delete: true,
             crop_overlay: Default::default(),
             crop_overlay_show: Default::default(),

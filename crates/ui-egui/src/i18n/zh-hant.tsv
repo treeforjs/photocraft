@@ -2390,6 +2390,12 @@ fontWeight	Italic	斜體
 	Edit points to modify the curve	編輯點以修改曲線
 	Draw to modify the curve	繪製以修改曲線
 	Drag to draw the curve · Smooth softens it	拖曳以繪製曲線 · 平滑可使其柔和
+	W x H x Resolution	寬 x 高 x 解析度
+	New Crop Preset…	新增裁切預設集…
+	px/in	像素/英寸
+	px/cm	像素/公分
+	W	寬
+	H	高
 	Slant	傾斜
 	Optical Size	光學尺寸
 	Optical size follows the font size	光學尺寸跟隨字級

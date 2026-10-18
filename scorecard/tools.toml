@@ -169,9 +169,9 @@ note = "analysis_ui.rs arbitrary_rotation_starts_at_the_ruler_angle"
 [[item]]
 id = "TOOL-214-9"
 target = "Crop: W x H x Resolution with units, saved crop presets, Straighten in the options bar"
-status = "partial"
+status = "done"
 issue = 214
-note = "Ratio dropdown and fields, Straighten (TOOL-214-21); no W x H x Resolution with units or saved presets"
+note = "Ratio dropdown and fields, W x H x Resolution with units (crop_size.rs; image.crop resizeWidth/resizeHeight/resolution in one undo step), crop presets as Crop tool presets in the ratio menu, Straighten (TOOL-214-21)"
 
 [[item]]
 id = "TOOL-214-10"

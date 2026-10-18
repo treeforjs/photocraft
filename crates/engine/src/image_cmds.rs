@@ -304,6 +304,45 @@ const MAX_CROP_SIDE: i32 = 300_000;
 
 /// Image → Crop (to the selection bounds).
 fn crop(s: &mut Session, p: &Value) -> Result<Value> {
+    // The Crop tool's W x H x Resolution: crop, then resample to the size asked and set the
+    // resolution, in one undo step.
+    let num = |k: &str| -> Result<Option<f64>> {
+        match p.get(k) {
+            None | Some(Value::Null) => Ok(None),
+            Some(v) => v.as_f64().filter(|v| v.is_finite() && *v > 0.0).map(Some).ok_or_else(|| bad("image.crop", format!("`{k}` must be a positive number"))),
+        }
+    };
+    let (rw, rh, res) = (num("resizeWidth")?, num("resizeHeight")?, num("resolution")?);
+    if rw.is_none() && rh.is_none() && res.is_none() {
+        return crop_only(s, p);
+    }
+    if rw.is_some_and(|w| w > f64::from(MAX_CROP_SIDE)) || rh.is_some_and(|h| h > f64::from(MAX_CROP_SIDE)) {
+        return Err(bad("image.crop", format!("the resize exceeds the {MAX_CROP_SIDE} px limit per side")));
+    }
+    crate::analysis_cmds::compound(s, "Crop", |s| {
+        let mut out = crop_only(s, p)?;
+        let mut q = json!({ "resample": p.get("resample").and_then(Value::as_str).unwrap_or("bicubic") });
+        // Only one side given keeps the cropped aspect (as Image Size does).
+        if let Some(w) = rw {
+            q["width"] = json!(w);
+        }
+        if let Some(h) = rh {
+            q["height"] = json!(h);
+        }
+        if rw.is_none() && rh.is_none() {
+            q["resample"] = json!("none");
+        }
+        if let Some(r) = res {
+            q["resolution"] = json!(r);
+        }
+        let size = image_size(s, &q)?;
+        out["resizedWidth"] = size["width"].clone();
+        out["resizedHeight"] = size["height"].clone();
+        Ok(out)
+    })
+}
+
+fn crop_only(s: &mut Session, p: &Value) -> Result<Value> {
     let delete = p.get("deleteCroppedPixels").and_then(Value::as_bool).unwrap_or(true);
     // Values beyond i32 would wrap through the narrowing casts into a rectangle unrelated to
     // the numbers passed; reject them (see `commands::int_i32`).
@@ -515,7 +554,7 @@ pub fn specs() -> Vec<CommandSpec> {
             "image.crop",
             "Crop",
             ["Image"],
-            r##"{"x":px,"y":px,"width":px,"height":px,"angle":-3600..3600=0,"deleteCroppedPixels":bool=true}"##,
+            r##"{"x":px,"y":px,"width":px,"height":px,"angle":-3600..3600=0,"deleteCroppedPixels":bool=true,"resizeWidth":px?,"resizeHeight":px?,"resolution":ppi?,"resample":"bicubic|bilinear|nearest|lanczos|preserveDetails"="bicubic"} (resizeWidth/resizeHeight/resolution: the Crop tool's W x H x Resolution, resampled after the crop in the same undo step)"##,
             has_doc,
             crop
         ),
@@ -805,6 +844,29 @@ mod tests {
         s.execute("image.crop", json!({"x": -10, "y": 0, "width": 60, "height": 20})).unwrap();
         assert_eq!(doc(&s).size, Size::new(60, 20));
         assert_eq!(doc(&s).layers[1].surface().unwrap().pixel(20, 5), vec![1.0, 0.0, 0.0, 1.0]);
+    }
+
+    /// The Crop tool's W x H x Resolution: crop, resample and set the resolution in one undo step.
+    #[test]
+    fn crop_resizes_to_width_height_and_resolution_in_one_step() {
+        let mut s = session();
+        let before = doc(&s).clone();
+        let out =
+            s.execute("image.crop", json!({"x": 0, "y": 0, "width": 20, "height": 10, "resizeWidth": 40, "resizeHeight": 20, "resolution": 300})).unwrap();
+        assert_eq!(doc(&s).size, Size::new(40, 20));
+        assert_eq!(doc(&s).resolution_dpi, 300.0);
+        assert_eq!((out["resizedWidth"].as_u64(), out["width"].as_u64()), (Some(40), Some(20)));
+        s.execute("edit.undo", json!({})).unwrap();
+        assert_eq!(doc(&s).size, before.size, "one undo restores the document");
+        // Resolution only: no resampling.
+        s.execute("image.crop", json!({"x": 0, "y": 0, "width": 20, "height": 10, "resolution": 150})).unwrap();
+        assert_eq!((doc(&s).size, doc(&s).resolution_dpi), (Size::new(20, 10), 150.0));
+        // Bad values change nothing.
+        let at = doc(&s).size;
+        for bad in [json!(0), json!(-4), json!("x"), json!(1e9)] {
+            assert!(s.execute("image.crop", json!({"x": 0, "y": 0, "width": 5, "height": 5, "resizeWidth": bad})).is_err());
+            assert_eq!(doc(&s).size, at);
+        }
     }
 
     /// A document (`mode`, `depth`) with a white Background and a layer holding a red pixel at

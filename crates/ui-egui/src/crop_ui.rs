@@ -193,7 +193,13 @@ fn size_ok(r: [f64; 4]) -> bool {
 /// The options-bar ratio preset as width / height.
 fn preset_ratio(app: &PhotocraftApp) -> Option<f64> {
     let size = app.session.active().map_or((1.0, 1.0), |s| (s.doc.size.width as f64, s.doc.size.height as f64));
-    crate::chrome_ui::crop_ratio(&app.ui.tool_options.crop_ratio, size.0, size.1).map(|(w, h)| w / h).filter(|k| k.is_finite() && *k > 0.0)
+    let o = &app.ui.tool_options;
+    let ratio = if o.crop_ratio == crate::crop_size::SIZE {
+        crate::crop_size::ratio(o, app.session.active().map_or(72.0, |s| f64::from(s.doc.resolution_dpi)))
+    } else {
+        crate::chrome_ui::crop_ratio(&o.crop_ratio, size.0, size.1)
+    };
+    ratio.map(|(w, h)| w / h).filter(|k| k.is_finite() && *k > 0.0)
 }
 
 /// A new frame drawn from `anchor` to `cur`: ⇧ square, ⌥ from the centre, `ratio` held.
@@ -480,7 +486,9 @@ pub fn swapped_ratio(key: &str, doc_w: f64, doc_h: f64) -> Option<String> {
 pub fn swap_orientation(app: &mut PhotocraftApp) -> bool {
     let Some(r) = app.ui.crop_rect.filter(|_| takes_keys(app)) else { return false };
     let size = app.session.active().map_or((0.0, 0.0), |s| (f64::from(s.doc.size.width), f64::from(s.doc.size.height)));
-    if let Some(k) = swapped_ratio(&app.ui.tool_options.crop_ratio, size.0, size.1) {
+    if app.ui.tool_options.crop_ratio == crate::crop_size::SIZE {
+        crate::crop_size::swap(&mut app.ui.tool_options);
+    } else if let Some(k) = swapped_ratio(&app.ui.tool_options.crop_ratio, size.0, size.1) {
         app.ui.tool_options.crop_ratio = k;
     }
     keyed(app, swapped(r));
@@ -718,6 +726,37 @@ mod tests {
         app.ui.extras.snap = false;
         app.ui.view.show.smart_guides = false;
         app
+    }
+
+    /// TOOL-214-9: W x H x Resolution holds the frame's ratio, swaps with X, and ↵ resamples the
+    /// crop to it; a crop preset saves and restores it.
+    #[test]
+    fn width_height_resolution_holds_the_ratio_and_resamples_on_commit() {
+        let mut app = app(SampleType::U8);
+        let o = &mut app.ui.tool_options;
+        o.crop_ratio = crate::crop_size::SIZE.into();
+        (o.crop_width, o.crop_height, o.crop_resolution) = ("2 in".into(), "1 in".into(), "300".into());
+        assert_eq!(preset_ratio(&app), Some(2.0));
+        drag(&mut app, &[[10.0, 10.0], [50.0, 90.0]], NONE);
+        let r = app.ui.crop_rect.unwrap();
+        assert!(((r[2] - r[0]) / (r[3] - r[1]) - 2.0).abs() < 0.05, "{r:?}");
+        crate::crop_size::save_preset(&mut app);
+        assert_eq!(crate::crop_size::presets(&app), vec!["2 in x 1 in 300 ppi".to_string()]);
+        assert!(swap_orientation(&mut app));
+        assert_eq!((app.ui.tool_options.crop_width.as_str(), app.ui.tool_options.crop_height.as_str()), ("1 in", "2 in"));
+        crate::canvas::commit_crop(&mut app);
+        let d = &app.session.active().unwrap().doc;
+        assert_eq!((d.size, d.resolution_dpi), (Size::new(300, 600), 300.0));
+        // Picking the preset in the ratio menu restores it; New Crop Preset… keeps the menu as it was.
+        app.ui.tool_options = Default::default();
+        app.ui.tool_options.crop_ratio = format!("{}2 in x 1 in 300 ppi", crate::crop_size::PRESET);
+        crate::crop_size::after_pick(&mut app, "");
+        let o = &app.ui.tool_options;
+        assert_eq!((o.crop_ratio.as_str(), o.crop_width.as_str(), o.crop_height.as_str()), (crate::crop_size::SIZE, "2 in", "1 in"));
+        app.ui.tool_options.crop_ratio = crate::crop_size::NEW_PRESET.into();
+        crate::crop_size::after_pick(&mut app, crate::crop_size::SIZE);
+        assert_eq!(app.ui.tool_options.crop_ratio, crate::crop_size::SIZE);
+        assert_eq!(crate::crop_size::presets(&app).len(), 2);
     }
 
     fn drag(app: &mut PhotocraftApp, pts: &[[f64; 2]], mods: Modifiers) {
