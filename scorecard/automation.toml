@@ -49,9 +49,9 @@ note = "file_cmds.rs:590-631 folder/array input, per-file errors; no recursion, 
 [[item]]
 id = "AUTO-219-6"
 target = "Plug-in ABI v2: panel kind, progress/cancel calls, read other layers, Last Filter repeats"
-status = "missing"
+status = "partial"
 issue = 219
-note = "runtime.rs:15 ABI_VERSION = 1; manifest.rs:18 Kind::Filter only"
+note = "ABI v2 adds photocraft.progress (progress + cancel, host-enforced between fuel slices); plugin.run is a cancellable background job; Last Filter repeats plug-in runs (tests/abi.rs, plugin_cmds/tests.rs). Missing: panel kind (manifest.rs Kind::Filter only), reading other layers"
 
 [[item]]
 id = "AUTO-219-7"

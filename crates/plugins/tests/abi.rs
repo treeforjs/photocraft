@@ -6,7 +6,7 @@ use std::time::{Duration, Instant};
 use photocraft_color::{PixelFormat, SampleType};
 use photocraft_geom::Rect;
 use photocraft_plugins::{Error, Limits, Plugin};
-use photocraft_raster::Surface;
+use photocraft_raster::{Interrupt, Surface};
 use serde_json::json;
 
 const INVERT: &[u8] = include_bytes!("fixtures/invert.wasm");
@@ -194,7 +194,8 @@ fn hostile_modules_fail_quickly() {
         ("division by zero", ok_module("(i32.div_u (i32.const 1) (local.get $ch))  (drop) (i32.div_u (i32.const 1) (i32.const 0))")),
         ("deep recursion", module(MANIFEST, 1, "(call $r) (i32.const 0)", "(func $r (call $r))")),
         ("error code", ok_module("(i32.const 7)")),
-        ("wrong ABI version", module(MANIFEST, 2, "(i32.const 0)", "")),
+        ("wrong ABI version", module(MANIFEST, 3, "(i32.const 0)", "")),
+        ("ABI version 0", module(MANIFEST, 0, "(i32.const 0)", "")),
         ("bad manifest", module("not json", 1, "(i32.const 0)", "")),
         ("manifest with a bad id", module(r#"{"id":"a b","name":"x","kind":"filter"}"#, 1, "(i32.const 0)", "")),
         ("manifest of the wrong kind", module(r#"{"id":"a","name":"x","kind":"panel"}"#, 1, "(i32.const 0)", "")),
@@ -341,4 +342,85 @@ fn folder_loading_skips_bad_files() {
     assert!(photocraft_plugins::registry::load_folder(&dir.join("missing")).is_err());
     assert!(photocraft_plugins::registry::load_file(&dir, Limits::default()).is_err(), "a directory is not a module");
     std::fs::remove_dir_all(&dir).ok();
+}
+
+const PROGRESS_IMPORT: &str = r#"(import "photocraft" "progress" (func $progress (param i32 i32) (result i32)))"#;
+
+/// A v2 filter that reports `steps` progress calls per band and returns early (code 0) when the
+/// host says the run is cancelled.
+fn v2_progress_module(steps: i32) -> Vec<u8> {
+    let filter = format!(
+        "(local $i i32)
+         (block $done (loop $l
+           (br_if $done (i32.ge_s (local.get $i) (i32.const {steps})))
+           (local.set $i (i32.add (local.get $i) (i32.const 1)))
+           (br_if $done (call $progress (local.get $i) (i32.const {steps})))
+           (br $l)))
+         (i32.const 0)"
+    );
+    module(MANIFEST, 2, &filter, PROGRESS_IMPORT)
+}
+
+#[test]
+fn v1_modules_still_load_and_v2_can_import_progress() {
+    assert_eq!(photocraft_plugins::ABI_VERSION, 2);
+    assert!(Plugin::load(&ok_module("(i32.const 0)"), Limits::default()).is_ok(), "v1 without imports");
+    assert!(Plugin::load(&v2_progress_module(3), Limits::default()).is_ok(), "v2 with photocraft.progress");
+    assert!(Plugin::load(&module(MANIFEST, 2, "(i32.const 0)", ""), Limits::default()).is_ok(), "v2 without imports");
+    // Host imports are v2-only, and only `photocraft.progress` with its signature.
+    let v1_import = module(MANIFEST, 1, "(i32.const 0)", PROGRESS_IMPORT);
+    assert!(matches!(Plugin::load(&v1_import, Limits::default()), Err(Error::Abi(m)) if m.contains("version 2")));
+    let other = module(MANIFEST, 2, "(i32.const 0)", r#"(import "photocraft" "readLayer" (func (param i32) (result i32)))"#);
+    assert!(matches!(Plugin::load(&other, Limits::default()), Err(Error::Abi(m)) if m.contains("photocraft.readLayer")));
+    let wrong_sig = module(MANIFEST, 2, "(i32.const 0)", r#"(import "photocraft" "progress" (func (param i64)))"#);
+    assert!(matches!(Plugin::load(&wrong_sig, Limits::default()), Err(Error::Abi(_)) | Err(Error::Trap(_))));
+}
+
+#[test]
+fn progress_is_reported_and_reaches_one() {
+    // One tile per band, so a 600 × 300 image runs in six bands.
+    let p = Plugin::load(&v2_progress_module(4), Limits { band_bytes: 256 * 256 * 4 * 4, ..Limits::default() }).unwrap();
+    let s = surface(PixelFormat::RGBA8, 600, 300);
+    let seen = std::sync::Mutex::new(Vec::<f32>::new());
+    let never = || false;
+    let sink = |f: f32| seen.lock().unwrap().push(f);
+    let out = p.apply_with(&s, Rect::new(0, 0, 600, 300), None, &json!({}), Interrupt::new(&never, &sink));
+    assert!(out.is_ok(), "{out:?}");
+    let seen = seen.into_inner().unwrap();
+    assert!(seen.len() >= 2, "{seen:?}");
+    assert!(seen.windows(2).all(|w| w[0] <= w[1]), "progress went backwards: {seen:?}");
+    assert_eq!(seen.last().copied(), Some(1.0));
+    // v1 modules report band progress too.
+    let v1 = Plugin::load(&ok_module("(i32.const 0)"), Limits { band_bytes: 256 * 256 * 4 * 4, ..Limits::default() }).unwrap();
+    let count = std::sync::atomic::AtomicUsize::new(0);
+    let sink = |_: f32| {
+        count.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    };
+    v1.apply_with(&s, Rect::new(0, 0, 600, 300), None, &json!({}), Interrupt::new(&never, &sink)).unwrap();
+    assert!(count.into_inner() >= 2);
+}
+
+#[test]
+fn cancelling_stops_cooperative_and_runaway_plugins_quickly() {
+    let s = surface(PixelFormat::RGBA8, 64, 64);
+    let cancel = std::sync::atomic::AtomicBool::new(false);
+    let is_cancelled = || cancel.load(std::sync::atomic::Ordering::Relaxed);
+    // Cancel as soon as the module reports anything.
+    let sink = |_: f32| cancel.store(true, std::sync::atomic::Ordering::Relaxed);
+    let ctl = Interrupt::new(&is_cancelled, &sink);
+    // A cooperative module checks `progress` in a long loop and returns once told.
+    let coop = Plugin::load(&v2_progress_module(i32::MAX), Limits::default()).unwrap();
+    let t = Instant::now();
+    assert_eq!(coop.apply_with(&s, Rect::new(0, 0, 64, 64), None, &json!({}), ctl).unwrap_err(), Error::Cancelled);
+    assert!(t.elapsed() < Duration::from_secs(10), "{:?}", t.elapsed());
+    // A module that never looks is stopped by the host between instruction slices.
+    cancel.store(false, std::sync::atomic::Ordering::Relaxed);
+    let runaway = module(MANIFEST, 2, "(drop (call $progress (i32.const 1) (i32.const 2))) (loop $l (br $l)) (i32.const 0)", PROGRESS_IMPORT);
+    let p = Plugin::load(&runaway, Limits::default()).unwrap();
+    let t = Instant::now();
+    assert_eq!(p.apply_with(&s, Rect::new(0, 0, 64, 64), None, &json!({}), ctl).unwrap_err(), Error::Cancelled);
+    assert!(t.elapsed() < Duration::from_secs(10), "{:?}", t.elapsed());
+    // Already cancelled: nothing runs.
+    let p = Plugin::load(&ok_module("(i32.const 0)"), Limits::default()).unwrap();
+    assert_eq!(p.apply_with(&s, Rect::new(0, 0, 64, 64), None, &json!({}), ctl).unwrap_err(), Error::Cancelled);
 }
