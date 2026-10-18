@@ -10,7 +10,7 @@
 //! "commit":true | "cancel":true}}}`; the reply describes the dialog.
 
 use egui::{Align2, Color32, FontId, Pos2, Rect as ERect, Sense, Stroke, TextureHandle, pos2, vec2};
-use photocraft_algo::camera_raw::{CameraRaw, Wheel, curve_lut};
+use photocraft_algo::camera_raw::{self, CameraRaw, Wheel, curve_lut};
 use photocraft_algo::histogram::RgbHistogram;
 
 use crate::camera_raw_scope_ui::{MAX_SAMPLERS, ToneZone};
@@ -208,7 +208,14 @@ fn open_raw(app: &mut PhotocraftApp, ctx: &egui::Context, raw: RawOpen) -> Resul
     app.session.set_active(index);
     let (layer, surf, _) = crate::distort_ui::active_pixels(app)?;
     open_pixels(app, ctx, layer, surf, CameraRaw::default(), Coverage::None, Target::OpenRaw)?;
+    let auto = app.session.prefs().raw_defaults.apply_auto_tone;
     if let Some(d) = app.camera_raw.as_mut() {
+        // Preferences › Camera Raw Defaults › Apply Auto Tone: the dialog opens with Auto applied.
+        if auto {
+            camera_raw::auto_tone(&mut d.params, &d.proxy);
+            d.dirty = true;
+            d.render(ctx);
+        }
         d.layer_name = raw.name.clone();
         d.raw_open = Some(raw);
     }
@@ -619,8 +626,8 @@ pub fn menu(app: &mut PhotocraftApp, ctx: &egui::Context, id: &str, params: &Val
     for (key, value) in fields {
         match key.as_str() {
             "set" | "scope" | "view" => {}
-            "before" | "commit" | "cancel" if value.is_boolean() => {}
-            "before" | "commit" | "cancel" => return Some(Err(format!("Camera Raw {key} must be a boolean"))),
+            "before" | "commit" | "cancel" | "auto" if value.is_boolean() => {}
+            "before" | "commit" | "cancel" | "auto" => return Some(Err(format!("Camera Raw {key} must be a boolean"))),
             _ => return Some(Err(format!("unknown Camera Raw ui property {key}"))),
         }
     }
@@ -647,11 +654,15 @@ fn menu_update(app: &mut PhotocraftApp, ctx: &egui::Context, ui: &Value) -> Opti
     // occurs until every part of the request has passed validation.
     let d = app.camera_raw.as_ref()?;
     let mut next_params = d.params.clone();
+    // `"auto": true` is the Light section's Auto button; `set` still applies after it.
+    if ui.get("auto").and_then(Value::as_bool) == Some(true) {
+        camera_raw::auto_tone(&mut next_params, &d.proxy);
+    }
     if let Some(set) = ui.get("set") {
         if !set.is_object() {
             return Some(Err("bad Camera Raw settings: expected an object".into()));
         }
-        let mut cur = serde_json::to_value(&d.params).unwrap_or(json!({}));
+        let mut cur = serde_json::to_value(&next_params).unwrap_or(json!({}));
         if let (Value::Object(c), Value::Object(s)) = (&mut cur, set) {
             for (k, v) in s {
                 if !c.contains_key(k) {
@@ -954,9 +965,14 @@ fn draw(app: &mut PhotocraftApp, ctx: &egui::Context, own_window: bool) {
         egui::ScrollArea::vertical().id_salt("camera-raw-props").show(&mut props, |ui| {
             ui.spacing_mut().item_spacing.y = 4.0;
             let p = &mut d.params;
+            let proxy = &d.proxy;
             let alt = &mut d.scope.alt_tone;
             let (ts, tn) = (temp_stops(), tint_stops());
             section(ui, "Light", true, |ui| {
+                if widgets::secondary_button(ui, tl!("Auto"), 0.0).clicked() {
+                    camera_raw::auto_tone(p, proxy);
+                    dirty = true;
+                }
                 tone_row(ui, &mut dirty, alt, ToneZone::Exposure, &mut p.exposure);
                 row(ui, &mut dirty, "Contrast", &mut p.contrast, -100.0..=100.0, None);
                 tone_row(ui, &mut dirty, alt, ToneZone::Highlights, &mut p.highlights);
@@ -1301,6 +1317,31 @@ mod tests {
         assert_eq!(st.saved_revision, st.revision, "Open leaves the document unmodified");
         assert_eq!(st.doc.depth, photocraft_color::SampleType::U16);
         assert!(mean_red(&app) > before + 0.05, "{before} → {}", mean_red(&app));
+    }
+
+    #[test]
+    fn auto_sets_light_from_the_image_and_the_preference_applies_it_at_open() {
+        let mut app = PhotocraftApp::new(photocraft_engine::Session::new(), Default::default());
+        let ctx = egui::Context::default();
+        app.run("file.new", json!({"width": 64, "height": 48})).unwrap();
+        app.run("layer.new.layer", json!({})).unwrap();
+        app.run("edit.fill", json!({"color": "#202020"})).unwrap();
+        menu(&mut app, &ctx, "filter.cameraRaw", &json!({})).unwrap().unwrap();
+        let r = menu(&mut app, &ctx, "filter.cameraRaw", &json!({"ui": {"auto": true, "set": {"vibrance": 10}}})).unwrap().unwrap();
+        assert!(r["params"]["exposure"].as_f64().unwrap() > 0.5, "a dark image is brightened: {}", r["params"]);
+        assert_eq!(r["params"]["vibrance"], 10.0, "`set` still applies after Auto");
+        menu(&mut app, &ctx, "filter.cameraRaw", &json!({"ui": {"cancel": true}})).unwrap().unwrap();
+        // Apply Auto Tone: the open-time dialog starts with Auto applied.
+        let (mut app, dng) = raw_app();
+        app.session.prefs.edit(|p| p.raw_defaults.apply_auto_tone = true);
+        app.open_bytes("IMG_0002.dng", &dng).unwrap();
+        let raw = app.pending_raw_open.take().unwrap();
+        open_raw(&mut app, &ctx, raw).unwrap();
+        let mut expected = CameraRaw::default();
+        let d = app.camera_raw.as_ref().unwrap();
+        camera_raw::auto_tone(&mut expected, &d.proxy);
+        assert_eq!(d.params, expected);
+        assert_ne!(d.params, CameraRaw::default(), "the fixture is not already perfectly exposed");
     }
 
     #[test]

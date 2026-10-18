@@ -902,7 +902,6 @@ pub const HIDDEN_UNTIL_IMPLEMENTED: &[&str] = &[
     "rawDefaults.resolution",
     "rawDefaults.sharpenFor",
     "rawDefaults.openAsSmartObject",
-    "rawDefaults.applyAutoTone",
     // Agent access is governed by the launch flags (`--control`, the automation roots), not
     // by these yet.
     "integrations.allowAgentControl",
