@@ -881,7 +881,6 @@ pub const HIDDEN_UNTIL_IMPLEMENTED: &[&str] = &[
     "performance.effectCacheMb",
     "performance.legacyCompositing",
     "scratchDisks.disks",
-    "unitsAndRulers.typeUnits",
     "unitsAndRulers.columnWidth",
     "unitsAndRulers.gutter",
     "unitsAndRulers.printResolution",

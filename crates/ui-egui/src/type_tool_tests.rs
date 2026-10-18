@@ -1452,3 +1452,17 @@ fn clicking_a_path_sets_type_on_it_and_the_caret_follows_the_path() {
     assert!(t.on_path.is_none());
     assert_eq!((t.transform.m[4], t.transform.m[5]), (400.0, 200.0));
 }
+
+/// Preferences › Units & Rulers › Type: sizes read in points, pixels at the document's
+/// resolution, or millimetres; the document keeps points.
+#[test]
+fn type_units_convert_shown_sizes_at_the_document_resolution() {
+    let mut app = new_app();
+    app.run("image.imageSize", json!({"resolution": 144, "resample": false})).unwrap();
+    assert_eq!(super::type_unit(&app), (1.0, "pt"), "points by default");
+    app.run("prefs.set", json!({"path": "unitsAndRulers.typeUnits", "value": "pixels"})).unwrap();
+    assert_eq!(super::type_unit(&app), (2.0, "px"), "144 ppi: two pixels a point");
+    app.run("prefs.set", json!({"path": "unitsAndRulers.typeUnits", "value": "mm"})).unwrap();
+    let (u, unit) = super::type_unit(&app);
+    assert!((u - 25.4 / 72.0).abs() < 1e-6 && unit == "mm");
+}
