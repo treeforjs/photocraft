@@ -242,6 +242,32 @@ fn opentype_toggles_store_features() {
     assert!(feature_on(&back.char_runs()[0].style, "swsh") && !back.char_runs()[0].style.ligatures);
 }
 
+/// TYPE-218-5: Numerals pick one figure style (the others go off); Stylistic Sets toggle ss01–ss20.
+#[test]
+fn numerals_and_stylistic_sets() {
+    let mut s = session(16);
+    let id = text_layer(&mut s, "2026 ag");
+    let st = |s: &Session| text(s, id).char_runs()[0].style.clone();
+    assert_eq!(numerals_of(&st(&s)), "default");
+    for (name, tags) in NUMERALS {
+        s.execute(&format!("type.openType.numerals.{name}"), json!({})).unwrap();
+        let style = st(&s);
+        assert_eq!(numerals_of(&style), name);
+        for tag in ["tnum", "pnum", "lnum", "onum"] {
+            assert_eq!(feature_on(&style, tag), tags.contains(&tag), "{name}: {tag}");
+        }
+    }
+    s.execute("type.openType.numerals.tabularOldstyle", json!({"range": [0, 2]})).unwrap();
+    let runs = text(&s, id).char_runs();
+    assert_eq!(numerals_of(&runs[0].style), "tabularOldstyle");
+    assert_eq!(numerals_of(&runs.last().unwrap().style), "proportionalOldstyle", "range respected");
+    s.execute("type.openType.stylisticSet3", json!({})).unwrap();
+    s.execute("type.openType.stylisticSet20", json!({})).unwrap();
+    assert!(feature_on(&st(&s), "ss03") && feature_on(&st(&s), "ss20") && !feature_on(&st(&s), "ss01"));
+    s.execute("type.openType.stylisticSet3", json!({})).unwrap();
+    assert!(!feature_on(&st(&s), "ss03"), "toggles off");
+}
+
 #[test]
 fn lorem_update_fonts_and_default_styles() {
     let mut s = session(16);

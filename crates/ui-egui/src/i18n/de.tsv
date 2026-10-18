@@ -2424,9 +2424,10 @@ fontWeight	Italic	Kursiv
 	Tool	Werkzeug
 	High contrast	Hoher Kontrast
 	High Contrast Theme	Design mit hohem Kontrast
-	Cream	Creme
+theme	Warm	Warm
+	Warm	Warm
 	Dim	Gedimmt
-	Cream Theme	Design „Creme“
+	Warm Theme	Design „Warm“
 	Dim Theme	Design „Gedimmt“
 	Paragraph direction	Absatzrichtung
 	Auto Direction	Automatische Richtung
@@ -2446,6 +2447,32 @@ fontWeight	Italic	Kursiv
 	Edit points to modify the curve	Kurve über Punkte bearbeiten
 	Draw to modify the curve	Kurve durch Zeichnen ändern
 	Drag to draw the curve · Smooth softens it	Ziehen, um die Kurve zu zeichnen · Glätten macht sie weicher
+	Numerals	Ziffern
+	Stylistic Sets	Stilsätze
+	Tabular Lining	Tabellen-Versalziffern
+	Proportional Lining	Proportionale Versalziffern
+	Tabular Oldstyle	Tabellen-Mediävalziffern
+	Proportional Oldstyle	Proportionale Mediävalziffern
+	Set 1	Satz 1
+	Set 2	Satz 2
+	Set 3	Satz 3
+	Set 4	Satz 4
+	Set 5	Satz 5
+	Set 6	Satz 6
+	Set 7	Satz 7
+	Set 8	Satz 8
+	Set 9	Satz 9
+	Set 10	Satz 10
+	Set 11	Satz 11
+	Set 12	Satz 12
+	Set 13	Satz 13
+	Set 14	Satz 14
+	Set 15	Satz 15
+	Set 16	Satz 16
+	Set 17	Satz 17
+	Set 18	Satz 18
+	Set 19	Satz 19
+	Set 20	Satz 20
 	Slant	Neigung
 	Optical Size	Optische Größe
 	Optical size follows the font size	Optische Größe folgt der Schriftgröße

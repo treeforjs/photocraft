@@ -58,10 +58,10 @@ choice!(TypeUnit { Points = "points", Pixels = "pixels", Millimeters = "mm" } de
 choice!(PointSize { PostScript = "postScript", Traditional = "traditional" } default PostScript);
 choice!(Interpolation { BicubicAutomatic = "bicubicAutomatic", Nearest = "nearestNeighbor", Bilinear = "bilinear", Bicubic = "bicubic", BicubicSmoother = "bicubicSmoother", BicubicSharper = "bicubicSharper", PreserveDetails = "preserveDetails" } default BicubicAutomatic);
 choice!(ColorPicker { Adobe = "adobe", System = "system" } default Adobe);
-choice!(Theme { CraftLight = "light", Cream = "cream", Dim = "dim" | "proMedium", Craft = "dark" | "pro", HighContrast = "highContrast", Studio = "studio", StudioLight = "studioLight", Classic = "classic", SolarizedDark = "solarizedDark", Adwaita = "adwaita", AdwaitaDark = "adwaitaDark" } default Craft);
+choice!(Theme { CraftLight = "light", Warm = "warm" | "paper" | "cream", Dim = "dim" | "proMedium", Craft = "dark" | "pro", HighContrast = "highContrast", Studio = "studio", StudioLight = "studioLight", Classic = "classic", SolarizedDark = "solarizedDark", Adwaita = "adwaita", AdwaitaDark = "adwaitaDark" } default Craft);
 choice!(AppearanceMode { Auto = "auto", Dark = "dark", Light = "light" } default Auto);
 choice!(DarkTheme { Dim = "dim" | "proMedium", Craft = "dark" | "pro", HighContrast = "highContrast", Studio = "studio", SolarizedDark = "solarizedDark", AdwaitaDark = "adwaitaDark" } default Craft);
-choice!(LightTheme { CraftLight = "light", Cream = "cream", StudioLight = "studioLight", Classic = "classic", Adwaita = "adwaita" } default CraftLight);
+choice!(LightTheme { CraftLight = "light", Warm = "warm" | "paper" | "cream", StudioLight = "studioLight", Classic = "classic", Adwaita = "adwaita" } default CraftLight);
 choice!(CanvasColor { Default = "default", Black = "black", DarkGray = "darkGray", MediumGray = "mediumGray", LightGray = "lightGray", Custom = "custom" } default Default);
 choice!(CanvasBorder { DropShadow = "dropShadow", Line = "line", None = "none" } default DropShadow);
 choice!(UiScale { Auto = "auto", P75 = "75", P100 = "100", P115 = "115", P125 = "125", P150 = "150", P175 = "175", P200 = "200", P250 = "250", P300 = "300" } default Auto);
@@ -1341,7 +1341,7 @@ impl Session {
         {
             let (mode, slot) = match theme {
                 Theme::Dim | Theme::Craft | Theme::HighContrast | Theme::Studio | Theme::SolarizedDark | Theme::AdwaitaDark => ("dark", "darkTheme"),
-                Theme::CraftLight | Theme::Cream | Theme::StudioLight | Theme::Classic | Theme::Adwaita => ("light", "lightTheme"),
+                Theme::CraftLight | Theme::Warm | Theme::StudioLight | Theme::Classic | Theme::Adwaita => ("light", "lightTheme"),
             };
             interface.insert("appearanceMode".into(), json!(mode));
             interface.insert(slot.into(), json!(theme.name()));
@@ -1414,8 +1414,8 @@ impl Session {
                     next.interface.dark_theme = DarkTheme::Dim;
                     next.interface.appearance_mode = AppearanceMode::Dark;
                 }
-                Theme::Cream => {
-                    next.interface.light_theme = LightTheme::Cream;
+                Theme::Warm => {
+                    next.interface.light_theme = LightTheme::Warm;
                     next.interface.appearance_mode = AppearanceMode::Light;
                 }
                 Theme::Craft => {

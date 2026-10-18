@@ -2791,9 +2791,10 @@ fontWeight	Italic	Miring
 	Tool	Alat
 	High contrast	Kontras tinggi
 	High Contrast Theme	Tema Kontras Tinggi
-	Cream	Krem
+theme	Warm	Hangat
+	Warm	Hangat
 	Dim	Redup
-	Cream Theme	Tema Krem
+	Warm Theme	Tema Hangat
 	Dim Theme	Tema Redup
 	Paragraph direction	Arah paragraf
 	Auto Direction	Arah Otomatis
@@ -2812,6 +2813,32 @@ fontWeight	Italic	Miring
 	Edit points to modify the curve	Edit titik untuk mengubah kurva
 	Draw to modify the curve	Gambar untuk mengubah kurva
 	Drag to draw the curve · Smooth softens it	Seret untuk menggambar kurva · Haluskan melembutkannya
+	Numerals	Angka
+	Stylistic Sets	Set gaya
+	Tabular Lining	Tabular sejajar
+	Proportional Lining	Proporsional sejajar
+	Tabular Oldstyle	Tabular gaya lama
+	Proportional Oldstyle	Proporsional gaya lama
+	Set 1	Set 1
+	Set 2	Set 2
+	Set 3	Set 3
+	Set 4	Set 4
+	Set 5	Set 5
+	Set 6	Set 6
+	Set 7	Set 7
+	Set 8	Set 8
+	Set 9	Set 9
+	Set 10	Set 10
+	Set 11	Set 11
+	Set 12	Set 12
+	Set 13	Set 13
+	Set 14	Set 14
+	Set 15	Set 15
+	Set 16	Set 16
+	Set 17	Set 17
+	Set 18	Set 18
+	Set 19	Set 19
+	Set 20	Set 20
 	Slant	Kemiringan
 	Optical Size	Ukuran optik
 	Optical size follows the font size	Ukuran optik mengikuti ukuran font

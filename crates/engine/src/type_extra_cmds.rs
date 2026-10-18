@@ -365,6 +365,45 @@ fn set_feature(st: &mut photocraft_doc::text::CharStyle, tag: &str, on: bool) {
     }
 }
 
+/// Type › OpenType › Numerals: each style and the features it turns on (the others of
+/// `tnum`/`pnum`/`lnum`/`onum` go off). Default uses the font's own figures.
+pub const NUMERALS: [(&str, &[&str]); 5] = [
+    ("default", &[]),
+    ("tabularLining", &["tnum", "lnum"]),
+    ("proportionalLining", &["pnum", "lnum"]),
+    ("tabularOldstyle", &["tnum", "onum"]),
+    ("proportionalOldstyle", &["pnum", "onum"]),
+];
+
+/// Which [`NUMERALS`] style `st` uses ("default" for any other mix).
+pub fn numerals_of(st: &photocraft_doc::text::CharStyle) -> &'static str {
+    let on = |tag: &str| feature_on(st, tag);
+    match (on("tnum"), on("pnum"), on("lnum"), on("onum")) {
+        (true, false, true, false) => "tabularLining",
+        (false, true, true, false) => "proportionalLining",
+        (true, false, false, true) => "tabularOldstyle",
+        (false, true, false, true) => "proportionalOldstyle",
+        _ => "default",
+    }
+}
+
+fn set_numerals(s: &mut Session, p: &Value, style: &'static str) -> Result<Value> {
+    let tags = NUMERALS.iter().find(|(name, _)| *name == style).map_or(&[][..], |(_, tags)| *tags);
+    with_text(s, p, "Change OpenType Feature", |t, _| {
+        let (a, b) = match p.get("range").and_then(Value::as_array) {
+            Some(r) if r.len() == 2 => (byte_index(&t.text, r[0].as_u64().unwrap_or(0) as usize), byte_index(&t.text, r[1].as_u64().unwrap_or(0) as usize)),
+            _ => (0, t.text.len()),
+        };
+        style_range(t, a.min(b), a.max(b), &|st| {
+            for tag in ["tnum", "pnum", "lnum", "onum"] {
+                set_feature(st, tag, tags.contains(&tag));
+            }
+        });
+        Ok(())
+    })?;
+    Ok(json!({"numerals": style}))
+}
+
 fn toggle_opentype(s: &mut Session, p: &Value, tag: &'static str) -> Result<Value> {
     let cur = active_text(s).ok().and_then(|t| t.char_runs().first().map(|r| feature_on(&r.style, tag))).unwrap_or(false);
     let on = p.get("on").and_then(Value::as_bool).unwrap_or(!cur);
@@ -515,6 +554,7 @@ pub fn specs() -> Vec<CommandSpec> {
     }
     const LP: &str = r##"{"layer":id?}"##;
     const OT: &str = r##"{"layer":id?,"on":bool? (default: toggle),"range":[startChar,endChar]? (default all)}"##;
+    const RP: &str = r##"{"layer":id?,"range":[startChar,endChar]? (default all)}"##;
     vec![
         spec!("type.antiAlias.none", "None", &["Type", "Anti-Alias"], LP, has_text, |s, p| set_aa(s, p, AntiAlias::None)),
         spec!("type.antiAlias.sharp", "Sharp", &["Type", "Anti-Alias"], LP, has_text, |s, p| set_aa(s, p, AntiAlias::Sharp)),
@@ -535,6 +575,47 @@ pub fn specs() -> Vec<CommandSpec> {
         spec!("type.openType.ornaments", "Ornaments", &["Type", "OpenType"], OT, has_text, |s, p| toggle_opentype(s, p, "ornm")),
         spec!("type.openType.ordinals", "Ordinals", &["Type", "OpenType"], OT, has_text, |s, p| toggle_opentype(s, p, "ordn")),
         spec!("type.openType.fractions", "Fractions", &["Type", "OpenType"], OT, has_text, |s, p| toggle_opentype(s, p, "frac")),
+        spec!("type.openType.numerals.default", "Default", &["Type", "OpenType", "Numerals"], RP, has_text, |s, p| set_numerals(s, p, "default")),
+        spec!("type.openType.numerals.tabularLining", "Tabular Lining", &["Type", "OpenType", "Numerals"], RP, has_text, |s, p| set_numerals(
+            s,
+            p,
+            "tabularLining"
+        )),
+        spec!("type.openType.numerals.proportionalLining", "Proportional Lining", &["Type", "OpenType", "Numerals"], RP, has_text, |s, p| set_numerals(
+            s,
+            p,
+            "proportionalLining"
+        )),
+        spec!("type.openType.numerals.tabularOldstyle", "Tabular Oldstyle", &["Type", "OpenType", "Numerals"], RP, has_text, |s, p| set_numerals(
+            s,
+            p,
+            "tabularOldstyle"
+        )),
+        spec!("type.openType.numerals.proportionalOldstyle", "Proportional Oldstyle", &["Type", "OpenType", "Numerals"], RP, has_text, |s, p| set_numerals(
+            s,
+            p,
+            "proportionalOldstyle"
+        )),
+        spec!("type.openType.stylisticSet1", "Set 1", &["Type", "OpenType", "Stylistic Sets"], OT, has_text, |s, p| toggle_opentype(s, p, "ss01")),
+        spec!("type.openType.stylisticSet2", "Set 2", &["Type", "OpenType", "Stylistic Sets"], OT, has_text, |s, p| toggle_opentype(s, p, "ss02")),
+        spec!("type.openType.stylisticSet3", "Set 3", &["Type", "OpenType", "Stylistic Sets"], OT, has_text, |s, p| toggle_opentype(s, p, "ss03")),
+        spec!("type.openType.stylisticSet4", "Set 4", &["Type", "OpenType", "Stylistic Sets"], OT, has_text, |s, p| toggle_opentype(s, p, "ss04")),
+        spec!("type.openType.stylisticSet5", "Set 5", &["Type", "OpenType", "Stylistic Sets"], OT, has_text, |s, p| toggle_opentype(s, p, "ss05")),
+        spec!("type.openType.stylisticSet6", "Set 6", &["Type", "OpenType", "Stylistic Sets"], OT, has_text, |s, p| toggle_opentype(s, p, "ss06")),
+        spec!("type.openType.stylisticSet7", "Set 7", &["Type", "OpenType", "Stylistic Sets"], OT, has_text, |s, p| toggle_opentype(s, p, "ss07")),
+        spec!("type.openType.stylisticSet8", "Set 8", &["Type", "OpenType", "Stylistic Sets"], OT, has_text, |s, p| toggle_opentype(s, p, "ss08")),
+        spec!("type.openType.stylisticSet9", "Set 9", &["Type", "OpenType", "Stylistic Sets"], OT, has_text, |s, p| toggle_opentype(s, p, "ss09")),
+        spec!("type.openType.stylisticSet10", "Set 10", &["Type", "OpenType", "Stylistic Sets"], OT, has_text, |s, p| toggle_opentype(s, p, "ss10")),
+        spec!("type.openType.stylisticSet11", "Set 11", &["Type", "OpenType", "Stylistic Sets"], OT, has_text, |s, p| toggle_opentype(s, p, "ss11")),
+        spec!("type.openType.stylisticSet12", "Set 12", &["Type", "OpenType", "Stylistic Sets"], OT, has_text, |s, p| toggle_opentype(s, p, "ss12")),
+        spec!("type.openType.stylisticSet13", "Set 13", &["Type", "OpenType", "Stylistic Sets"], OT, has_text, |s, p| toggle_opentype(s, p, "ss13")),
+        spec!("type.openType.stylisticSet14", "Set 14", &["Type", "OpenType", "Stylistic Sets"], OT, has_text, |s, p| toggle_opentype(s, p, "ss14")),
+        spec!("type.openType.stylisticSet15", "Set 15", &["Type", "OpenType", "Stylistic Sets"], OT, has_text, |s, p| toggle_opentype(s, p, "ss15")),
+        spec!("type.openType.stylisticSet16", "Set 16", &["Type", "OpenType", "Stylistic Sets"], OT, has_text, |s, p| toggle_opentype(s, p, "ss16")),
+        spec!("type.openType.stylisticSet17", "Set 17", &["Type", "OpenType", "Stylistic Sets"], OT, has_text, |s, p| toggle_opentype(s, p, "ss17")),
+        spec!("type.openType.stylisticSet18", "Set 18", &["Type", "OpenType", "Stylistic Sets"], OT, has_text, |s, p| toggle_opentype(s, p, "ss18")),
+        spec!("type.openType.stylisticSet19", "Set 19", &["Type", "OpenType", "Stylistic Sets"], OT, has_text, |s, p| toggle_opentype(s, p, "ss19")),
+        spec!("type.openType.stylisticSet20", "Set 20", &["Type", "OpenType", "Stylistic Sets"], OT, has_text, |s, p| toggle_opentype(s, p, "ss20")),
         spec!("type.createWorkPath", "Create Work Path", &["Type"], LP, has_text, create_work_path),
         spec!("type.convertToShape", "Convert to Shape", &["Type"], LP, has_text, convert_to_shape),
         spec!("type.rasterizeTypeLayer", "Rasterize Type Layer", &["Type"], LP, has_text, |s, p| s.execute("type.rasterize", p.clone())),

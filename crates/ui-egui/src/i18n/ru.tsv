@@ -2666,9 +2666,10 @@ fontWeight	Italic	Курсив
 	Tool	Инструмент
 	High contrast	Высокая контрастность
 	High Contrast Theme	Высококонтрастная тема
-	Cream	Кремовая
+theme	Warm	Тёплая
+	Warm	Тёплая
 	Dim	Приглушённая
-	Cream Theme	Кремовая тема
+	Warm Theme	Тёплая тема
 	Dim Theme	Приглушённая тема
 	Paragraph direction	Направление абзаца
 	Auto Direction	Автоматическое направление
@@ -2688,6 +2689,32 @@ fontWeight	Italic	Курсив
 	Edit points to modify the curve	Изменять кривую с помощью точек
 	Draw to modify the curve	Изменять кривую рисованием
 	Drag to draw the curve · Smooth softens it	Перетащите, чтобы нарисовать кривую · Сгладить смягчает её
+	Numerals	Цифры
+	Stylistic Sets	Стилистические наборы
+	Tabular Lining	Табличные прописные
+	Proportional Lining	Пропорциональные прописные
+	Tabular Oldstyle	Табличные старого стиля
+	Proportional Oldstyle	Пропорциональные старого стиля
+	Set 1	Набор 1
+	Set 2	Набор 2
+	Set 3	Набор 3
+	Set 4	Набор 4
+	Set 5	Набор 5
+	Set 6	Набор 6
+	Set 7	Набор 7
+	Set 8	Набор 8
+	Set 9	Набор 9
+	Set 10	Набор 10
+	Set 11	Набор 11
+	Set 12	Набор 12
+	Set 13	Набор 13
+	Set 14	Набор 14
+	Set 15	Набор 15
+	Set 16	Набор 16
+	Set 17	Набор 17
+	Set 18	Набор 18
+	Set 19	Набор 19
+	Set 20	Набор 20
 	Slant	Наклон
 	Optical Size	Оптический размер
 	Optical size follows the font size	Оптический размер следует за кеглем
