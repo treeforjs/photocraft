@@ -6,7 +6,9 @@
 //! formulas), the identity at `bend = 0` and continuous in `bend`. The mapping is evaluated per
 //! point; the renderer subdivides long segments so straight edges bend.
 
-use photocraft_doc::text::TextWarp;
+use photocraft_doc::text::{TextPath, TextWarp};
+
+use crate::on_path::OnPath;
 use photocraft_geom::warp::{StyleWarp, WarpStyle};
 
 /// Warp styles in Photoshop's menu order: (PSD `warpStyle` value, short id used by commands).
@@ -37,10 +39,17 @@ pub fn psd_style(id: &str) -> Option<&'static str> {
     STYLES.iter().find(|(psd, short)| psd.to_ascii_lowercase() == l || short.to_ascii_lowercase() == l).map(|(psd, _)| *psd)
 }
 
-/// A warp prepared for one layout: the shared style math of
-/// [`photocraft_geom::warp::StyleWarp`] (also used by Edit › Transform › Warp) over the text box.
-#[derive(Clone, Copy, Debug)]
-pub struct Warp(StyleWarp);
+/// A bend prepared for one layout: a Warp Text style (the shared style math of
+/// [`photocraft_geom::warp::StyleWarp`], also used by Edit › Transform › Warp, over the text
+/// box) or type on a path ([`OnPath`]: glyphs stay rigid and turn with the path).
+#[derive(Clone, Debug)]
+pub struct Warp(Kind);
+
+#[derive(Clone, Debug)]
+enum Kind {
+    Style(StyleWarp),
+    Path(OnPath),
+}
 
 impl Warp {
     /// Prepares `w` for text whose bounds are `[x0, y0, x1, y1]` (text space). `None` for
@@ -48,17 +57,36 @@ impl Warp {
     pub fn new(w: &TextWarp, bounds: [f32; 4]) -> Option<Warp> {
         let style = WarpStyle::parse(&w.style).filter(|s| s.is_preset() && s.psd_name() == w.style)?;
         StyleWarp::new(style, f64::from(w.value), f64::from(w.horizontal_distortion), f64::from(w.vertical_distortion), !w.horizontal, bounds.map(f64::from))
-            .map(Warp)
+            .map(|s| Warp(Kind::Style(s)))
+    }
+
+    /// Type on `path`. `None` when the path has no length.
+    pub fn on_path(path: &TextPath) -> Option<Warp> {
+        OnPath::new(path).map(|p| Warp(Kind::Path(p)))
+    }
+
+    /// The path text follows, for type on a path.
+    pub fn path(&self) -> Option<&OnPath> {
+        match &self.0 {
+            Kind::Path(p) => Some(p),
+            Kind::Style(_) => None,
+        }
     }
 
     /// Longest segment (text-space px) worth sending through [`Warp::apply`] unsplit.
     pub fn max_segment(&self) -> f64 {
-        self.0.max_segment()
+        match &self.0 {
+            Kind::Style(s) => s.max_segment(),
+            Kind::Path(_) => 2.0,
+        }
     }
 
     /// Maps a text-space point.
     pub fn apply(&self, x: f64, y: f64) -> (f64, f64) {
-        self.0.apply(x, y)
+        match &self.0 {
+            Kind::Style(s) => s.apply(x, y),
+            Kind::Path(p) => p.apply(x, y).unwrap_or((x, y)),
+        }
     }
 }
 

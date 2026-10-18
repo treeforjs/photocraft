@@ -7,9 +7,9 @@ order = 5
 [[item]]
 id = "TYPE-218-1"
 target = "Type on a path: path shape, glyphs along the curve, caret follows, PSD round trip"
-status = "missing"
+status = "partial"
 issue = 218
-note = "doc text.rs:209 TextShape has Point and Box only"
+note = "text on_path.rs + render.rs layer_warp: glyphs turn rigidly along the path; type.create/type.edit onPath, Type tool click on a path, caret follows, Start/Flip/Release in Properties, .pcd round trip. PSD export of the path (TySh text-on-path data) missing"
 
 [[item]]
 id = "TYPE-218-2"

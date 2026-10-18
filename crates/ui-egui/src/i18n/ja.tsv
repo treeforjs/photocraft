@@ -3466,6 +3466,9 @@ theme	Warm	ウォーム
 	How hard a pen press must be, for every tool. Double-click the graph to reset.	すべてのツールに必要なペンの押す強さ。グラフをダブルクリックするとリセットします。
 	Import Image as Brush…	画像をブラシとして読み込み…
 	New brush “{name}” from the image	画像から新規ブラシ「{name}」
+	Type on a Path	パス上文字
+	Start	開始位置
+	Release from Path	パスから解除
 	Float Panel Group	パネルグループをフローティング
 	Dock Panel Group	パネルグループをドッキング
 	No Suggestions	候補なし
