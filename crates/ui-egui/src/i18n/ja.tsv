@@ -3469,3 +3469,6 @@ theme	Warm	ウォーム
 	Type on a Path	パス上文字
 	Start	開始位置
 	Release from Path	パスから解除
+	Animations	アニメーション
+	Canvas pattern in dark themes	ダークテーマでカンバスのパターンを表示
+	Canvas pattern in light themes	ライトテーマでカンバスのパターンを表示
