@@ -386,10 +386,11 @@ viewports, so the dialog is drawn over the main window and appears in the image.
 RGB/Grayscale layer. `params: {"smartFilter": {"layer": id, "index": i}}` opens it on an existing
 Camera Raw smart filter instead (as double-clicking the filter in the Layers panel does): the
 stored settings over the pixels below that filter, previewed through the filter mask; commit
-then runs `layer.smartFilter.setParams` with every setting. `params.ui` accepts `set` (filter settings), `before`, `scope`, `view`, `commit` and
-`cancel`. All parts of one request are validated before any is applied; a rejected request
+then runs `layer.smartFilter.setParams` with every setting. `params.ui` accepts `set` (filter settings), `auto` (the Light
+section's **Auto**: Exposure, Contrast, Highlights, Shadows, Whites and Blacks from the image's
+histogram, applied before `set`), `before`, `scope`, `view`, `commit` and `cancel`. All parts of one request are validated before any is applied; a rejected request
 leaves the settings, view state, preferences and document unchanged (and closes a dialog it
-opened). Unknown `ui` or settings properties, non-boolean `before` / `commit` / `cancel`, and
+opened). Unknown `ui` or settings properties, non-boolean `before` / `commit` / `cancel` / `auto`, and
 `commit` together with `cancel` are errors. Point curves (`pointCurve`, `pointCurveRed`,
 `pointCurveGreen`, `pointCurveBlue`) are empty or 2–16 finite points in 0–255 with inputs at
 least one level apart. Commit dispatches one `filter.cameraRaw` engine command; a failed commit
@@ -404,7 +405,8 @@ sensor data; without an as-shot white balance, or without the file's bytes, they
 adjustments), applies the remaining settings as one `filter.cameraRaw` step and leaves the
 document unmodified; its result is `{document, redeveloped, filter?}`. Cancel closes the
 document. `app.open` and other automation opens never show the dialog. The preference
-`rawDefaults.openInCameraRaw` (default `true`) turns it off.
+`rawDefaults.openInCameraRaw` (default `true`) turns it off; `rawDefaults.applyAutoTone` (default
+`false`) opens it with Auto applied.
 
 Imported PSD Camera Raw filters whose processing settings are all mapped or neutral use this
 same editor. `params.__cameraRawPsd` is reserved import/export metadata: preserve it when editing

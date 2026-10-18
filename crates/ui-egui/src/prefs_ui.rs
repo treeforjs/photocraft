@@ -2182,10 +2182,11 @@ mod tests {
         assert!(has_visible_fields(&values, "enhancedControls"));
         assert!(!prefs::is_hidden("enhancedControls.rotateViewWithTrackpad"));
         assert!(prefs::is_hidden("enhancedControls.zoomWithTrackpadPinch"));
-        // Camera Raw Defaults shows only "Open in Camera Raw" so far.
+        // Camera Raw Defaults shows "Open in Camera Raw" and "Apply Auto Tone" so far.
         assert!(has_visible_fields(&values, "rawDefaults"));
         assert!(!prefs::is_hidden("rawDefaults.openInCameraRaw"));
-        assert!(prefs::is_hidden("rawDefaults.applyAutoTone"));
+        assert!(!prefs::is_hidden("rawDefaults.applyAutoTone"));
+        assert!(prefs::is_hidden("rawDefaults.openAsSmartObject"));
         assert!(!prefs::is_hidden("general.autoShowHomeScreen"));
         assert!(!prefs::is_hidden("interface.uiScale"));
         assert!(!prefs::is_hidden("interface.uiFontSize"));
