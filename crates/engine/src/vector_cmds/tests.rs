@@ -567,3 +567,27 @@ fn stroke_path_with_a_retouch_tool_is_one_step() {
     assert!((px(&s, 40, 20) - gray).abs() < 1e-3 && (px(&s, 40, 60) - gray).abs() < 1e-3, "one undo reverts both");
     assert!(s.execute("path.stroke", json!({"tool": "airbrush"})).is_err());
 }
+
+#[test]
+fn shape_feather_softens_the_edges_and_undoes() {
+    let mut s = session(120, 120, 8);
+    let id = s.execute("shape.create", json!({"kind": "rect", "rect": [30, 30, 60, 60]})).unwrap()["layer"].as_u64().unwrap();
+    let hard = alpha_sum(&shape(&s, id));
+    let a = |s: &Session, x: u32, y: u32| {
+        let c = shape(s, id).cache.unwrap();
+        photocraft_raster::to_rgba(&c.format(), &c.pixel(x as i32, y as i32))[3]
+    };
+    assert_eq!(a(&s, 25, 60), 0.0);
+    let r = s.execute("shape.edit", json!({"layer": id, "feather": 6})).unwrap();
+    assert_eq!(r["feather"], 6.0);
+    // The edge spreads out past the path and in from it; the total coverage stays.
+    assert!(a(&s, 25, 60) > 0.05 && a(&s, 31, 60) < 0.9 && a(&s, 60, 60) > 0.99);
+    assert!((alpha_sum(&shape(&s, id)) - hard).abs() < hard * 0.01);
+    // Hostile values are clamped or refused.
+    assert_eq!(s.execute("shape.edit", json!({"layer": id, "feather": 1e12})).unwrap()["feather"], 1000.0);
+    assert!(s.execute("shape.edit", json!({"layer": id, "feather": "soft"})).is_err());
+    s.execute("edit.undo", json!({})).unwrap();
+    s.execute("edit.undo", json!({})).unwrap();
+    assert_eq!(shape(&s, id).feather, 0.0);
+    assert_eq!(a(&s, 25, 60), 0.0);
+}

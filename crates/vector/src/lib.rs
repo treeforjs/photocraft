@@ -19,6 +19,7 @@
 #![deny(clippy::unwrap_used, clippy::expect_used, clippy::panic, clippy::unimplemented, clippy::todo, clippy::unreachable)]
 
 pub mod edit;
+pub mod feather;
 pub mod flatten;
 pub mod raster;
 pub mod shapes;
@@ -567,12 +568,60 @@ impl CompiledShape {
         });
         s
     }
+
+    /// [`Self::render`] blurred by a Gaussian of `sigma` (premultiplied, so colour does not
+    /// bleed from transparent pixels). `None` when the area is too large to buffer.
+    fn render_feathered(&self, format: PixelFormat, clip: Rect, sigma: f32) -> Option<Surface> {
+        let mut s = Surface::new(format);
+        let Some(b) = self.bounds else { return Some(s) };
+        let area = feather::grown(b, sigma).intersect(&clip);
+        if area.is_empty() {
+            return Some(s);
+        }
+        let (w, h) = (area.width() as usize, area.height() as usize);
+        if w.checked_mul(h).is_none_or(|n| n > feather::MAX_PIXELS) {
+            return None;
+        }
+        let mut px = self.render_rgba(area);
+        for p in &mut px {
+            let a = p[3];
+            for c in p.iter_mut().take(3) {
+                *c *= a;
+            }
+        }
+        feather::blur(&mut px, w, h, sigma);
+        let ch = format.channels();
+        let alpha = format.alpha;
+        for band in tile_bands(area) {
+            let rows = (band.y0 - area.y0) as usize..(band.y1 - area.y0) as usize;
+            let Some(src) = px.get(rows.start * w..rows.end * w) else { continue };
+            let mut vals = vec![0.0f32; src.len() * ch];
+            for (p, o) in src.iter().zip(vals.chunks_exact_mut(ch)) {
+                if p[3] > 1e-6 {
+                    let a = p[3].min(1.0);
+                    photocraft_raster::from_rgba_into(&format, [p[0] / p[3], p[1] / p[3], p[2] / p[3], a], o);
+                }
+            }
+            for (tr, v) in band_tiles(band, &vals, ch, |q| if alpha { q[ch - 1] > 0.0 } else { q.iter().any(|v| *v != 0.0) }) {
+                s.write_region(tr, &v);
+            }
+        }
+        Some(s)
+    }
 }
 
 /// Renders a shape layer's appearance (fill, then stroke over it) in `format`, clipped to
 /// `clip` — the canvas, which also lays out gradients whose fill is not aligned with the layer.
+/// A [`ShapeLayer::feather`] softens the edges by a Gaussian of that radius.
 pub fn render_shape(shape: &ShapeLayer, format: PixelFormat, clip: Rect) -> Surface {
-    CompiledShape::new(shape, DEFAULT_TOLERANCE, clip).render(format, clip)
+    let compiled = CompiledShape::new(shape, DEFAULT_TOLERANCE, clip);
+    let sigma = feather::sigma(shape.feather);
+    if sigma > 0.0
+        && let Some(s) = compiled.render_feathered(format, clip, sigma)
+    {
+        return s;
+    }
+    compiled.render(format, clip)
 }
 
 #[cfg(test)]

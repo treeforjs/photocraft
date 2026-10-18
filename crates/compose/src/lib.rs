@@ -632,9 +632,13 @@ pub fn layer_bounds(layer: &Layer, canvas: Rect) -> Rect {
 /// shape's layer effects from its vector outline, not from its pixels: a stroke runs along the
 /// whole path even where a gradient fill fades out (psd-tools stroke-effects). `None` for other
 /// layers, shapes without fill, empty and inverted paths, and shapes whose vector stroke reaches
-/// past the path (their pixels give the outline: psd-tools double-stroke-effects).
+/// past the path (their pixels give the outline: psd-tools double-stroke-effects), and feathered
+/// shapes (their softened pixels are the shape the effects follow).
 pub fn effect_outline(layer: &Layer) -> Option<&photocraft_doc::vector::Path> {
     let LayerContent::Shape(sh) = &layer.content else { return None };
+    if photocraft_vector::feather::sigma(sh.feather) > 0.0 {
+        return None;
+    }
     let stroke_inside = sh.stroke.as_ref().is_none_or(|s| s.width <= 0.0 || s.align == photocraft_doc::vector::StrokeAlign::Inside);
     (sh.fill.is_some() && stroke_inside && !sh.path.is_empty() && !sh.path.inverted).then_some(&sh.path)
 }
