@@ -2457,6 +2457,8 @@ theme	Warm	Teplý
 	How hard a pen press must be, for every tool. Double-click the graph to reset.	Jak silný musí být přítlak pera, pro všechny nástroje. Dvojklikem na graf jej obnovíte.
 	Import Image as Brush…	Importovat obraz jako štětec…
 	New brush “{name}” from the image	Nový štětec „{name}“ z obrazu
+	Float Panel Group	Uvolnit skupinu panelů
+	Dock Panel Group	Ukotvit skupinu panelů
 	No Suggestions	Žádné návrhy
 	Add to Dictionary	Přidat do slovníku
 	The text changed; right-click the word again.	Text se změnil; klikněte na slovo znovu pravým tlačítkem.

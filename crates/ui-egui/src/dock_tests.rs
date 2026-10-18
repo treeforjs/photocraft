@@ -706,3 +706,100 @@ fn tab_hides_all_panels_and_shift_tab_only_the_dock() {
     v.as_object_mut().unwrap().remove("dock");
     assert!(serde_json::from_value::<crate::state::Panels>(v).unwrap().dock);
 }
+
+#[test]
+fn floating_frames_are_sanitised() {
+    let screen = Rect::from_min_size(Pos2::ZERO, vec2(1200.0, 800.0));
+    let mut l = DockLayout::default();
+    assert!(l.float_rect(Group::Layers, screen).is_none());
+    l.float(Group::Layers, Rect::from_min_size(Pos2::new(100.0, 50.0), vec2(300.0, 400.0)));
+    assert_eq!(l.float_rect(Group::Layers, screen), Some(Rect::from_min_size(Pos2::new(100.0, 50.0), vec2(300.0, 400.0))));
+    // Hostile values from `ui.set` or an old preferences file: sizes clamp, the strip stays on screen.
+    for v in [[f32::NAN, f32::INFINITY, -5.0, 1e12], [-1e9, 1e9, 1e9, -1e9], [5000.0, -300.0, 0.0, 0.0]] {
+        l.floating.insert(Group::Color, v);
+        let r = l.float_rect(Group::Color, screen).unwrap();
+        assert!(r.min.x.is_finite() && r.min.y.is_finite() && r.width() >= *FLOAT_WIDTH.start() && r.height() >= Group::Color.min_height(), "{v:?} -> {r:?}");
+        assert!(
+            r.right() >= screen.left() + FLOAT_GRIP - 1e-3 && r.left() <= screen.right() - FLOAT_GRIP + 1e-3 && r.top() >= 0.0 && r.top() <= 760.0,
+            "{v:?} -> {r:?}"
+        );
+    }
+    // A screen smaller than a frame never panics.
+    let tiny = Rect::from_min_size(Pos2::ZERO, vec2(10.0, 10.0));
+    assert!(l.float_rect(Group::Color, tiny).is_some());
+    // Docking forgets the frame; the layout round-trips through serde.
+    let back: DockLayout = serde_json::from_value(serde_json::to_value(&l).unwrap()).unwrap();
+    assert_eq!(back, l);
+    l.dock(Group::Layers);
+    assert!(!l.is_floating(Group::Layers) && l.is_floating(Group::Color));
+}
+
+/// A point on a floating group's tab strip, between its tabs and its menu button.
+fn float_grab(h: &Harness<'static, PhotocraftApp>, g: Group) -> Pos2 {
+    let f = floating_rect(h, g);
+    let s = last_strips(&h.ctx).into_iter().rfind(|s| s.group == g && f.contains(s.menu.center())).unwrap_or_else(|| panic!("{g:?} strip"));
+    Pos2::new(s.menu.left() - 20.0, s.menu.center().y)
+}
+
+fn floating_rect(h: &Harness<'static, PhotocraftApp>, g: Group) -> Rect {
+    last_floating(&h.ctx).into_iter().find(|(x, _)| *x == g).map(|(_, r)| r).unwrap_or_else(|| panic!("{g:?} not floating"))
+}
+
+#[test]
+fn dragging_a_strip_out_floats_the_group_and_dropping_it_on_the_column_docks_it() {
+    for theme in [ThemeKind::Craft, ThemeKind::Studio] {
+        let (app, _, _) = app_with_layers();
+        let mut h = harness(app, vec2(1200.0, 800.0), theme);
+        let layers = rect_of(&h, Group::Layers);
+        let strip = Pos2::new(layers.right() - 60.0, layers.top() + 13.0);
+        drag(&mut h, strip, Pos2::new(300.0, 200.0));
+        assert!(h.state().ui.dock.is_floating(Group::Layers), "{theme:?}");
+        h.run_steps(2);
+        assert!(!last_rects(&h.ctx).iter().any(|(g, _)| *g == Group::Layers), "a floating group leaves the column");
+        let f = floating_rect(&h, Group::Layers);
+        assert!(f.contains(Pos2::new(300.0, 200.0)), "{f:?}");
+        // The panel body still draws inside the floating frame (the layer rows).
+        assert!(last_strips(&h.ctx).iter().any(|s| s.group == Group::Layers));
+        // Move it by its strip, then resize it by its corner.
+        let grab = float_grab(&h, Group::Layers);
+        drag(&mut h, grab, grab + vec2(-100.0, 50.0));
+        let moved = floating_rect(&h, Group::Layers);
+        assert!((moved.left() - (f.left() - 100.0)).abs() < 2.0 && (moved.top() - (f.top() + 50.0)).abs() < 2.0, "{f:?} -> {moved:?}");
+        let corner = moved.right_bottom() - vec2(5.0, 5.0);
+        drag(&mut h, corner, corner + vec2(40.0, -60.0));
+        let grown = floating_rect(&h, Group::Layers);
+        assert!((grown.width() - moved.width() - 40.0).abs() < 2.0 && (grown.height() - moved.height() + 60.0).abs() < 2.0, "{moved:?} -> {grown:?}");
+        // It survives a UI state round trip (Remember Workspace Changes / ui.set).
+        let ui = serde_json::to_value(&h.state().ui).unwrap();
+        let back: crate::state::UiState = serde_json::from_value(ui).unwrap();
+        assert!(back.dock.is_floating(Group::Layers));
+        // Dropped on the column, it docks again (above Color here).
+        let color = rect_of(&h, Group::Color);
+        let grab = float_grab(&h, Group::Layers);
+        drag(&mut h, grab, color.left_top() + vec2(120.0, 8.0));
+        assert!(!h.state().ui.dock.is_floating(Group::Layers), "{theme:?}");
+        assert_eq!(h.state().ui.dock.order().first(), Some(&Group::Layers), "{theme:?}");
+        h.run_steps(2);
+        assert!(last_floating(&h.ctx).is_empty());
+        // Lock Workspace keeps groups where they are.
+        h.state_mut().session.prefs.edit(|p| p.workspace_locked = true);
+        let layers = rect_of(&h, Group::Layers);
+        drag(&mut h, Pos2::new(layers.right() - 60.0, layers.top() + 13.0), Pos2::new(300.0, 200.0));
+        assert!(!h.state().ui.dock.is_floating(Group::Layers));
+    }
+}
+
+#[test]
+fn every_group_floating_hides_the_column_and_the_right_edge_docks() {
+    let (mut app, _, _) = app_with_layers();
+    for (i, g) in Group::ALL.into_iter().enumerate() {
+        app.ui.dock.float(g, Rect::from_min_size(Pos2::new(40.0 + 30.0 * i as f32, 40.0 + 30.0 * i as f32), vec2(280.0, 260.0)));
+    }
+    let mut h = harness(app, vec2(1200.0, 800.0), ThemeKind::Craft);
+    assert!(last_rects(&h.ctx).is_empty() || !last_rects(&h.ctx).iter().any(|(g, _)| h.state().ui.dock.is_floating(*g)));
+    let grab = float_grab(&h, Group::Layers);
+    drag(&mut h, grab, Pos2::new(1195.0, 400.0));
+    assert!(!h.state().ui.dock.is_floating(Group::Layers));
+    h.run_steps(2);
+    assert!(last_rects(&h.ctx).iter().any(|(g, _)| *g == Group::Layers));
+}
