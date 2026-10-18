@@ -1720,7 +1720,7 @@ fn tab_context_menu(ui: &mut egui::Ui, index: usize, count: usize, has_path: boo
     crate::widgets::menu_scroll(ui, |ui| {
         ui.set_min_width(170.0);
         for (label, id, params, enabled) in tab_context_items(index, count, has_path) {
-            if ui.add_enabled(enabled, egui::Button::new(tl!(label))).clicked() {
+            if ui.add_enabled(enabled, egui::Button::new(tl!(crate::shortcuts::os_label(label)))).clicked() {
                 ui.close();
                 return Some((id, params));
             }

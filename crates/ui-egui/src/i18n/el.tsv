@@ -67,6 +67,8 @@
 	Import	Εισαγωγή
 	Browse…	Περιήγηση…
 	Reveal in Finder	Εμφάνιση στο Finder
+	Reveal in Explorer	Εμφάνιση στην Εξερεύνηση
+	Show in File Manager	Εμφάνιση στη διαχείριση αρχείων
 	File Info…	Πληροφορίες αρχείου…
 	Print…	Εκτύπωση…
 	Print One Copy	Εκτύπωση ενός αντιγράφου
@@ -2342,7 +2344,7 @@
 	Frame from Layers…	Καρέ από επίπεδα…
 	Frame {current} / {total}	Καρέ {current} / {total}
 	Free	Ελεύθερο
-	Freeze Lasso: drag to freeze an area, Alt-drag to thaw it (L)	Λάσο παγώματος: σύρετε για πάγωμα περιοχής ή Alt-σύρσιμο για απόψυξη (L)
+	Freeze Lasso: drag to freeze an area, {key}-drag to thaw it (L)	Λάσο παγώματος: σύρετε για πάγωμα περιοχής ή {key}-σύρσιμο για απόψυξη (L)
 	Frequency	Συχνότητα
 	From	Από
 	Full Screen Mode	Λειτουργία πλήρους οθόνης

@@ -73,6 +73,8 @@
 	Import	가져오기
 	Browse…	찾아보기…
 	Reveal in Finder	Finder에서 보기
+	Reveal in Explorer	탐색기에서 보기
+	Show in File Manager	파일 관리자에서 보기
 	File Info…	파일 정보…
 	Print…	인쇄…
 	Print One Copy	한 부 인쇄
@@ -2056,7 +2058,7 @@
 	GPU Backend	GPU 백엔드
 	Details	세부 정보
 	Rendering mode	렌더링 모드
-	Freeze Lasso: drag to freeze an area, Alt-drag to thaw it (L)	고정 올가미: 드래그하여 영역을 고정하고 Alt 키를 누른 채 드래그하여 해제합니다(L)
+	Freeze Lasso: drag to freeze an area, {key}-drag to thaw it (L)	고정 올가미: 드래그하여 영역을 고정하고 {key} 키를 누른 채 드래그하여 해제합니다(L)
 	Shadow Clipping Warning (U)	어두운 영역 클리핑 경고 (U)
 	Highlight Clipping Warning (O)	밝은 영역 클리핑 경고 (O)
 	Show Lab Color Readouts	Lab 색상 값 표시

@@ -1584,6 +1584,8 @@
 	Open a document to select a colour range.	Відкрийте документ, щоб виділити колірний діапазон.
 	Saved	Збережено
 	Reveal in Finder	Показати у Finder
+	Reveal in Explorer	Показати в Провіднику
+	Show in File Manager	Показати у файловому менеджері
 	Before (Y)	До (Y)
 	After (X)	Після (X)
 	Original	Оригінал
@@ -2343,7 +2345,7 @@
 	Details	Подробиці
 	GPU	GPU
 	Rendering mode	Режим рендерингу
-	Freeze Lasso: drag to freeze an area, Alt-drag to thaw it (L)	Ласо заморожування: перетягніть, щоб заморозити область, Alt+перетягування розморожує її (L)
+	Freeze Lasso: drag to freeze an area, {key}-drag to thaw it (L)	Ласо заморожування: перетягніть, щоб заморозити область, {key}+перетягування розморожує її (L)
 	Shadow Clipping Warning (U)	Попередження про втрату деталей у тінях (U)
 	Highlight Clipping Warning (O)	Попередження про втрату деталей у світлих ділянках (O)
 	Show Lab Color Readouts	Показувати колірні значення Lab

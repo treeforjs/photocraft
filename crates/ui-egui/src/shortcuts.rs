@@ -52,6 +52,23 @@ pub fn pretty(s: &str) -> String {
         .join(if mac { "" } else { "+" })
 }
 
+/// "Reveal in Finder" as each desktop names it: the Finder on the Mac, Explorer on Windows and
+/// the file manager elsewhere (UI-217-19). English, translated where it is shown.
+pub fn reveal_label() -> &'static str {
+    if cfg!(target_os = "macos") {
+        "Reveal in Finder"
+    } else if cfg!(target_os = "windows") {
+        "Reveal in Explorer"
+    } else {
+        "Show in File Manager"
+    }
+}
+
+/// A menu label as this platform names it: [`reveal_label`] for "Reveal in Finder", else `label`.
+pub fn os_label(label: &str) -> &str {
+    if label == "Reveal in Finder" { reveal_label() } else { label }
+}
+
 /// The command's effective shortcut in the platform's notation (`Ctrl+N`), or `None` when
 /// the command has no binding (the user removed it in Edit › Keyboard Shortcuts).
 pub fn shortcut_label(app: &PhotocraftApp, command: &str) -> Option<String> {
@@ -537,6 +554,36 @@ mod tests {
         let clear = parse("Delete").unwrap();
         assert!(key_matches(&clear, Key::Delete, Modifiers::NONE) && key_matches(&clear, Key::Backspace, Modifiers::NONE));
         assert!(!key_matches(&clear, Key::Backspace, cmd));
+    }
+
+    /// UI-217-19: "Reveal in Finder" is named for the platform's file manager in the menus and on
+    /// the document tab, translated; other labels pass through.
+    #[test]
+    fn reveal_is_named_for_the_platform() {
+        let want = if cfg!(target_os = "macos") {
+            "Reveal in Finder"
+        } else if cfg!(target_os = "windows") {
+            "Reveal in Explorer"
+        } else {
+            "Show in File Manager"
+        };
+        assert_eq!(reveal_label(), want);
+        assert_eq!(os_label("Reveal in Finder"), want);
+        assert_eq!(os_label("Close"), "Close");
+        let app = PhotocraftApp::new(photocraft_engine::Session::new(), crate::Services::default());
+        let items = crate::menus::menu_items(&app);
+        let reveal: Vec<_> = items.iter().filter(|i| i.id.ends_with("revealInFinder")).map(|i| i.label.as_str()).collect();
+        assert!(!reveal.is_empty() && reveal.iter().all(|l| *l == want), "{reveal:?}");
+        // Every name has a translation in every catalogue.
+        for lang in crate::i18n::Lang::all().filter(|l| *l != crate::i18n::Lang::EN) {
+            for label in ["Reveal in Finder", "Reveal in Explorer", "Show in File Manager"] {
+                assert!(crate::i18n::has(lang, label), "{} {label}", lang.code());
+            }
+        }
+        // The Liquify lasso hint names the platform's Alt key.
+        let _en = crate::i18n::language_scope(crate::i18n::Lang::EN);
+        let hint = crate::i18n::fmt(tl!("Freeze Lasso: drag to freeze an area, {key}-drag to thaw it (L)"), &[("key", &pretty("Alt"))]);
+        assert!(hint.contains(if cfg!(target_os = "macos") { "⌥-drag" } else { "Alt-drag" }), "{hint}");
     }
 
     #[test]
