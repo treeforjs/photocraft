@@ -78,9 +78,9 @@ note = "Start screen lists recents (canvas.rs home_recent); Preferences > Interf
 [[item]]
 id = "UI-217-11"
 target = "Soft dark and soft light themes with picker previews; outlined knobs in light themes"
-status = "missing"
+status = "done"
 issue = 217
-note = "theme.rs:28 five themes"
+note = "Dim (soft dark) and Warm (soft light) from the shared craft-ui set (theme.rs ThemeKind); Preferences > Interface previews each theme (prefs_ui.rs theme_preview); light themes outline the slider knob (widgets.rs slider, test slider_knobs_are_outlined_on_light_surfaces)"
 
 [[item]]
 id = "UI-217-12"
