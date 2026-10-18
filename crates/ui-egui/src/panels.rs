@@ -834,8 +834,7 @@ pub fn options_bar(app: &mut PhotocraftApp, ui: &mut egui::Ui) {
                         crate::brush_picker::settings_toggle(app, ui);
                         widgets::vline(ui, 22.0);
                         if !t.pro {
-                            opt_label(ui, tl!("Size"));
-                            widgets::value_field(ui, &mut b.size, 1.0..=photocraft_engine::paint::MAX_BRUSH_SIZE, "px", 76.0);
+                            labeled_field(ui, tl!("Size"), &mut b.size, 1.0..=photocraft_engine::paint::MAX_BRUSH_SIZE, "px", 76.0);
                             widgets::vline(ui, 22.0);
                         }
                         opt_label(ui, tl!("Mode"));
@@ -854,8 +853,7 @@ pub fn options_bar(app: &mut PhotocraftApp, ui: &mut egui::Ui) {
                         brush_preset_chip(ui, b, &mut app.ui);
                         crate::brush_picker::settings_toggle(app, ui);
                         widgets::vline(ui, 22.0);
-                        opt_label(ui, tl!("Size"));
-                        widgets::value_field(ui, &mut b.size, 1.0..=2500.0, "px", 76.0);
+                        labeled_field(ui, tl!("Size"), &mut b.size, 1.0..=2500.0, "px", 76.0);
                         widgets::vline(ui, 22.0);
                         percent_field(ui, tl!("Hardness"), &mut b.hardness, 0.0..=100.0, 66.0);
                         percent_field(ui, tl!("Opacity"), &mut b.opacity, 0.0..=100.0, 66.0);
@@ -902,8 +900,7 @@ pub fn options_bar(app: &mut PhotocraftApp, ui: &mut egui::Ui) {
                         ui.spacing_mut().item_spacing.x = 8.0;
                         widgets::vline(ui, 22.0);
                         let o = &mut app.ui.tool_options;
-                        opt_label(ui, tl!("Feather"));
-                        widgets::value_field(ui, &mut o.feather, 0.0..=1000.0, "px", 62.0);
+                        labeled_field(ui, tl!("Feather"), &mut o.feather, 0.0..=1000.0, "px", 62.0);
                         // Photoshop greys Anti-alias for the Rectangular Marquee (its edges are always hard).
                         ui.add_enabled_ui(app.ui.tool == Tool::EllipseMarquee, |ui| widgets::checkbox(ui, &mut o.anti_alias, tl!("Anti-alias")));
                         widgets::vline(ui, 22.0);
@@ -919,13 +916,11 @@ pub fn options_bar(app: &mut PhotocraftApp, ui: &mut egui::Ui) {
                         let fixed = o.marquee_style != "normal";
                         let (unit, range) = if o.marquee_style == "fixedSize" { ("px", 1.0..=300_000.0) } else { ("", 0.001..=999.0) };
                         ui.add_enabled_ui(fixed, |ui| {
-                            opt_label(ui, tl!("Width"));
-                            widgets::value_field(ui, &mut o.marquee_width, range.clone(), unit, 62.0);
+                            labeled_field(ui, tl!("Width"), &mut o.marquee_width, range.clone(), unit, 62.0);
                             if icons::button(ui, "arrow-left-right", 22.0, false, tl!("Swaps height and width")).clicked() {
                                 std::mem::swap(&mut o.marquee_width, &mut o.marquee_height);
                             }
-                            opt_label(ui, tl!("Height"));
-                            widgets::value_field(ui, &mut o.marquee_height, range, unit, 62.0);
+                            labeled_field(ui, tl!("Height"), &mut o.marquee_height, range, unit, 62.0);
                         });
                         widgets::vline(ui, 22.0);
                         if widgets::secondary_button(ui, tl!("Select and Mask…"), 0.0).clicked() {
@@ -935,20 +930,16 @@ pub fn options_bar(app: &mut PhotocraftApp, ui: &mut egui::Ui) {
                     Tool::Lasso | Tool::PolygonLasso | Tool::MagneticLasso if t.pro => {
                         selection_mode_buttons(app, ui);
                         widgets::vline(ui, 22.0);
-                        opt_label(ui, tl!("Feather"));
-                        widgets::value_field(ui, &mut app.ui.tool_options.feather, 0.0..=1000.0, "px", 62.0);
+                        labeled_field(ui, tl!("Feather"), &mut app.ui.tool_options.feather, 0.0..=1000.0, "px", 62.0);
                         widgets::checkbox(ui, &mut app.ui.tool_options.anti_alias, tl!("Anti-alias"));
                         widgets::vline(ui, 22.0);
                         if app.ui.tool == Tool::MagneticLasso {
                             let o = &mut app.ui.tool_options;
-                            opt_label(ui, tl!("Width"));
-                            widgets::value_field(ui, &mut o.magnetic_width, 1.0..=256.0, "px", 58.0)
+                            labeled_field(ui, tl!("Width"), &mut o.magnetic_width, 1.0..=256.0, "px", 58.0)
                                 .on_hover_text(tl!("Follows only edges this close to the pointer ([ and ] change it)"));
-                            opt_label(ui, tl!("Contrast"));
-                            widgets::value_field(ui, &mut o.magnetic_contrast, 1.0..=100.0, "%", 58.0)
+                            labeled_field(ui, tl!("Contrast"), &mut o.magnetic_contrast, 1.0..=100.0, "%", 58.0)
                                 .on_hover_text(tl!("Higher values follow only edges that contrast sharply with their surroundings"));
-                            opt_label(ui, tl!("Frequency"));
-                            widgets::value_field(ui, &mut o.magnetic_frequency, 0.0..=100.0, "", 50.0)
+                            labeled_field(ui, tl!("Frequency"), &mut o.magnetic_frequency, 0.0..=100.0, "", 50.0)
                                 .on_hover_text(tl!("How often fastening points are placed by themselves"));
                             if icons::button(ui, "circle-dot", 24.0, o.magnetic_pressure, tl!("Use tablet pressure to change pen width")).clicked() {
                                 o.magnetic_pressure = !o.magnetic_pressure;
@@ -982,8 +973,7 @@ pub fn options_bar(app: &mut PhotocraftApp, ui: &mut egui::Ui) {
                     Tool::MagicWand => {
                         selection_mode_buttons(app, ui);
                         widgets::vline(ui, 22.0);
-                        opt_label(ui, tl!("Tolerance"));
-                        widgets::value_field(ui, &mut app.ui.tool_options.tolerance, 0.0..=255.0, "", 58.0);
+                        labeled_field(ui, tl!("Tolerance"), &mut app.ui.tool_options.tolerance, 0.0..=255.0, "", 58.0);
                         widgets::checkbox(ui, &mut app.ui.tool_options.anti_alias, tl!("Anti-alias"));
                         widgets::checkbox(ui, &mut app.ui.tool_options.contiguous, tl!("Contiguous"));
                         widgets::checkbox(ui, &mut app.ui.tool_options.sample_all_layers, tl!("Sample All Layers"));
@@ -1002,10 +992,8 @@ pub fn options_bar(app: &mut PhotocraftApp, ui: &mut egui::Ui) {
                         if widgets::dropdown(ui, "bucket-src", &mut src, &[(0u8, tl!("Foreground")), (1, tl!("Pattern"))], 100.0) {
                             app.ui.tool_options.bucket_fill_pattern = src == 1;
                         }
-                        opt_label(ui, tl!("Opacity"));
-                        widgets::value_field(ui, &mut app.ui.tool_options.fill_opacity, 1.0..=100.0, "%", 62.0);
-                        opt_label(ui, tl!("Tolerance"));
-                        widgets::value_field(ui, &mut app.ui.tool_options.tolerance, 0.0..=255.0, "", 58.0);
+                        labeled_field(ui, tl!("Opacity"), &mut app.ui.tool_options.fill_opacity, 1.0..=100.0, "%", 62.0);
+                        labeled_field(ui, tl!("Tolerance"), &mut app.ui.tool_options.tolerance, 0.0..=255.0, "", 58.0);
                         widgets::checkbox(ui, &mut app.ui.tool_options.anti_alias, tl!("Anti-alias"));
                         widgets::checkbox(ui, &mut app.ui.tool_options.contiguous, tl!("Contiguous"));
                         widgets::checkbox(ui, &mut app.ui.tool_options.sample_all_layers, tl!("All Layers"));
@@ -1041,8 +1029,7 @@ pub fn options_bar(app: &mut PhotocraftApp, ui: &mut egui::Ui) {
                         opt_label(ui, tl!("Mode"));
                         let opts: Vec<(BlendMode, &str)> = BlendMode::LAYER_MODES.iter().map(|m| (*m, m.label())).collect();
                         widgets::dropdown(ui, "gradient-blend-mode", &mut app.ui.tool_options.gradient_blend_mode, &opts, 96.0);
-                        opt_label(ui, tl!("Opacity"));
-                        widgets::value_field(ui, &mut app.ui.tool_options.fill_opacity, 1.0..=100.0, "%", 62.0);
+                        labeled_field(ui, tl!("Opacity"), &mut app.ui.tool_options.fill_opacity, 1.0..=100.0, "%", 62.0);
                         widgets::checkbox(ui, &mut app.ui.tool_options.gradient_reverse, tl!("Reverse"));
                         widgets::checkbox(ui, &mut app.ui.tool_options.gradient_dither, tl!("Dither"));
                         // Live mode: the options also change a selected gradient fill layer.
@@ -1270,15 +1257,32 @@ fn body_text_width(ui: &egui::Ui, s: &str) -> f32 {
 
 /// Options-bar label: Photoshop writes "Size:" with a colon.
 fn opt_label(ui: &mut egui::Ui, s: &str) {
-    let t = Tokens::get(ui.ctx());
-    let text = if t.pro && !s.ends_with(':') { format!("{s}:") } else { s.to_string() };
-    ui.label(RichText::new(tl!(&text)).color(t.text_dim));
+    scrub_label(ui, s, false);
 }
 
+/// [`opt_label`] that senses drags, for a scrubby label ([`widgets::scrub`]) when `scrubby`.
+fn scrub_label(ui: &mut egui::Ui, s: &str, scrubby: bool) -> egui::Response {
+    let t = Tokens::get(ui.ctx());
+    let text = if t.pro && !s.ends_with(':') { format!("{s}:") } else { s.to_string() };
+    let label = egui::Label::new(RichText::new(tl!(&text)).color(t.text_dim));
+    ui.add(if scrubby { label.selectable(false).sense(egui::Sense::drag()) } else { label })
+}
+
+/// An options-bar label and value field; dragging the label scrubs the value, as in Photoshop.
+fn labeled_field(ui: &mut egui::Ui, label: &str, value: &mut f32, range: std::ops::RangeInclusive<f32>, suffix: &str, width: f32) -> egui::Response {
+    let name = scrub_label(ui, label, true);
+    let scrubbed = widgets::scrub(ui, &name, value, range.clone(), range.end() - range.start() <= 10.0);
+    let mut r = widgets::value_field(ui, value, range, suffix, width);
+    if scrubbed {
+        r.mark_changed();
+    }
+    r
+}
+
+/// An options-bar percentage with a scrubby label.
 fn percent_field(ui: &mut egui::Ui, label: &str, value: &mut f32, range: std::ops::RangeInclusive<f32>, width: f32) {
-    opt_label(ui, label);
     let mut percent = *value * 100.0;
-    if widgets::value_field(ui, &mut percent, range, "%", width).changed() {
+    if labeled_field(ui, label, &mut percent, range, "%", width).changed() {
         *value = percent / 100.0;
     }
 }
@@ -4122,5 +4126,30 @@ mod group_drag_selection_tests {
         assert_eq!((r.top(), r.bottom()), (cell.top(), cell.bottom()));
         assert!((r.width() - 7.5).abs() < 1e-3, "{r:?}");
         assert!((uv.width() - 0.25).abs() < 1e-3 && (uv.height() - 1.0).abs() < 1e-3, "{uv:?}");
+    }
+}
+
+#[cfg(test)]
+mod scrub_tests {
+    use egui_kittest::{Harness, kittest::Queryable};
+
+    /// An options-bar label scrubs its field: a percentage a point per percent, as in Photoshop.
+    #[test]
+    fn dragging_an_options_bar_label_scrubs_its_value() {
+        let mut h = Harness::builder().with_size(egui::vec2(400.0, 60.0)).build_ui_state(
+            |ui, v: &mut f32| {
+                ui.horizontal(|ui| super::percent_field(ui, "Opacity", v, 0.0..=100.0, 62.0));
+            },
+            0.5,
+        );
+        h.run();
+        let at = h.get_by_label_contains("Opacity").rect().center();
+        h.drag_at(at);
+        h.run();
+        h.hover_at(at + egui::vec2(-15.0, 0.0));
+        h.run();
+        h.drop_at(at + egui::vec2(-15.0, 0.0));
+        h.run();
+        assert!((*h.state() - 0.35).abs() < 1e-6, "{}", h.state());
     }
 }
