@@ -897,7 +897,6 @@ pub const HIDDEN_UNTIL_IMPLEMENTED: &[&str] = &[
     "type.textEngine",
     "enhancedControls.scrubbySliderAcceleration",
     "enhancedControls.touchGestures",
-    "rawDefaults.sharpenFor",
     "rawDefaults.openAsSmartObject",
     // Agent access is governed by the launch flags (`--control`, the automation roots), not
     // by these yet.
