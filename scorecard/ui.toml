@@ -59,7 +59,7 @@ id = "UI-217-8"
 target = "Tool-specific canvas right-click menu; right-click spelling suggestions in text fields"
 status = "partial"
 issue = 217
-note = "paint_mouse.rs brush picker and canvas_tool_menu.rs selection actions; other tools and text spelling menus missing"
+note = "paint_mouse.rs brush picker, layer_pick_ui.rs Move tool layers, canvas_tool_menu.rs selection actions, the path menu for the Pen, Path/Direct Selection and shape tools, and the Eyedropper Sample Size; text-field spelling suggestions missing"
 
 [[item]]
 id = "UI-217-9"
