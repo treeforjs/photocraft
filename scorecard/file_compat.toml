@@ -190,6 +190,6 @@ note = "Covered: layered TIFF (io/tests/tiff_layers.rs), ACO/ASE (engine swatch_
 [[item]]
 id = "FILE-216-6"
 target = "30-50 end-to-end workflow acceptance tasks driven through MCP or commands"
-status = "partial"
+status = "done"
 issue = 216
-note = "automation/tests/agent_tasks.rs: 10 MCP tasks"
+note = "33 workflows over MCP: automation/tests/agent_tasks.rs (10 scripted tasks, text by position, action record/replay, refused recorded open) + agent_workflows.rs (20: adjustments, groups, blend/flatten, canvas size, trim, transform, stroke, color range, feather, clear, sharpen, seeded noise, layer comps, gradient fill, shapes, rotate, mode round trip, rasterize type, locks)"
