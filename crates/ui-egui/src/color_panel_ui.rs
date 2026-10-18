@@ -151,6 +151,17 @@ pub fn track(mode: ColorPanelMode, i: usize, values: [f32; 4]) -> Vec<Color32> {
         .collect()
 }
 
+/// Where a fixed track sweeps from when Interface › Dynamic Color Sliders is off: black for RGB,
+/// the pure spectrum for HSB, paper white for CMYK and Grey, the neutral axis for Lab. The
+/// tracks then show each channel on its own instead of the current colour's neighbourhood.
+pub fn static_base(mode: ColorPanelMode) -> [f32; 4] {
+    match mode {
+        ColorPanelMode::Wheel | ColorPanelMode::Hsb => [0.0, 100.0, 100.0, 0.0],
+        ColorPanelMode::Lab => [50.0, 0.0, 0.0, 0.0],
+        _ => [0.0; 4],
+    }
+}
+
 /// The height [`mode_row`] takes, its gap included.
 pub const MODE_ROW_H: f32 = 32.0;
 
@@ -191,6 +202,8 @@ pub fn body(app: &mut PhotocraftApp, ui: &mut egui::Ui, height: f32) {
     let rgb = current(app);
     let mut values = shown_values(mode, rgb, ui.data(|d| d.get_temp(key)));
     let mut changed = false;
+    let dynamic = app.session.prefs().interface.dynamic_color_sliders;
+    let base = |values: [f32; 4]| if dynamic { values } else { static_base(mode) };
     ui.horizontal_top(|ui| {
         ui.spacing_mut().item_spacing.x = 8.0;
         let (chips, _) = ui.allocate_exact_size(vec2(38.0, 38.0), Sense::hover());
@@ -198,12 +211,13 @@ pub fn body(app: &mut PhotocraftApp, ui: &mut egui::Ui, height: f32) {
         ui.vertical(|ui| {
             if mode == ColorPanelMode::Wheel {
                 changed |= wheel(ui, &mut values, height);
-                let b = [Color32::BLACK, Color32::from(egui::ecolor::Hsva::new(values[0] / 360.0, values[1] / 100.0, 1.0, 1.0))];
+                let top = if dynamic { egui::ecolor::Hsva::new(values[0] / 360.0, values[1] / 100.0, 1.0, 1.0).into() } else { Color32::WHITE };
+                let b = [Color32::BLACK, top];
                 changed |= widgets::slider_row(ui, "Brightness", &mut values[2], 0.0..=100.0, "%", Some(&b)).changed();
                 return;
             }
             for (i, c) in channels(mode).iter().enumerate() {
-                let stops = track(mode, i, values);
+                let stops = track(mode, i, base(values));
                 let Some(v) = values.get_mut(i) else { continue };
                 changed |= widgets::slider_row(ui, c.label, v, c.min..=c.max, c.suffix, Some(&stops)).changed();
             }
@@ -330,5 +344,18 @@ mod tests {
         assert_eq!(red.first(), Some(&Color32::BLACK));
         assert_eq!(red.last(), Some(&Color32::from_rgb(255, 0, 0)));
         assert_eq!(track(ColorPanelMode::Hsb, 0, [0.0, 100.0, 100.0, 0.0]).len(), 13);
+    }
+
+    #[test]
+    fn static_tracks_show_each_channel_on_its_own() {
+        // Dynamic Color Sliders off: R runs black to red whatever the colour is.
+        let red = track(ColorPanelMode::Rgb, 0, static_base(ColorPanelMode::Rgb));
+        assert_eq!((red.first(), red.last()), (Some(&Color32::BLACK), Some(&Color32::from_rgb(255, 0, 0))));
+        // Hue is the full-strength spectrum, CMYK runs from paper white to the ink.
+        assert_eq!(track(ColorPanelMode::Hsb, 0, static_base(ColorPanelMode::Hsb)).first(), Some(&Color32::from_rgb(255, 0, 0)));
+        assert_eq!(track(ColorPanelMode::Cmyk, 0, static_base(ColorPanelMode::Cmyk)).first(), Some(&Color32::WHITE));
+        // Lab's L runs along the neutral axis.
+        let l = track(ColorPanelMode::Lab, 0, static_base(ColorPanelMode::Lab));
+        assert!(l.iter().all(|c| c.r().abs_diff(c.g()) <= 1 && c.g().abs_diff(c.b()) <= 1), "{l:?}");
     }
 }
