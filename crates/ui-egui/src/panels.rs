@@ -1402,6 +1402,7 @@ pub fn right_dock(app: &mut PhotocraftApp, ui: &mut egui::Ui) {
     if !t.pro {
         dock_panels(app, ui, &p, &t);
     }
+    crate::dock::show_floating(app, ui.ctx(), &dock_groups(&p, &t), dock_body);
     crate::dock::persist(app, ui.ctx());
 }
 
@@ -1418,10 +1419,11 @@ pub fn request_dock_width(ctx: &egui::Context, w: f32) {
     ctx.data_mut(|d| d.insert_temp(dock_width_id(), w));
 }
 
-fn dock_panels(app: &mut PhotocraftApp, ui: &mut egui::Ui, p: &crate::state::Panels, t: &Tokens) {
+/// The groups the dock shows, docked or floating.
+fn dock_groups(p: &crate::state::Panels, t: &Tokens) -> Vec<crate::dock::Group> {
     use crate::dock::Group;
     // Floating in Studio, Properties docks only in Pro (Photoshop).
-    let shown: Vec<Group> = [
+    [
         (Group::Color, p.color),
         (Group::Properties, t.pro && p.properties),
         (Group::Character, p.character),
@@ -1431,7 +1433,12 @@ fn dock_panels(app: &mut PhotocraftApp, ui: &mut egui::Ui, p: &crate::state::Pan
     ]
     .into_iter()
     .filter_map(|(g, on)| on.then_some(g))
-    .collect();
+    .collect()
+}
+
+fn dock_panels(app: &mut PhotocraftApp, ui: &mut egui::Ui, p: &crate::state::Panels, t: &Tokens) {
+    // Floating groups are drawn over the workspace by `dock::show_floating`.
+    let shown: Vec<crate::dock::Group> = dock_groups(p, t).into_iter().filter(|g| !app.ui.dock.is_floating(*g)).collect();
     if shown.is_empty() {
         return;
     }
