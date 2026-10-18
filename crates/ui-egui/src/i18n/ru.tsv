@@ -2732,6 +2732,7 @@ theme	Warm	Тёплая
 	Soft	Мягкая
 	Import Image as Brush…	Импортировать изображение как кисть…
 	New brush “{name}” from the image	Новая кисть «{name}» из изображения
+	Show rulers for new documents	Показывать линейки для новых документов
 	Animations	Анимация
 	Canvas pattern in dark themes	Узор холста в тёмных темах
 	Canvas pattern in light themes	Узор холста в светлых темах

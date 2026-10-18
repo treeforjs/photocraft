@@ -2465,6 +2465,7 @@ theme	Warm	暖色
 	How hard a pen press must be, for every tool. Double-click the graph to reset.	所有工具需要的笔压力度。双击图表可重置。
 	Import Image as Brush…	将图像导入为画笔…
 	New brush “{name}” from the image	从图像新建画笔“{name}”
+	Show rulers for new documents	为新文档显示标尺
 	Animations	动画
 	Canvas pattern in dark themes	深色主题中的画布图案
 	Canvas pattern in light themes	浅色主题中的画布图案
