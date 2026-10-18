@@ -968,7 +968,7 @@ fn front(app: &mut PhotocraftApp, id: &str, params: &Value) -> Option<Result<Val
             let name = action.name.clone();
             dialog(
                 app,
-                json!({"action": name, "steps": steps, "input": dir, "output": format!("{dir}/batch"), "format": "same"}),
+                json!({"action": name, "steps": steps, "input": dir, "includeSubfolders": false, "output": format!("{dir}/batch"), "format": "same", "naming": "{name}", "startSerial": 1, "stopOnError": false, "errorLog": ""}),
                 json!({"format": ["same", "png", "jpg", "psd", "tiff"]}),
             )
         }
