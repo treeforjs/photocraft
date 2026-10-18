@@ -238,7 +238,7 @@ fn value_field_in(
             ui.style_mut().override_font_id = Some(theme::mono(12.0));
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                 let layout = egui::Layout::centered_and_justified(ui.layout().main_dir());
-                ui.allocate_ui_with_layout(field.size(), layout, |ui| number_edit(ui, value, range, fine)).inner
+                ui.allocate_ui_with_layout(field.size(), layout, |ui| number_edit(ui, value, range, fine, suffix == "px")).inner
             })
             .inner
         }
@@ -376,8 +376,10 @@ pub fn focus_first_field(ctx: &egui::Context, on: bool) {
 /// The number in a [`value_field`]. A typed number applies as it's typed; arithmetic waits for
 /// Enter, Tab or click-away, because per keystroke `5/2` would land first and a caller that
 /// rounds it would cut `5/2*2` short. `changed()` means a new value, not just a keystroke.
-fn number_edit(ui: &mut Ui, value: &mut f32, range: std::ops::RangeInclusive<f32>, fine: bool) -> Response {
+/// A pixel field (`px`) also takes units at the document's resolution (`2in`, `3 cm + 10`).
+fn number_edit(ui: &mut Ui, value: &mut f32, range: std::ops::RangeInclusive<f32>, fine: bool, pixels: bool) -> Response {
     let (id, ctx) = (ui.next_auto_id(), ui.ctx().clone());
+    let ppi = pixels.then(|| field_resolution(ui.ctx()));
     // Focused before the DragValue is drawn, so it gains focus this frame and selects its text.
     if ui.data_mut(|d| d.remove_temp::<bool>(first_field_id())).unwrap_or(false) {
         ui.memory_mut(|m| m.request_focus(id));
@@ -394,7 +396,7 @@ fn number_edit(ui: &mut Ui, value: &mut f32, range: std::ops::RangeInclusive<f32
             .update_while_editing(!math)
             // Focus is read when parsing, not above: Tab hands it on inside `ui.add`.
             .custom_parser(move |s| {
-                let v = parse_num(s);
+                let v = parse_expr(s, ppi);
                 if ctx.memory(|m| m.has_focus(id)) && plain(s).is_none() {
                     // Still typing arithmetic: hold it, and stop applying keystrokes once it parses.
                     ctx.data_mut(|d| d.insert_temp(held, v.is_some()));
@@ -617,22 +619,64 @@ pub fn slider_row_with(
     g: RowGestures,
 ) -> Response {
     let t = Tokens::get(ui.ctx());
-    let mut changed_resp = None;
+    // Without a reset of its own, a double-click on the slider goes back to the value the row
+    // opened with (it is remembered while the row stays on screen).
+    let open_key = ui.next_auto_id().with(("row-open", label));
+    let pass = ui.ctx().cumulative_pass_nr();
+    let opened = match ui.data(|d| d.get_temp::<(f32, u64)>(open_key)) {
+        Some((v, seen)) if seen.saturating_add(1) >= pass => v,
+        _ => *value,
+    };
+    ui.data_mut(|d| d.insert_temp(open_key, (opened, pass)));
+    let g = RowGestures { reset: g.reset.or(Some(opened)), ..g };
+    let mut changed = false;
     ui.horizontal(|ui| {
-        ui.label(egui::RichText::new(tl!(label)).color(t.text_dim));
+        let name = ui.add(egui::Label::new(egui::RichText::new(tl!(label)).color(t.text_dim)).selectable(false).sense(Sense::drag()));
+        changed |= scrub(ui, &name, value, range.clone(), range.end() - range.start() <= 10.0);
         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-            changed_resp = Some(value_field(ui, value, range.clone(), suffix, 74.0));
+            changed |= value_field(ui, value, range.clone(), suffix, 74.0).changed();
         });
     });
     let s = slider_with(ui, value, range, gradient, g);
     let mut r = s.clone();
-    if let Some(v) = changed_resp
-        && v.changed()
-    {
+    if changed {
         r.mark_changed();
     }
     ui.add_space(4.0);
     r
+}
+
+/// Photoshop's scrubby label: dragging `label` (sensing drags) left or right scrubs `value`, one
+/// step per point (0.01 when `fine`), ten with Shift and a tenth with Alt, rounded to the step and
+/// kept in `range`. The pointer shows a left-right arrow over it. Returns whether `value` changed.
+pub fn scrub(ui: &Ui, label: &Response, value: &mut f32, range: std::ops::RangeInclusive<f32>, fine: bool) -> bool {
+    if label.hovered() || label.dragged() {
+        ui.ctx().set_cursor_icon(egui::CursorIcon::ResizeHorizontal);
+    }
+    let start_key = label.id.with("scrub-start");
+    if label.drag_started() {
+        ui.data_mut(|d| d.insert_temp(start_key, *value));
+    }
+    if !label.dragged() {
+        return false;
+    }
+    let (Some(start), Some(origin), Some(pos)) =
+        (ui.data(|d| d.get_temp::<f32>(start_key)), ui.input(|i| i.pointer.press_origin()), label.interact_pointer_pos())
+    else {
+        return false;
+    };
+    let mods = ui.input(|i| i.modifiers);
+    let grid = if fine { 0.01 } else { 1.0 } * if mods.alt { 0.1 } else { 1.0 };
+    let step = grid * if mods.shift { 10.0 } else { 1.0 };
+    let v = ((start + (pos.x - origin.x) * step) / grid).round() * grid;
+    let v = (v * 1e4).round() / 1e4;
+    let (lo, hi) = (*range.start(), *range.end());
+    let v = if lo <= hi { v.clamp(lo, hi) } else { v };
+    if !v.is_finite() || v == *value {
+        return false;
+    }
+    *value = v;
+    true
 }
 
 /// iOS-style toggle switch.
@@ -1129,8 +1173,64 @@ pub fn fmt_num2(v: f64) -> String {
 /// `*` and `/` first). Like egui's own parser it ignores whitespace and reads `−` as `-`.
 /// `None` for anything else, including a division by zero.
 pub fn parse_num(text: &str) -> Option<f64> {
+    parse_expr(text, None)
+}
+
+/// [`parse_num`] for a pixel field: every number may carry a unit, converted to pixels at `ppi`
+/// (`px`, `in` or `"`, `cm`, `mm`, `pt`, `pc`/`pica`), as Photoshop's fields do (`2in*2`,
+/// `10cm-5mm`). A non-positive or non-finite resolution reads as 72 ppi.
+pub fn parse_px(text: &str, ppi: f64) -> Option<f64> {
+    parse_expr(text, Some(ppi))
+}
+
+fn parse_expr(text: &str, ppi: Option<f64>) -> Option<f64> {
     let s = clean(text);
-    s.parse().ok().or_else(|| sum(&s)).filter(|v: &f64| v.is_finite())
+    let ppi = ppi.map(|p| if p.is_finite() && p > 0.0 { p } else { 72.0 });
+    s.parse().ok().or_else(|| sum(&s, ppi)).filter(|v: &f64| v.is_finite())
+}
+
+/// Pixels in one `unit` at `ppi`; `None` for a unit it doesn't know.
+fn unit_px(unit: &str, ppi: f64) -> Option<f64> {
+    Some(match unit.to_ascii_lowercase().as_str() {
+        "px" => 1.0,
+        "in" | "\"" => ppi,
+        "cm" => ppi / 2.54,
+        "mm" => ppi / 25.4,
+        "pt" => ppi / 72.0,
+        "pc" | "pica" | "picas" => ppi / 6.0,
+        _ => return None,
+    })
+}
+
+/// One operand: a number, or with `ppi` a number and a unit.
+fn operand(s: &str, ppi: Option<f64>) -> Option<f64> {
+    if let Ok(v) = s.parse::<f64>() {
+        return Some(v);
+    }
+    let ppi = ppi?;
+    // The unit is the trailing run of letters (`1e1px` is 10 px).
+    let i = s.char_indices().rev().find(|(_, c)| !(c.is_alphabetic() || *c == '"')).map(|(i, c)| i + c.len_utf8())?;
+    Some(s.get(..i)?.parse::<f64>().ok()? * unit_px(s.get(i..)?, ppi)?)
+}
+
+fn field_resolution_id() -> egui::Id {
+    egui::Id::new("pc-field-resolution")
+}
+
+/// Tells pixel fields the active document's resolution for typed units (once per frame).
+pub fn set_field_resolution(ctx: &egui::Context, ppi: Option<f32>) {
+    ctx.data_mut(|d| {
+        if let Some(p) = ppi {
+            d.insert_temp(field_resolution_id(), f64::from(p));
+        } else {
+            d.remove::<f64>(field_resolution_id());
+        }
+    });
+}
+
+/// The resolution pixel fields convert units at: the active document's, else 72 ppi.
+fn field_resolution(ctx: &egui::Context) -> f64 {
+    ctx.data(|d| d.get_temp::<f64>(field_resolution_id())).filter(|p| p.is_finite() && *p > 0.0).unwrap_or(72.0)
 }
 
 /// A plain typed number, no arithmetic.
@@ -1143,25 +1243,25 @@ fn clean(text: &str) -> String {
 }
 
 /// `a+b-c…`: a `+` or `-` right after an operand splits terms; anywhere else it is a sign.
-fn sum(s: &str) -> Option<f64> {
+fn sum(s: &str, ppi: Option<f64>) -> Option<f64> {
     let (mut total, mut sign, mut start, mut prev) = (0.0, 1.0, 0, ' ');
     for (i, c) in s.char_indices() {
         if matches!(c, '+' | '-') && i > start && !matches!(prev, '*' | '/' | 'e' | 'E') {
-            total += sign * product(s.get(start..i)?)?;
+            total += sign * product(s.get(start..i)?, ppi)?;
             sign = if c == '-' { -1.0 } else { 1.0 };
             start = i + 1;
         }
         prev = c;
     }
-    Some(total + sign * product(s.get(start..)?)?)
+    Some(total + sign * product(s.get(start..)?, ppi)?)
 }
 
 /// `a*b/c…`, left to right.
-fn product(s: &str) -> Option<f64> {
-    let mut factors = s.split(['*', '/']).map(str::parse::<f64>);
-    let mut acc = factors.next()?.ok()?;
+fn product(s: &str, ppi: Option<f64>) -> Option<f64> {
+    let mut factors = s.split(['*', '/']).map(|f| operand(f, ppi));
+    let mut acc = factors.next()??;
     for (op, x) in s.matches(['*', '/']).zip(factors) {
-        acc = if op == "*" { acc * x.ok()? } else { acc / x.ok()? };
+        acc = if op == "*" { acc * x? } else { acc / x? };
     }
     Some(acc)
 }
@@ -1328,6 +1428,110 @@ mod tests {
         for text in ["", "abc", "5+", "*2", "4/0", "0/0", "1+*2", "(2+3)", "1e400"] {
             assert_eq!(parse_num(text), None, "{text}");
         }
+    }
+
+    #[test]
+    fn pixel_fields_take_units_at_the_resolution() {
+        use super::parse_px;
+        for (text, want) in [
+            ("2in", 600.0),
+            ("2 IN", 600.0),
+            ("1\"", 300.0),
+            ("2.54cm", 300.0),
+            ("25.4 mm", 300.0),
+            ("72pt", 300.0),
+            ("6pica", 300.0),
+            ("1pc", 50.0),
+            ("10px", 10.0),
+            ("1in+10", 310.0),
+            ("1in-1cm*2.54", 0.0),
+            ("2in*2", 1200.0),
+            ("1in/2", 150.0),
+            ("1e1px", 10.0),
+            ("120", 120.0),
+        ] {
+            let v = parse_px(text, 300.0);
+            assert!(v.is_some_and(|v| (v - want).abs() < 1e-6), "{text}: {v:?}");
+        }
+        for text in ["2ft", "in", "2in3", "1in/0cm", "cm2", "2 in in"] {
+            assert_eq!(parse_px(text, 300.0), None, "{text}");
+        }
+        // A bad resolution reads as 72 ppi, and plain fields ignore units.
+        assert_eq!(parse_px("1in", f64::NAN), Some(72.0));
+        assert_eq!(parse_px("1in", -3.0), Some(72.0));
+        assert_eq!(super::parse_num("1in"), None);
+    }
+
+    /// A pixel field converts a typed unit at the resolution set for the frame (72 ppi without one).
+    #[test]
+    fn a_pixel_field_converts_typed_units_on_enter() {
+        assert_eq!(type_and_press(10.0, "2in", egui::Key::Enter, false), 144.0);
+        assert_eq!(type_and_press(10.0, "1in+8", egui::Key::Enter, true), 80.0);
+        use egui_kittest::{Harness, kittest::Queryable};
+        let mut h = Harness::builder().with_size(egui::vec2(300.0, 100.0)).build_ui_state(
+            |ui, v: &mut f32| {
+                super::set_field_resolution(ui.ctx(), Some(300.0));
+                super::value_field(ui, v, 0.0..=300000.0, "px", 90.0);
+            },
+            10.0,
+        );
+        h.get_by_role(egui::accesskit::Role::SpinButton).click();
+        h.run();
+        for c in "1cm".chars() {
+            h.event(egui::Event::Text(c.to_string()));
+            h.run();
+        }
+        h.key_press(egui::Key::Enter);
+        h.run();
+        assert!((*h.state() - 300.0 / 2.54).abs() < 1e-3, "{}", h.state());
+    }
+
+    /// Dragging a slider row's label scrubs its value a step per point (ten with Shift), and a
+    /// double-click on the slider goes back to the value the row opened with.
+    #[test]
+    fn slider_row_labels_scrub_and_double_click_resets() {
+        use egui_kittest::{Harness, kittest::Queryable};
+        let mut h = Harness::builder().with_size(egui::vec2(300.0, 100.0)).with_step_dt(0.1).build_ui_state(
+            |ui, v: &mut f32| {
+                super::slider_row(ui, "Amount", v, 0.0..=200.0, "%", None);
+            },
+            50.0,
+        );
+        h.run();
+        let label = h.get_by_label("Amount").rect().center();
+        h.drag_at(label);
+        h.run();
+        h.hover_at(label + egui::vec2(20.0, 0.0));
+        h.run();
+        h.drop_at(label + egui::vec2(20.0, 0.0));
+        h.run();
+        assert_eq!(*h.state(), 70.0);
+        h.event(egui::Event::ModifiersChanged(egui::Modifiers::SHIFT));
+        h.drag_at(label);
+        h.run();
+        h.hover_at(label + egui::vec2(-3.0, 0.0));
+        h.run();
+        h.drop_at(label + egui::vec2(-3.0, 0.0));
+        h.run();
+        h.event(egui::Event::ModifiersChanged(egui::Modifiers::NONE));
+        h.run();
+        assert_eq!(*h.state(), 40.0, "Shift scrubs ten per point from where the drag began");
+        // The slider runs full width under the label and field.
+        let field = h.get_by_role(egui::accesskit::Role::SpinButton).rect();
+        let p = egui::pos2(field.right() - 12.0, field.bottom() + 14.0);
+        let click = |h: &mut Harness<'_, f32>| {
+            h.hover_at(p);
+            h.run_steps(1);
+            for pressed in [true, false] {
+                h.event(egui::Event::PointerButton { pos: p, button: egui::PointerButton::Primary, pressed, modifiers: egui::Modifiers::NONE });
+                h.run_steps(1);
+            }
+        };
+        click(&mut h);
+        assert!(*h.state() > 150.0, "{}", h.state());
+        // The second click makes it a double-click.
+        click(&mut h);
+        assert_eq!(*h.state(), 50.0, "double-click resets to the opening value");
     }
 
     /// Types `text` into a value field holding `start`, then presses `key`. Returns the value an OK
