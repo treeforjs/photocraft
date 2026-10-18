@@ -1321,3 +1321,43 @@ fn retouch_strokes_refuse_absurd_point_coordinates() {
         assert_ne!(rgba(&s, 16, 16), before, "{depth}");
     }
 }
+
+/// Sample All Layers is previewed too: the live Blur, Sharpen and Smudge on an empty layer above
+/// the picture show what the commit lays, across several composite tiles. 32-bit, so the live
+/// working copy isn't quantised between dabs.
+#[test]
+fn live_sample_all_layers_matches_the_commit() {
+    let all = [[10.0, 40.0], [150.0, 60.0], [290.0, 30.0], [80.0, 70.0], [250.0, 80.0]];
+    let pts = |v: &[[f64; 2]]| v.iter().map(|q| StrokePoint::new(q[0], q[1], 1.0)).collect::<Vec<_>>();
+    for (cmd, extra) in [("paint.blur", json!({})), ("paint.sharpen", json!({"protectDetail": false})), ("paint.smudge", json!({}))] {
+        let mut s = session(300, 150, 32, "rgb");
+        paint_layer(&mut s, texture);
+        s.execute("layer.new.layer", json!({})).unwrap();
+        let opts = |p: &[[f64; 2]]| {
+            let mut o = json!({"points": p, "size": 30, "hardness": 60, "strength": 80, "sampleAllLayers": true});
+            o.as_object_mut().unwrap().extend(extra.as_object().unwrap().clone());
+            o
+        };
+        let mut live = LiveDab::begin(&s, cmd, &opts(&all[..1])).unwrap();
+        live.push(&pts(&all[1..3])).unwrap();
+        live.push(&pts(&all[3..])).unwrap();
+        let shown = live.doc.clone();
+        s.execute(cmd, opts(&all)).unwrap();
+        let id = s.active().unwrap().active_layer.unwrap();
+        let (a, b) = (shown.layer(id).unwrap().surface().unwrap(), s.active().unwrap().doc.layer(id).unwrap().surface().unwrap());
+        let (mut painted, mut worst) = (0, 0.0f32);
+        for y in 0..150 {
+            for x in 0..300 {
+                let (got, want) = (a.rgba(x, y), b.rgba(x, y));
+                painted += usize::from(want[3] > 0.5);
+                // The commit also lays the stroke's last dabs, which the live stroke shows on release
+                // (as without Sample All Layers).
+                if (x - 250).pow(2) + (y - 80).pow(2) > 30 * 30 {
+                    worst = (0..4).map(|c| (got[c] - want[c]).abs()).fold(worst, f32::max);
+                }
+            }
+        }
+        assert!(painted > 1000, "{cmd}: the empty layer picked up the picture ({painted} px)");
+        assert!(worst <= 1e-4, "{cmd}: live and commit differ by {worst}");
+    }
+}
