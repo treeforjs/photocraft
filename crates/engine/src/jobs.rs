@@ -182,6 +182,8 @@ struct Running {
     started_ms: f64,
     coalesce: Option<String>,
     color_restrict: Option<usize>,
+    /// The recorded (document-independent) form of `params`, captured at dispatch.
+    portable: Option<Value>,
     rx: std::sync::mpsc::Receiver<Result<Payload>>,
     apply: Option<Apply>,
     #[cfg(not(target_arch = "wasm32"))]
@@ -335,6 +337,7 @@ pub fn run<T: Send + 'static>(
         started_ms: now_ms(),
         coalesce: s.coalesce_request.clone(),
         color_restrict: s.color_restrict,
+        portable: None,
         rx,
         apply: Some(erased),
         #[cfg(not(target_arch = "wasm32"))]
@@ -610,6 +613,8 @@ impl Session {
         // Untrusted sessions gate every command, including the ones a command runs on its own
         // behalf (`file.automate.conditionalModeChange` runs `image.mode.*`), before any side
         // effect.
+        // Recorded actions name layers by reference; replay resolves them on this document.
+        let params = crate::actions_cmds::resolve_refs(self, id, params)?;
         if let Some(gate) = self.authorize {
             gate(id, &params)?;
         }
@@ -632,6 +637,7 @@ impl Session {
         if let Some(why) = crate::hidden_target::refusal(self, id, &params) {
             return Err(EngineError::Other(why.into()));
         }
+        let portable = if spec.journal && self.actions.recording.is_some() { crate::actions_cmds::portable(self, &params) } else { None };
         self.coalesce_request = params.get("coalesce").and_then(Value::as_str).map(str::to_string);
         self.color_restrict = crate::channel_cmds::color_restriction(self, id, &run_params);
         self.jobs.spawn = background;
@@ -654,19 +660,20 @@ impl Session {
                 job.command = id.to_string();
                 job.params = params;
                 job.journal = spec.journal;
+                job.portable = portable;
                 let jid = job.id;
                 self.jobs.running.push(job);
                 Ok(Started::Job(jid))
             }
             (Ok(v), None) => {
-                self.after_command(id, params, spec.journal);
+                self.after_command(id, params, spec.journal, portable);
                 Ok(Started::Done(v))
             }
         }
     }
 
     /// Bookkeeping after a command (or a job's apply) succeeded.
-    fn after_command(&mut self, id: &str, params: Value, journal: bool) {
+    fn after_command(&mut self, id: &str, params: Value, journal: bool, portable: Option<Value>) {
         // A layer-mask view ends when another layer becomes active (#196).
         if let Some(st) = self.active_mut() {
             crate::mask_view_cmds::fix(st);
@@ -674,9 +681,29 @@ impl Session {
         crate::edit_menu_cmds::after_command(self, id);
         crate::automate_cmds::after_command(self, id);
         self.sync_preset_store();
-        if journal && !crate::brush_cmds::coalesce_journal(self, id, &params) {
-            self.journal.push((id.to_string(), params));
+        if !journal {
+            return;
         }
+        if crate::brush_cmds::coalesce_journal(self, id, &params) {
+            // The last entry absorbed this one: its recorded form drops the coalescing key too.
+            if self.actions.recording.is_some()
+                && let Some((at, (_, last))) = self.journal.len().checked_sub(1).zip(self.journal.last())
+            {
+                let mut p = last.clone();
+                if let Some(o) = p.as_object_mut() {
+                    o.remove("coalesce");
+                }
+                self.actions.portable.retain(|(j, _)| *j != at);
+                self.actions.portable.push((at, p));
+            }
+            return;
+        }
+        if let Some(p) = portable
+            && self.actions.recording.is_some()
+        {
+            self.actions.portable.push((self.journal.len(), p));
+        }
+        self.journal.push((id.to_string(), params));
     }
 
     /// Apply (or report the failure of) a job whose worker has delivered `r`.
@@ -696,7 +723,7 @@ impl Session {
     }
 
     fn apply_job(&mut self, job: &Running, apply: Option<Apply>, payload: Payload) -> Result<Value> {
-        let Running { label, doc, snapshot, coalesce, color_restrict, command, params, journal, .. } = job;
+        let Running { label, doc, snapshot, coalesce, color_restrict, command, params, journal, portable, .. } = job;
         let prev_active = self.active;
         let target = match doc {
             Some(d) => {
@@ -724,7 +751,7 @@ impl Session {
         // Restoring the viewed document first would attribute Fade and slice updates
         // to that document instead, when the user switched tabs mid-job.
         if r.is_ok() {
-            self.after_command(command, params.clone(), *journal);
+            self.after_command(command, params.clone(), *journal, portable.clone());
         }
         // Keep the user's active document unless the job opened a new one.
         // This also restores the selection when the apply step returned an error.
