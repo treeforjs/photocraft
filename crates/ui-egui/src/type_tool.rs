@@ -991,16 +991,22 @@ pub(crate) fn family_picker_in(ui: &mut egui::Ui, salt: &str, current: &mut Stri
             ui.close();
         }
         // Recently used families first (UI-217-1), as long as they are still installed.
+        // Rows grow with Preferences › Type › Font Preview Size; no sample when it's off.
+        let sample = crate::font_preview::size(ui.ctx());
+        let row = [330.0, sample.map_or(28.0, |p| (p.height + 4.0).max(28.0))];
+        // The sample is painted over a blank space the button keeps free on its right.
+        let font_button = |ui: &egui::Ui, salt: &str, f: &str, selected: bool| {
+            let b = egui::Button::selectable(selected, f).truncate();
+            match sample {
+                Some(p) => b.right_text(egui::Atom::custom(ui.id().with((salt, f)), egui::vec2(p.width, p.height))),
+                None => b,
+            }
+        };
         let recent: Vec<String> = crate::font_recents::list(ui.ctx()).into_iter().filter(|r| filtered.contains(&r)).collect();
         if !recent.is_empty() {
             ui.label(egui::RichText::new(tl!("Recent fonts")).small().weak());
             for f in &recent {
-                let response = ui.add_sized(
-                    [330.0, 28.0],
-                    egui::Button::selectable(f == current, f.as_str())
-                        .truncate()
-                        .right_text(egui::Atom::custom(ui.id().with(("font-sample-recent", f)), egui::vec2(100.0, 24.0))),
-                );
+                let response = ui.add_sized(row, font_button(ui, "font-sample-recent", f, f == current));
                 if ui.is_rect_visible(response.rect) {
                     crate::font_preview::paint(ui, f, response.rect);
                 }
@@ -1016,10 +1022,7 @@ pub(crate) fn family_picker_in(ui: &mut egui::Ui, salt: &str, current: &mut Stri
             ui.separator();
         }
         for f in filtered {
-            let response = ui.add_sized(
-                [330.0, 28.0],
-                egui::Button::selectable(f == current, f).truncate().right_text(egui::Atom::custom(ui.id().with(("font-sample", f)), egui::vec2(100.0, 24.0))),
-            );
+            let response = ui.add_sized(row, font_button(ui, "font-sample", f, f == current));
             if (down || up) && f == current {
                 response.scroll_to_me(Some(egui::Align::Center));
             }

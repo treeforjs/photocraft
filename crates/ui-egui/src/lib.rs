@@ -1268,6 +1268,7 @@ impl eframe::App for PhotocraftApp {
             self.checker = None;
         }
         crate::tool_memory::persist(self, ctx);
+        crate::font_preview::set_preference(ctx, self.session.prefs().type_.font_preview);
         crate::font_recents::sync(self, ctx);
         self.drain_control(ctx);
         self.run_pending_invoke(ctx);
