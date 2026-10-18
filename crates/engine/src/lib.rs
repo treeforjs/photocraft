@@ -11,6 +11,7 @@ pub mod actions_cmds;
 pub mod adjust_cmds;
 pub mod adjust_params;
 pub mod align_cmds;
+pub mod alloc_guard;
 pub mod analysis_cmds;
 pub mod artboard_cmds;
 pub mod automate_cmds;
@@ -332,6 +333,9 @@ pub struct Session {
     /// the same check a top-level request sees. `None` runs everything, which is what a local
     /// UI and `photocraft-cli run` do.
     pub authorize: Option<fn(&str, &serde_json::Value) -> Result<()>>,
+    /// Most working memory (bytes) one guarded command may use (see [`alloc_guard`]); `None`
+    /// leaves it to what the allocator can give.
+    pub alloc_limit: Option<u64>,
     /// Background jobs (see [`jobs`]).
     jobs: jobs::Jobs,
 }
