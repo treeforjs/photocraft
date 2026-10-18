@@ -2434,3 +2434,6 @@ theme	Warm	暖色
 	How hard a pen press must be, for every tool. Double-click the graph to reset.	所有工具需要的筆壓力度。按兩下圖表可重設。
 	Import Image as Brush…	將影像匯入為筆刷…
 	New brush “{name}” from the image	從影像新增筆刷「{name}」
+	Animations	動畫
+	Canvas pattern in dark themes	深色主題中的畫布圖樣
+	Canvas pattern in light themes	淺色主題中的畫布圖樣
