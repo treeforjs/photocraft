@@ -1768,8 +1768,10 @@ fn remembered_new_document_value(key: &str, v: &serde_json::Value) -> bool {
 
 /// Remember the New Document fields `f` its OK used, for the next New Document.
 pub(crate) fn remember_new_document(app: &mut PhotocraftApp, f: &serde_json::Map<String, serde_json::Value>) {
-    let kept: serde_json::Map<String, serde_json::Value> =
+    let mut kept: serde_json::Map<String, serde_json::Value> =
         NEW_DOCUMENT_REMEMBERED.iter().filter_map(|k| f.get(*k).filter(|v| remembered_new_document_value(k, v)).map(|v| (k.to_string(), v.clone()))).collect();
+    let saved = app.session.prefs().dialogs.get(NEW_DOCUMENT).and_then(|v| v.get(crate::new_doc_ui::RECENT)).cloned();
+    kept.insert(crate::new_doc_ui::RECENT.into(), crate::new_doc_ui::push_recent(saved.as_ref(), f));
     app.session.prefs.edit(|p| p.dialogs.insert(NEW_DOCUMENT.into(), serde_json::Value::Object(kept)));
 }
 
@@ -1830,6 +1832,10 @@ impl PhotocraftApp {
                 if let Some(v) = saved.get(k).filter(|v| remembered_new_document_value(k, v)) {
                     f.insert(k.into(), v.clone());
                 }
+            }
+            let recent = crate::new_doc_ui::push_recent(saved.get(crate::new_doc_ui::RECENT), &serde_json::Map::new());
+            if recent.as_array().is_some_and(|r| !r.is_empty()) {
+                f.insert(crate::new_doc_ui::RECENT.into(), recent);
             }
         }
         self.import_os_clipboard();
