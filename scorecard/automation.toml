@@ -42,9 +42,9 @@ note = "engine/tests/action_replay.rs: crop (with and without deleting pixels), 
 [[item]]
 id = "AUTO-219-5"
 target = "Batch: subfolders, open documents, naming template, progress/cancel, error log, stop"
-status = "partial"
+status = "done"
 issue = 219
-note = "file_cmds.rs:590-631 folder/array input, per-file errors; no recursion, template or cancel"
+note = "engine batch_cmds.rs: includeSubfolders (mirrored, symlinks not followed), input \"open\" (copies of the open documents), naming template (name/serial/letter/date/ext tokens), background job with per-file progress and Cancel, stopOnError, errorLog; batch_cmds/tests.rs"
 
 [[item]]
 id = "AUTO-219-6"
