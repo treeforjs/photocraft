@@ -391,8 +391,8 @@ pub fn open_bytes_as(s: &mut Session, name: &str, bytes: &[u8], as_ext: Option<&
 }
 
 /// Preferences › Camera Raw Defaults' output settings on an import that developed a raw from
-/// its sensor data (16-bit ProPhoto RGB): convert it to the chosen colour space and bit depth
-/// and set its resolution, and say so in the import note. Anything else is left alone, and a
+/// its sensor data (16-bit ProPhoto RGB): convert it to the chosen colour space, sharpen it for
+/// the chosen medium, reduce it to the chosen bit depth and set its resolution, and say so in the import note. Anything else is left alone, and a
 /// conversion that fails keeps the developed document with a note instead of failing the open.
 pub fn raw_output(s: &Session, r: &mut photocraft_io::ImportResult) {
     if !photocraft_io::raw::is_developed(&r.warnings) {
@@ -424,6 +424,15 @@ pub fn raw_output(s: &Session, r: &mut photocraft_io::ImportResult) {
             space_name = raw_space_name(Builtin::ProPhotoCompat);
         }
     }
+    // Output sharpening for the medium, at full precision (before any reduction to 8 bits).
+    if let Some((amount, radius)) = sharpen_for(raw.sharpen_for) {
+        let p = photocraft_algo::FilterParams::UnsharpMask { amount, radius, threshold: 0.0 };
+        let bounds = doc.bounds();
+        crate::image_cmds::for_each_surface(&mut doc.layers, false, &mut |surf, _| {
+            let area = photocraft_algo::output_area(&p, surf.content_bounds(), bounds, None);
+            *surf = photocraft_algo::apply(surf, &p, area, bounds, None);
+        });
+    }
     if doc.depth != depth {
         crate::image_cmds::convert_doc_depth(doc, depth);
     }
@@ -432,6 +441,18 @@ pub fn raw_output(s: &Session, r: &mut photocraft_io::ImportResult) {
     for w in r.warnings.iter_mut().filter(|w| w.ends_with(&into)) {
         let head = w.get(..w.len().saturating_sub(into.len())).unwrap_or_default().to_string();
         *w = format!("{head}into {bits}-bit {space_name}");
+    }
+}
+
+/// Camera Raw Defaults › Sharpen For as an Unsharp Mask (amount %, radius px): light for
+/// screens, stronger for prints, matte paper the most (ink spreads more on it). None: off.
+fn sharpen_for(s: crate::prefs::RawSharpen) -> Option<(f32, f32)> {
+    use crate::prefs::RawSharpen;
+    match s {
+        RawSharpen::None => None,
+        RawSharpen::Screen => Some((40.0, 0.5)),
+        RawSharpen::Glossy => Some((60.0, 0.8)),
+        RawSharpen::Matte => Some((80.0, 1.0)),
     }
 }
 

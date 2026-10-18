@@ -412,7 +412,7 @@ Every open of a developed raw (and the dialog's re-develop) then applies the Cam
 Defaults' output settings: `rawDefaults.colorSpace` (`adobeRgb` default, `srgb`, `displayP3`,
 or `proPhoto`, the develop's own space; converted relative colorimetric with black point
 compensation), `rawDefaults.bitDepth` (`16` default, or `8`, reduced after the conversion) and
-`rawDefaults.resolution` (ppi, default 300, clamped to 1–30000). The import note says what the
+`rawDefaults.resolution` (ppi, default 300, clamped to 1–30000), and `rawDefaults.sharpenFor` (`none` default, `screen`, `glossy` or `matte`: an Unsharp Mask of 40 % / 0.5 px, 60 % / 0.8 px or 80 % / 1 px, before the bit-depth reduction). The import note says what the
 raw was developed into. Preview-only opens (the embedded JPEG) are left as they are.
 
 Imported PSD Camera Raw filters whose processing settings are all mapped or neutral use this

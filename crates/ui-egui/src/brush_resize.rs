@@ -2,8 +2,9 @@
 //! (Windows, Linux) or Control+Option+drag (macOS; Control+Alt+drag works everywhere) changes the
 //! brush instead of painting. Left and right
 //! set the diameter (the circle's edge follows the pointer), up and down the hardness (down makes
-//! it harder). The brush circle stays where the drag began, tinted to show the hardness, with a
-//! Diameter/Hardness readout beside the pointer.
+//! it harder), or the opacity when Preferences › Tools › Vary Round Brush Hardness based on HUD
+//! vertical movement is off. The brush circle stays where the drag began, tinted in Preferences ›
+//! Cursors › Brush Preview's colour to show the hardness, with a readout beside the pointer.
 //!
 //! The change is `tools.setBrush` calls sharing one `coalesce` key, so the whole drag is one
 //! journal entry (Rule 1) and, the brush being tool state, no history step. Krita's ⇧+drag (the
@@ -29,8 +30,10 @@ const SIZE: std::ops::RangeInclusive<f32> = 1.0..=MAX_BRUSH_SIZE;
 pub struct Resize {
     /// Where the drag began, in document pixels: the circle stays there.
     pub anchor: [f64; 2],
-    /// The brush's diameter and hardness when it began.
+    /// The brush's diameter and hardness (or opacity, see `opacity`) when it began.
     pub start: (f32, f32),
+    /// Vertical movement changes the opacity instead of the hardness.
+    pub opacity: bool,
     /// The `coalesce` key of this drag's `tools.setBrush` calls.
     key: u64,
     /// Begun by an Alt+right-drag (#297): it ends when the right button is up.
@@ -76,8 +79,10 @@ pub fn pointer(app: &mut PhotocraftApp, ev: ToolEvent, mods: egui::Modifiers, ar
             if app.drag.is_some() || !applies(app.ui.tool) || !(armed || is_gesture(mods)) {
                 return false;
             }
+            let opacity = !app.session.prefs().tools.vary_round_brush_hardness_on_hud;
             let b = &app.session.tools.brush;
-            app.brush_resize = Some(Resize { anchor: [x, y], start: (b.size, b.hardness), key: KEY.fetch_add(1, Ordering::Relaxed), secondary: armed });
+            let start = (b.size, if opacity { b.opacity } else { b.hardness });
+            app.brush_resize = Some(Resize { anchor: [x, y], start, opacity, key: KEY.fetch_add(1, Ordering::Relaxed), secondary: armed });
             true
         }
         ToolEvent::Move { x, y, .. } => match app.brush_resize {
@@ -108,26 +113,28 @@ pub fn release_stale(app: &mut PhotocraftApp, secondary_down: bool) {
 fn update(app: &mut PhotocraftApp, r: Resize, x: f64, y: f64) {
     // Right is bigger on screen, also in a flipped view (View › Flip Horizontal).
     let dx = (x - r.anchor[0]) * if app.ui.view.flip_horizontal { -1.0 } else { 1.0 };
-    let (size, hardness) = resized(r.start, dx, y - r.anchor[1], app.point_zoom());
+    let (size, v) = resized(r.start, dx, y - r.anchor[1], app.point_zoom());
     let b = &app.session.tools.brush;
-    if b.size == size && b.hardness == hardness {
+    let (key, current) = if r.opacity { ("opacity", b.opacity) } else { ("hardness", b.hardness) };
+    if b.size == size && current == v {
         return;
     }
-    let p = json!({ "brush": { "size": size, "hardness": hardness }, "coalesce": format!("brush-resize:{}", r.key) });
+    let p = json!({ "brush": { "size": size, key: v }, "coalesce": format!("brush-resize:{}", r.key) });
     if let Err(e) = app.run("tools.setBrush", p) {
         app.ui.status = e;
     }
 }
 
-/// Draw the resize feedback: the brush circle at the anchor, filled with a red tip preview whose
-/// solid core shows the hardness (Photoshop's), and the readout beside the pointer. Returns true
+/// Draw the resize feedback: the brush circle at the anchor, filled with a tip preview in the
+/// Brush Preview colour (red by default) whose solid core shows the hardness (Photoshop's), and
+/// the readout beside the pointer. Returns true
 /// while a resize is in progress (the canvas then hides its cursor).
 pub fn draw(app: &PhotocraftApp, painter: &egui::Painter, xf: &ViewXform) -> bool {
     let Some(r) = app.brush_resize else { return false };
     let b = &app.session.tools.brush;
     let c = xf.to_screen(r.anchor[0] as f32, r.anchor[1] as f32);
     let radius = (b.size / 2.0 * xf.zoom).max(1.0);
-    tip_preview(painter, c, radius, b.hardness, Color32::from_rgba_unmultiplied(255, 0, 0, 110));
+    tip_preview(painter, c, radius, b.hardness, preview_color(&app.session.prefs().cursors.brush_preview_color));
     painter.circle_stroke(c, radius + 0.5, Stroke::new(1.0, Color32::from_black_alpha(140)));
     painter.circle_stroke(c, radius, Stroke::new(1.0, Color32::from_white_alpha(220)));
     // Photoshop hides the pointer while the circle stays put.
@@ -137,10 +144,17 @@ pub fn draw(app: &PhotocraftApp, painter: &egui::Painter, xf: &ViewXform) -> boo
         painter.ctx(),
         "brush-resize-readout",
         at,
-        [tl!("Diameter:"), tl!("Hardness:")],
-        [format!("{} px", b.size.round() as i64), format!("{}%", (b.hardness * 100.0).round() as i64)],
+        [tl!("Diameter:"), if r.opacity { tl!("Opacity:") } else { tl!("Hardness:") }],
+        [format!("{} px", b.size.round() as i64), format!("{}%", ((if r.opacity { b.opacity } else { b.hardness }) * 100.0).round() as i64)],
     );
     true
+}
+
+/// The tip preview's fill: the Brush Preview colour (`#rrggbb`), translucent; red when the
+/// preference doesn't parse.
+pub fn preview_color(hex: &str) -> Color32 {
+    let [r, g, b] = photocraft_engine::prefs::parse_hex(hex).unwrap_or([255, 0, 0]);
+    Color32::from_rgba_unmultiplied(r, g, b, 110)
 }
 
 /// A round tip of `radius` screen points: solid out to `hardness` of the radius, fading to clear
@@ -204,6 +218,20 @@ mod tests {
         assert_eq!(resized((40.0, 0.5), 1e9, 1e9, 1.0), (MAX_BRUSH_SIZE, 1.0));
         assert_eq!(resized((40.0, 0.5), f64::NAN, f64::INFINITY, f32::NAN), (40.0, 0.5));
         assert!(is_gesture(CTRL_ALT) && !is_gesture(Modifiers::ALT) && !is_gesture(Modifiers::CTRL) && !is_gesture(Modifiers::SHIFT));
+    }
+
+    #[test]
+    fn the_hud_preferences_pick_opacity_over_hardness_and_the_preview_colour() {
+        let mut app = app(Tool::Brush);
+        app.run("tools.setBrush", json!({"brush": {"opacity": 0.2}})).unwrap();
+        app.run("prefs.set", json!({"path": "tools.varyRoundBrushHardnessOnHud", "value": false})).unwrap();
+        tool_event(&mut app, ToolEvent::Down { x: 100.0, y: 100.0, pressure: 1.0 }, CTRL_ALT);
+        tool_event(&mut app, ToolEvent::Move { x: 100.0, y: 160.0, pressure: 1.0 }, CTRL_ALT);
+        tool_event(&mut app, ToolEvent::Up { x: 100.0, y: 160.0 }, CTRL_ALT);
+        let b = &app.session.tools.brush;
+        assert_eq!((b.opacity, b.hardness), (0.5, 0.2), "down raises the opacity, the hardness stays");
+        assert_eq!(preview_color("#00ff00"), Color32::from_rgba_unmultiplied(0, 255, 0, 110));
+        assert_eq!(preview_color("not a colour"), Color32::from_rgba_unmultiplied(255, 0, 0, 110), "red when it doesn't parse");
     }
 
     #[test]

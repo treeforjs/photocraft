@@ -99,6 +99,15 @@ fn camera_raw_defaults_set_the_developed_documents_space_depth_and_resolution() 
     assert_eq!(doc(&s).depth, photocraft_color::SampleType::U16);
     assert_eq!(doc(&s).resolution_dpi, 30000.0);
     assert!(r["warnings"].to_string().contains(photocraft_io::raw::OUTPUT_SPACE), "{r}");
+    // Sharpen For: the same develop comes out with more local contrast.
+    let flat = doc(&s).clone();
+    s.prefs.edit(|p| p.raw_defaults.sharpen_for = crate::prefs::RawSharpen::Matte);
+    open_bytes_as(&mut s, "IMG_0004.dng", &dng, None, None).unwrap();
+    let detail = |d: &photocraft_doc::Document| {
+        let px = photocraft_compose::flatten(d).px;
+        px.windows(2).map(|w| (w[1][0] - w[0][0]).abs()).sum::<f32>()
+    };
+    assert!(detail(doc(&s)) > detail(&flat) * 1.01, "sharpened");
     // Other files are untouched by the raw defaults.
     let dir = tmp("raw-defaults");
     let path = png(&dir, "a.png", 4, 4, "#ff0000");
