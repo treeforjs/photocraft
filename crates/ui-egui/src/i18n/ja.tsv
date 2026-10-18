@@ -3469,6 +3469,8 @@ theme	Warm	ウォーム
 	Type on a Path	パス上文字
 	Start	開始位置
 	Release from Path	パスから解除
+	Float Panel Group	パネルグループをフローティング
+	Dock Panel Group	パネルグループをドッキング
 	No Suggestions	候補なし
 	Add to Dictionary	辞書に追加
 	The text changed; right-click the word again.	テキストが変更されました。もう一度単語を右クリックしてください。

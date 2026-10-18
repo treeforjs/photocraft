@@ -36,9 +36,9 @@ note = "Recent files persist and honour recent_file_count (prefs_ui.rs recent_fi
 [[item]]
 id = "UI-217-5"
 target = "Panel groups can float (menu + drag out of the dock) and are restored at launch"
-status = "missing"
+status = "done"
 issue = 217
-note = "No floating groups in dock.rs/panels.rs"
+note = "dock.rs: drag a tab strip out of the column or pick Float Panel Group; move, resize and drop back on the column (or Dock Panel Group); frames live in DockLayout.floating, remembered with panelLayout and workspaces"
 
 [[item]]
 id = "UI-217-6"
