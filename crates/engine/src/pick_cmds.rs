@@ -97,17 +97,104 @@ fn pick(s: &mut Session, p: &Value) -> Result<Value> {
     Ok(json!({ "layer": target.0 }))
 }
 
+/// Layers whose visible pixels meet `rect`, bottom first: what a Move tool box-select (Auto-Select
+/// on, dragged from an empty spot) selects. Hidden layers (or in a hidden group), fully locked
+/// layers, the locked Background, groups, adjustment and fill layers are left out; layers on an
+/// artboard count only for their pixels on the board.
+pub fn layers_in_rect(doc: &Document, rect: Rect) -> Vec<LayerId> {
+    if rect.is_empty() {
+        return Vec::new();
+    }
+    let mut out = Vec::new();
+    for (path, _, l) in doc.walk() {
+        if !(1..=path.len()).all(|n| doc.layer_at(&path[..n]).is_some_and(|a| a.visible)) {
+            continue;
+        }
+        if l.artboard().is_some() || matches!(l.content, LayerContent::Group(_) | LayerContent::Adjustment(_) | LayerContent::Fill(_)) {
+            continue;
+        }
+        if doc.effective_locks(l.id).all || crate::layer_multi_cmds::is_locked_background(l) {
+            continue;
+        }
+        let Some(mut bounds) = crate::layer_multi_cmds::layer_bounds(l) else { continue };
+        if let Some(board) = path.first().and_then(|i| doc.layers.get(*i)).and_then(|t| t.artboard()) {
+            bounds = bounds.intersect(&board.rect);
+        }
+        if !bounds.intersect(&rect).is_empty() {
+            out.push(l.id);
+        }
+    }
+    out
+}
+
+fn pick_in_rect(s: &mut Session, p: &Value) -> Result<Value> {
+    let bad = |msg: &str| EngineError::BadParams { cmd: "layer.pickInRect".into(), msg: msg.into() };
+    let num = |k: &str| p.get(k).and_then(Value::as_f64).filter(|v| v.is_finite()).ok_or_else(|| bad(&format!("missing `{k}`")));
+    let (x, y, w, h) = (num("x")?, num("y")?, num("width")?, num("height")?);
+    // A drag up or left gives a negative size: normalise, and keep every edge in i32.
+    let clamp = |v: f64| v.clamp(f64::from(i32::MIN / 2), f64::from(i32::MAX / 2));
+    let (x0, x1) = (clamp(x.min(x + w)).floor() as i32, clamp(x.max(x + w)).ceil() as i32);
+    let (y0, y1) = (clamp(y.min(y + h)).floor() as i32, clamp(y.max(y + h)).ceil() as i32);
+    let rect = Rect::from_xywh(x0, y0, x1.abs_diff(x0).max(1), y1.abs_diff(y0).max(1));
+    let doc = s.active().ok_or(EngineError::NoDocument)?.doc.clone();
+    let mut hits = layers_in_rect(&doc, rect);
+    if p.get("target").and_then(Value::as_str) == Some("group") {
+        let mut tops = Vec::new();
+        for id in hits {
+            let t = top_group(&doc, id);
+            if !tops.contains(&t) {
+                tops.push(t);
+            }
+        }
+        hits = tops;
+    }
+    let add = match p.get("mode").and_then(Value::as_str).unwrap_or("replace") {
+        "replace" => false,
+        "add" => true,
+        other => return Err(bad(&format!("unknown mode `{other}`"))),
+    };
+    let st = s.active().ok_or(EngineError::NoDocument)?;
+    let mut sel = if add { st.selected_layers() } else { Vec::new() };
+    for id in &hits {
+        if !sel.contains(id) {
+            sel.push(*id);
+        }
+    }
+    // The topmost layer boxed becomes the active one; boxing nothing deselects (keeps with add).
+    let active = hits.last().copied().or(if add { st.active_layer } else { None });
+    if sel.is_empty() {
+        if s.is_enabled("select.deselectLayers") {
+            s.execute("select.deselectLayers", json!({}))?;
+        }
+    } else {
+        crate::layer_multi_cmds::set_selection(s, sel, active, active)?;
+    }
+    Ok(json!({ "layers": hits.iter().map(|l| l.0).collect::<Vec<_>>() }))
+}
+
 pub fn specs() -> Vec<CommandSpec> {
-    vec![CommandSpec {
-        id: "layer.pickAt",
-        label: "Auto-Select Layer",
-        menu: &[],
-        shortcut: None,
-        params: r##"{"x":px,"y":px,"target":"layer|group"="layer","select":bool=true,"mode":"replace|toggle|add"="replace","list":bool=false (return every layer with pixels there, topmost first)} → {layer} | {layers}"##,
-        enabled: has_doc,
-        journal: false,
-        run: pick,
-    }]
+    vec![
+        CommandSpec {
+            id: "layer.pickInRect",
+            label: "Select Layers in Rectangle",
+            menu: &[],
+            shortcut: None,
+            params: r##"{"x":px,"y":px,"width":px,"height":px (may be negative),"target":"layer|group"="layer","mode":"replace|add"="replace"} → {layers} (Move tool box-select: every visible, unlocked pixel layer whose pixels meet the rectangle)"##,
+            enabled: has_doc,
+            journal: false,
+            run: pick_in_rect,
+        },
+        CommandSpec {
+            id: "layer.pickAt",
+            label: "Auto-Select Layer",
+            menu: &[],
+            shortcut: None,
+            params: r##"{"x":px,"y":px,"target":"layer|group"="layer","select":bool=true,"mode":"replace|toggle|add"="replace","list":bool=false (return every layer with pixels there, topmost first)} → {layer} | {layers}"##,
+            enabled: has_doc,
+            journal: false,
+            run: pick,
+        },
+    ]
 }
 
 #[cfg(test)]
@@ -134,6 +221,40 @@ mod tests {
         // Hidden layers are ignored.
         s.execute("layer.setProps", json!({"layer": a.0, "visible": false})).unwrap();
         assert_eq!(s.execute("layer.pickAt", json!({"x": 5, "y": 5, "select": false})).unwrap()["layer"], bg.0);
+    }
+
+    /// A box selects every layer whose pixels it touches, topmost active; Shift adds; an empty box
+    /// deselects; hidden, locked and Background layers are never boxed; a reversed drag works.
+    #[test]
+    fn box_select_picks_layers_whose_pixels_meet_the_rectangle() {
+        let (mut s, a, b) = two_squares();
+        let ids = |v: &Value| v["layers"].as_array().unwrap().iter().map(|x| x.as_u64().unwrap()).collect::<Vec<_>>();
+        let r = s.execute("layer.pickInRect", json!({"x": 5, "y": 5, "width": 20, "height": 20})).unwrap();
+        assert_eq!(ids(&r), vec![a.0, b.0]);
+        let st = s.active().unwrap();
+        assert_eq!(st.active_layer, Some(b), "the topmost boxed layer is active");
+        assert_eq!(st.selected_layers().len(), 2);
+        // Only A, then add B dragging up and left.
+        s.execute("layer.pickInRect", json!({"x": 12, "y": 12, "width": -4, "height": -4})).unwrap();
+        assert_eq!(s.active().unwrap().selected_layers(), vec![a]);
+        s.execute("layer.pickInRect", json!({"x": 25, "y": 25, "width": 1, "height": 1, "mode": "add"})).unwrap();
+        assert_eq!(s.active().unwrap().selected_layers().len(), 2);
+        // An empty spot deselects every layer.
+        let r = s.execute("layer.pickInRect", json!({"x": 12, "y": 30, "width": 5, "height": 5})).unwrap();
+        assert!(ids(&r).is_empty());
+        assert!(s.active().unwrap().selected_layers().is_empty());
+        // Hidden and fully locked layers are skipped.
+        s.execute("layer.select", json!({"layer": a.0})).unwrap();
+        s.execute("layer.setProps", json!({"layer": a.0, "visible": false})).unwrap();
+        let r = s.execute("layer.pickInRect", json!({"x": 0, "y": 0, "width": 40, "height": 40})).unwrap();
+        assert_eq!(ids(&r), vec![b.0], "the Background is never boxed");
+        s.execute("layer.setProps", json!({"layer": b.0, "locks": {"all": true}})).unwrap();
+        let r = s.execute("layer.pickInRect", json!({"x": 0, "y": 0, "width": 40, "height": 40})).unwrap();
+        assert!(ids(&r).is_empty());
+        // Hostile params.
+        assert!(s.execute("layer.pickInRect", json!({"x": 0, "y": 0, "width": 4})).is_err());
+        assert!(s.execute("layer.pickInRect", json!({"x": 0, "y": 0, "width": 4, "height": 4, "mode": "x"})).is_err());
+        s.execute("layer.pickInRect", json!({"x": -1e300, "y": 1e300, "width": 1e308, "height": -1e308})).unwrap();
     }
 
     /// Two filled squares: A at (0..10), B at (20..30), both in their own layers.
