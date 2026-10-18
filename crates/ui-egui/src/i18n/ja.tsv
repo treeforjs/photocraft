@@ -3458,3 +3458,5 @@ theme	Warm	ウォーム
 	Slant	傾斜
 	Optical Size	オプティカルサイズ
 	Optical size follows the font size	オプティカルサイズをフォントサイズに合わせる
+	Import Image as Brush…	画像をブラシとして読み込み…
+	New brush “{name}” from the image	画像から新規ブラシ「{name}」
