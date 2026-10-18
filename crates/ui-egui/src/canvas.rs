@@ -1992,7 +1992,7 @@ pub fn fmt_zoom(pct: f32) -> String {
 
 /// Repeating dot-grid texture for the canvas surround.
 fn dots(ctx: &egui::Context, t: &crate::theme::Tokens) -> Option<egui::TextureId> {
-    if t.bevel {
+    if t.bevel || !crate::appearance::canvas_pattern(ctx) {
         return None;
     }
     let key = egui::Id::new(("canvas-dots", format!("{:?}", t.kind)));
