@@ -23,6 +23,7 @@ pub mod brush;
 pub mod dynamics;
 pub mod mixer;
 pub mod presets;
+pub mod pressure_curve;
 pub mod procedural;
 pub mod render;
 pub mod replace;
@@ -36,6 +37,7 @@ pub use brush::{
     SectionLocks, ShapeDynamics, Smoothing, Texture, TipShape, Transfer,
 };
 pub use mixer::MixerSettings;
+pub use pressure_curve::PressureCurve;
 pub use render::{BrushContext, StrokeRenderer, grid_center, grid_square, render_stroke};
 pub use tile::{GrayTile, StoredTile};
 
