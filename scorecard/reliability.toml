@@ -33,9 +33,9 @@ note = "photocraft_format::atomic_write (format/src/atomic.rs, #230): same-dir t
 [[item]]
 id = "REL-212-1"
 target = "Fallible allocation for paste/erase/fill/transform/save/import, clear out-of-memory error"
-status = "missing"
+status = "partial"
 issue = 212
-note = "try_reserve only in io/flat.rs:221; codec max_alloc limits cover decode only"
+note = "alloc_guard::preflight estimates the allocated tiles or written area for fill/clear/cut/copy/paste/transform/resize/crop/rotate/save/export and try_reserves it before the command runs, failing with a plain out-of-memory error and the document untouched; import is bounded by codec max_alloc. The commands themselves still allocate infallibly, so memory taken by another app between the check and the edit can still abort"
 
 [[item]]
 id = "REL-212-2"
@@ -47,6 +47,6 @@ note = "PSD export uses checked size estimates for raster, masks, channels, and 
 [[item]]
 id = "REL-212-3"
 target = "Tests: an allocation-limit injection makes each command Err with the document unchanged"
-status = "missing"
+status = "done"
 issue = 212
-note = "Only codec/raw max_alloc tests (codecs/tests/limits.rs:48)"
+note = "Session::alloc_limit injects the limit; engine/src/alloc_guard_tests.rs runs 12 commands under it and checks each errors with revision, layers, documents and clipboard unchanged, then succeeds without it"

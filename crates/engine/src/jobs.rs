@@ -630,6 +630,7 @@ impl Session {
         if let Err(why) = crate::smart_cmds::target_enabled(self, spec, &params).unwrap_or_else(|| self.precondition(spec, &run_params)) {
             return Err(EngineError::Disabled(id.to_string(), why));
         }
+        crate::alloc_guard::preflight(self, id, &run_params)?;
         if let Some(why) = self.job_conflict(id, spec.journal) {
             return Err(EngineError::Disabled(id.to_string(), why));
         }
