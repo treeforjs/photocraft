@@ -2131,6 +2131,9 @@ cameraRaw	Color	カラー
 	Content-Aware Move Tool	コンテンツに応じた移動ツール
 	TIFF Options	TIFF オプション
 	Including layers will increase file size.	レイヤーを含めるとファイルサイズが大きくなります。
+	PSD Options	PSD オプション
+	Maximize Compatibility	互換性を優先
+	Keeps a flattened copy of the image so other apps can read the file. Off saves smaller files faster.	他のアプリでも読めるように、画像の統合コピーをファイルに含めます。オフにするとファイルが小さくなり、保存が速くなります。
 	Discard Layers and Save a Copy	レイヤーを破棄してコピーを保存
 	Don't show again	次回から表示しない
 	Save failed: {error}	保存に失敗しました: {error}

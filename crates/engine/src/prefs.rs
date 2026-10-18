@@ -876,7 +876,6 @@ pub const HIDDEN_UNTIL_IMPLEMENTED: &[&str] = &[
     "fileHandling.imagePreviews",
     "fileHandling.saveInBackground",
     "fileHandling.ignoreExifProfileTag",
-    "fileHandling.maximizePsdCompatibility",
     "performance.cacheLevels",
     "performance.effectCacheMb",
     "performance.legacyCompositing",

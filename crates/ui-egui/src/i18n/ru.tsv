@@ -2424,6 +2424,9 @@ cameraRaw	Roughness	Неровность
 	Content-Aware Move Tool	Перемещение с учётом содержимого
 	TIFF Options	Параметры TIFF
 	Including layers will increase file size.	Включение слоёв увеличит размер файла.
+	PSD Options	Параметры PSD
+	Maximize Compatibility	Максимальная совместимость
+	Keeps a flattened copy of the image so other apps can read the file. Off saves smaller files faster.	Сохраняет сведённую копию изображения, чтобы файл могли прочитать другие приложения. Если выключено, файлы меньше и сохраняются быстрее.
 	Discard Layers and Save a Copy	Удалить слои и сохранить копию
 	Don't show again	Больше не показывать
 	Save failed: {error}	Не удалось сохранить: {error}

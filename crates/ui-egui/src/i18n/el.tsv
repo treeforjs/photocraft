@@ -1054,6 +1054,9 @@
 	Hold Alt while drawing for straight segments	Κρατήστε πατημένο το Alt κατά τη σχεδίαση για ευθύγραμμα τμήματα
 	TIFF Options	Επιλογές TIFF
 	Including layers will increase file size.	Η συμπερίληψη επιπέδων θα αυξήσει το μέγεθος του αρχείου.
+	PSD Options	Επιλογές PSD
+	Maximize Compatibility	Μέγιστη συμβατότητα
+	Keeps a flattened copy of the image so other apps can read the file. Off saves smaller files faster.	Κρατά ένα ισοπεδωμένο αντίγραφο της εικόνας ώστε άλλες εφαρμογές να διαβάζουν το αρχείο. Απενεργοποιημένο αποθηκεύει μικρότερα αρχεία γρηγορότερα.
 	Discard Layers and Save a Copy	Απόρριψη επιπέδων και αποθήκευση αντιγράφου
 	Don't show again	Να μην εμφανιστεί ξανά
 	Save failed: {error}	Αποτυχία αποθήκευσης: {error}

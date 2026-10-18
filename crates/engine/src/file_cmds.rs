@@ -220,6 +220,8 @@ pub(crate) struct SaveOpts {
     pub jpeg_scans: u8,
     /// JPEG Options › Baseline Optimized.
     pub jpeg_optimize: bool,
+    /// PSD/PSB: write the real merged composite (Maximize Compatibility); `None` = on.
+    pub maximize_compatibility: Option<bool>,
 }
 
 impl SaveOpts {
@@ -231,7 +233,20 @@ impl SaveOpts {
             Some("optimized") => (0, true),
             _ => (0, false),
         };
-        SaveOpts { quality: f64_param(p, "quality"), tiff_layers: p.get("tiffLayers").and_then(Value::as_bool).unwrap_or(false), jpeg_scans, jpeg_optimize }
+        SaveOpts {
+            quality: f64_param(p, "quality"),
+            tiff_layers: p.get("tiffLayers").and_then(Value::as_bool).unwrap_or(false),
+            jpeg_scans,
+            jpeg_optimize,
+            maximize_compatibility: p.get("maximizeCompatibility").and_then(Value::as_bool),
+        }
+    }
+
+    /// Maximize Compatibility from Preferences › File Handling when the params didn't say:
+    /// off only when the preference is Never (headless saves have nobody to ask).
+    pub(crate) fn or_prefs(mut self, s: &Session) -> Self {
+        self.maximize_compatibility = self.maximize_compatibility.or(Some(s.prefs().file_handling.maximize_psd_compatibility != crate::prefs::Ask::Never));
+        self
     }
 
     pub(crate) fn or_quality(mut self, q: f64) -> Self {
@@ -249,7 +264,11 @@ impl From<Option<f64>> for SaveOpts {
 /// Encodes `doc` for `path`'s extension.
 pub(crate) fn encode(doc: &Document, path: &str, save: impl Into<SaveOpts>) -> Result<(Vec<u8>, Vec<String>)> {
     let save = save.into();
-    let mut opts = photocraft_io::ExportOptions { tiff_layers: save.tiff_layers, ..Default::default() };
+    let mut opts = photocraft_io::ExportOptions {
+        tiff_layers: save.tiff_layers,
+        maximize_compatibility: save.maximize_compatibility.unwrap_or(true),
+        ..Default::default()
+    };
     opts.encode.jpeg_progressive_scans = save.jpeg_scans;
     opts.encode.jpeg_optimize = save.jpeg_optimize;
     if let Some(q) = save.quality {
@@ -358,7 +377,7 @@ fn save_a_copy(s: &mut Session, p: &Value) -> Result<Value> {
         let px = flattened(&doc, fmt);
         doc.layers = vec![Layer::new("Background", LayerContent::Raster(px))];
     }
-    let warnings = save_doc(&doc, &path, SaveOpts::from_params(p))?;
+    let warnings = save_doc(&doc, &path, SaveOpts::from_params(p).or_prefs(s))?;
     Ok(json!({"path": path, "warnings": warnings}))
 }
 
@@ -1329,7 +1348,7 @@ pub fn specs() -> Vec<CommandSpec> {
             "Save a Copy…",
             &["File"],
             Some("Cmd+Alt+S"),
-            r##"{"path":str (format from the extension),"quality":0..12? (JPEG),"jpegFormat":"baseline|optimized|progressive"="baseline" (JPEG),"scans":3..5=3 (progressive JPEG),"layers":bool=true,"tiffLayers":bool=false (TIFF: keep the layers; flat by default)}"##,
+            r##"{"path":str (format from the extension),"quality":0..12? (JPEG),"jpegFormat":"baseline|optimized|progressive"="baseline" (JPEG),"scans":3..5=3 (progressive JPEG),"layers":bool=true,"tiffLayers":bool=false (TIFF: keep the layers; flat by default),"maximizeCompatibility":bool? (PSD/PSB: write the merged composite; default from Preferences › File Handling, on unless Never)}"##,
             native_doc,
             save_a_copy
         ),
