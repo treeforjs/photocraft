@@ -2863,3 +2863,7 @@ theme	Warm	Quente
 	Slant	Inclinação
 	Optical Size	Tamanho óptico
 	Optical size follows the font size	O tamanho óptico acompanha o tamanho da fonte
+	Pressure curve	Curva de pressão
+	Curve:	Curva:
+	Firm	Firme
+	How hard a pen press must be, for every tool. Double-click the graph to reset.	Quanta pressão a caneta precisa fazer, em todas as ferramentas. Clique duas vezes no gráfico para redefinir.

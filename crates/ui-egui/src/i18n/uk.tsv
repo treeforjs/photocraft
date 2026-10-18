@@ -3540,3 +3540,7 @@ theme	Warm	Тепла
 	Slant	Нахил
 	Optical Size	Оптичний розмір
 	Optical size follows the font size	Оптичний розмір відповідає кеглю
+	Pressure curve	Крива натиску
+	Curve:	Крива:
+	Firm	Сильна
+	How hard a pen press must be, for every tool. Double-click the graph to reset.	Наскільки сильно треба натискати пером, для всіх інструментів. Подвійне клацання по графіку скидає її.

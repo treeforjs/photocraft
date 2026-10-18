@@ -294,13 +294,13 @@ impl PathWalker {
 // Dynamics
 // ---------------------------------------------------------------------------
 
-/// Scalar control value in 0..1.
-pub fn control_value(c: Control, fade_steps: u32, s: &StepInput) -> f32 {
+/// Scalar control value in 0..1 of dynamic `d` (pen pressure through its pressure curve).
+pub fn control_value(d: &Dynamic, s: &StepInput) -> f32 {
     let p = &s.point;
-    match c {
+    match d.control {
         Control::Off | Control::InitialDirection | Control::Direction => 1.0,
-        Control::Fade => 1.0 - (s.step as f32 / fade_steps.max(1) as f32).min(1.0),
-        Control::PenPressure => p.pressure.clamp(0.0, 1.0),
+        Control::Fade => 1.0 - (s.step as f32 / d.fade_steps.max(1) as f32).min(1.0),
+        Control::PenPressure => d.pressure_curve.apply(p.pressure),
         // Upright pen = 1, flat pen = 0 (a mouse reports no tilt, so paints at full value).
         Control::PenTilt => 1.0 - (p.tilt_x.hypot(p.tilt_y) / 90.0).clamp(0.0, 1.0),
         Control::StylusWheel => p.wheel.clamp(0.0, 1.0),
@@ -308,13 +308,13 @@ pub fn control_value(c: Control, fade_steps: u32, s: &StepInput) -> f32 {
     }
 }
 
-/// Angle contributed by a control, in degrees (counter-clockwise).
-pub fn control_angle(c: Control, fade_steps: u32, s: &StepInput) -> f32 {
+/// Angle contributed by dynamic `d`'s control, in degrees (counter-clockwise).
+pub fn control_angle(d: &Dynamic, s: &StepInput) -> f32 {
     let p = &s.point;
-    match c {
+    match d.control {
         Control::Off => 0.0,
-        Control::Fade => 360.0 * (s.step as f32 / fade_steps.max(1) as f32).min(1.0),
-        Control::PenPressure => 360.0 * p.pressure.clamp(0.0, 1.0),
+        Control::Fade => 360.0 * (s.step as f32 / d.fade_steps.max(1) as f32).min(1.0),
+        Control::PenPressure => 360.0 * d.pressure_curve.apply(p.pressure),
         Control::PenTilt => {
             if p.tilt_x == 0.0 && p.tilt_y == 0.0 {
                 0.0
@@ -336,7 +336,7 @@ fn scalar(d: &Dynamic, s: &StepInput, r: f32) -> f32 {
         return 1.0;
     }
     let min = d.minimum.clamp(0.0, 1.0);
-    let cv = control_value(d.control, d.fade_steps, s);
+    let cv = control_value(d, s);
     let v = (min + (1.0 - min) * cv) * (1.0 - d.jitter.clamp(0.0, 1.0) * r);
     v.max(min)
 }
@@ -377,7 +377,7 @@ pub fn dynamic_color(b: &BrushSettings, s: &StepInput, seed: u64, index: u64) ->
     let cd = &b.color_dynamics;
     let (fg, bg) = (b.color, b.background);
     let r = |st: u64| rand01(seed, index, st);
-    let base = if cd.fg_bg.control != Control::Off { 1.0 - control_value(cd.fg_bg.control, cd.fg_bg.fade_steps, s) } else { 0.0 };
+    let base = if cd.fg_bg.control != Control::Off { 1.0 - control_value(&cd.fg_bg, s) } else { 0.0 };
     let t = (base + (1.0 - base) * cd.fg_bg.jitter.clamp(0.0, 1.0) * r(stream::FG_BG)).clamp(0.0, 1.0);
     let rgb = [fg[0] + (bg[0] - fg[0]) * t, fg[1] + (bg[1] - fg[1]) * t, fg[2] + (bg[2] - fg[2]) * t];
     let [mut h, mut sat, mut v] = rgb_to_hsv(rgb);
@@ -396,9 +396,9 @@ pub fn base_diameter(b: &BrushSettings, s: &StepInput) -> f32 {
     let mut f = 1.0;
     if sd.enabled && sd.size.control != Control::Off {
         let min = sd.size.minimum.clamp(0.0, 1.0);
-        f = min + (1.0 - min) * control_value(sd.size.control, sd.size.fade_steps, s);
+        f = min + (1.0 - min) * control_value(&sd.size, s);
     } else if b.pressure_size {
-        f = s.point.pressure.clamp(0.0, 1.0);
+        f = sd.size.pressure_curve.apply(s.point.pressure);
     }
     b.size * f
 }
@@ -452,8 +452,7 @@ impl DabBuilder {
                     let f = (1.0 - sd.size.jitter.clamp(0.0, 1.0) * r(stream::SIZE)).max(min);
                     diameter *= f;
                 }
-                angle +=
-                    control_angle(sd.angle.control, sd.angle.fade_steps, s) + rand_signed(seed, i, stream::ANGLE) * sd.angle.jitter.clamp(0.0, 1.0) * 180.0;
+                angle += control_angle(&sd.angle, s) + rand_signed(seed, i, stream::ANGLE) * sd.angle.jitter.clamp(0.0, 1.0) * 180.0;
                 roundness = (roundness * scalar(&sd.roundness, s, r(stream::ROUNDNESS))).clamp(0.01, 1.0);
                 if sd.flip_x_jitter && r(stream::FLIP_X) < 0.5 {
                     fx = !fx;
@@ -482,7 +481,7 @@ impl DabBuilder {
             // Scatter.
             let mut c = Point::new(s.point.x, s.point.y);
             if sc.enabled && sc.scatter.jitter > 0.0 {
-                let cv = control_value(sc.scatter.control, sc.scatter.fade_steps, s);
+                let cv = control_value(&sc.scatter, s);
                 let amt = f64::from(sc.scatter.jitter * cv * radius);
                 let (ox, oy) = (rand_signed(seed, i, stream::SCATTER_X) as f64 * amt, rand_signed(seed, i, stream::SCATTER_Y) as f64 * amt);
                 if sc.both_axes {
@@ -504,7 +503,7 @@ impl DabBuilder {
             }
             let (wet, mix) = if tr.enabled { (scalar(&tr.wetness, s, r(stream::WET)), scalar(&tr.mix, s, r(stream::MIX))) } else { (1.0, 1.0) };
             if b.pressure_opacity && !(tr.enabled && tr.opacity.control != Control::Off) {
-                opacity *= s.point.pressure.clamp(0.0, 1.0);
+                opacity *= tr.opacity.pressure_curve.apply(s.point.pressure);
             }
             // Colour.
             let color = if b.color_dynamics.enabled {

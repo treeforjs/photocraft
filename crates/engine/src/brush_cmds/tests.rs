@@ -295,6 +295,25 @@ fn set_brush_keeps_untouched_bitmaps_and_replaces_touched_ones() {
     eprintln!("merge_brush on a 2500 px tip: {ms:.2} ms per edit");
 }
 
+/// TOOL-213-11: a dynamic's pressure curve and the global one are set through the commands
+/// agents use; hostile values never escape 0–1.
+#[test]
+fn pressure_curves_are_set_by_commands() {
+    use photocraft_paint::PressureCurve;
+    let mut s = session(10, 10);
+    s.execute("tools.setBrush", json!({"shapeDynamics": {"enabled": true, "size": {"control": "penPressure", "pressureCurve": [0.0, 0.1, 0.28, 0.55, 1.0]}}}))
+        .unwrap();
+    assert_eq!(s.tools.brush.shape_dynamics.size.pressure_curve, PressureCurve::FIRM);
+    let got = s.execute("brush.get", json!({})).unwrap();
+    assert_eq!(serde_json::from_value::<PressureCurve>(got["shapeDynamics"]["size"]["pressureCurve"].clone()).unwrap(), PressureCurve::FIRM);
+    s.execute("prefs.set", json!({"path": "tools.pressureCurve", "value": [0.0, 0.45, 0.7, 0.88, 1.0]})).unwrap();
+    assert_eq!(s.prefs().tools.pressure_curve, PressureCurve::SOFT);
+    assert!(s.execute("prefs.set", json!({"path": "tools.pressureCurve", "value": [1, 2]})).is_err(), "five points");
+    s.execute("tools.setBrush", json!({"shapeDynamics": {"size": {"pressureCurve": [9, -9, 0.5, 1e30, 0]}}})).unwrap();
+    let c = s.tools.brush.shape_dynamics.size.pressure_curve;
+    assert!((0..=10).all(|k| (0.0..=1.0).contains(&c.apply(k as f32 / 10.0))));
+}
+
 #[test]
 fn define_brush_from_selection() {
     let mut s = session(40, 40);

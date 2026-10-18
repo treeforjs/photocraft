@@ -3454,3 +3454,7 @@ theme	Warm	ウォーム
 	Slant	傾斜
 	Optical Size	オプティカルサイズ
 	Optical size follows the font size	オプティカルサイズをフォントサイズに合わせる
+	Pressure curve	筆圧カーブ
+	Curve:	カーブ：
+	Firm	強め
+	How hard a pen press must be, for every tool. Double-click the graph to reset.	すべてのツールに必要なペンの押す強さ。グラフをダブルクリックするとリセットします。
