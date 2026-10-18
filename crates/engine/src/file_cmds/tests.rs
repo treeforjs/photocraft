@@ -186,6 +186,31 @@ fn place_embedded_centres_fits_and_embeds() {
     }
 }
 
+#[test]
+fn place_follows_the_resize_and_smart_object_preferences() {
+    let dir = tmp("place-prefs");
+    let big = png(&dir, "big.png", 200, 100, "#ff0000");
+    let mut s = session(100, 100, 8);
+    s.prefs.edit(|p| {
+        p.general.resize_image_during_place = false;
+        p.general.always_create_smart_objects_when_placing = false;
+    });
+    let r = s.execute("file.placeEmbedded", json!({"path": big})).unwrap();
+    assert_eq!(r["scale"], json!(100.0), "kept at its own size");
+    assert_eq!(r["smartObject"], json!(false));
+    let d = s.active().unwrap();
+    let l = d.doc.layer(d.active_layer.unwrap()).unwrap();
+    assert!(matches!(l.content, LayerContent::Raster(_)), "a pixel layer");
+    assert!(composite(&s, 50, 10)[0] > 0.99 && composite(&s, 50, 10)[2] < 0.01, "200×100 centred covers rows 0..100");
+    // The call's own params still win, and a linked place stays a smart object.
+    let r = s.execute("file.placeEmbedded", json!({"path": big, "fit": true, "smartObject": true})).unwrap();
+    assert_eq!((r["scale"].as_f64(), r["smartObject"].as_bool()), (Some(50.0), Some(true)));
+    let r = s.execute("file.placeLinked", json!({"path": big})).unwrap();
+    assert_eq!(r["smartObject"], json!(true));
+    assert!(s.undo() && s.undo() && s.undo());
+    assert_eq!(doc(&s).layers.len(), 1);
+}
+
 /// A 40×20 JPEG (left half red, right half blue) tagged EXIF Orientation = 6: shown upright it
 /// is 20×40, red on top.
 fn rotated_jpeg(dir: &str) -> String {
