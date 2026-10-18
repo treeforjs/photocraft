@@ -183,9 +183,9 @@ note = "The round trip is our export -> our import"
 [[item]]
 id = "FILE-216-5"
 target = "Save-path tests: layered TIFF, PDF, SVG, ACO/ASE, .shc, Smart Filters, atomic-save failure"
-status = "missing"
+status = "partial"
 issue = 216
-note = "Features absent; no atomic-save failure-injection test"
+note = "Covered: layered TIFF (io/tests/tiff_layers.rs), ACO/ASE (engine swatch_cmds/tests.rs round trips), Smart Filters through PSD (engine/tests/smart_psd.rs), atomic-save failure injection (format/src/atomic/tests.rs via atomic_write_with). Missing because the savers don't exist yet: PDF, SVG and .shc"
 
 [[item]]
 id = "FILE-216-6"
