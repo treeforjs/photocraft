@@ -22,6 +22,7 @@ use crate::theme::Tokens;
 use crate::{PhotocraftApp, widgets};
 
 pub(crate) mod color_picker;
+pub(crate) mod contour;
 
 #[derive(Clone, Copy)]
 enum P {
@@ -33,6 +34,8 @@ enum P {
     Angle,
     /// A pattern from the dialog's `patternList` field (`[[id, name], …]`).
     Pattern,
+    /// A contour: a built-in name or `{"name", "points"}`, edited in the Contour Editor.
+    Contour,
 }
 
 /// Effect kinds in Photoshop's list order: (command kind, label, params).
@@ -84,15 +87,6 @@ fn spec(kind: &str) -> &'static [(&'static str, &'static str, P)] {
     const BSTYLE: &[(&str, &str)] = &[("inner", "Inner Bevel"), ("outer", "Outer Bevel"), ("emboss", "Emboss"), ("pillow", "Pillow Emboss")];
     const DIR: &[(&str, &str)] = &[("up", "Up"), ("down", "Down")];
     const SRC: &[(&str, &str)] = &[("edge", "Edge"), ("center", "Center")];
-    // The built-in contour presets (photocraft_engine::layer_style::CONTOURS).
-    const CONTOUR: &[(&str, &str)] = &[
-        ("Linear", "Linear"),
-        ("Cone", "Cone"),
-        ("Cone (Inverted)", "Cone (Inverted)"),
-        ("Domed", "Domed"),
-        ("Domed (Inverted)", "Domed (Inverted)"),
-        ("Diagonal (Descending)", "Diagonal (Descending)"),
-    ];
     match kind {
         "dropShadow" => &[
             ("blend", "Blend Mode", P::Blend),
@@ -103,7 +97,7 @@ fn spec(kind: &str) -> &'static [(&'static str, &'static str, P)] {
             ("distance", "Distance", P::Slider(0.0, 300.0, "px")),
             ("spread", "Spread", P::Slider(0.0, 100.0, "%")),
             ("size", "Size", P::Slider(0.0, 250.0, "px")),
-            ("contour", "Contour", P::Choice(CONTOUR)),
+            ("contour", "Contour", P::Contour),
             ("noise", "Noise", P::Slider(0.0, 100.0, "%")),
             ("knocksOut", "Layer Knocks Out Drop Shadow", P::Check),
         ],
@@ -116,7 +110,7 @@ fn spec(kind: &str) -> &'static [(&'static str, &'static str, P)] {
             ("distance", "Distance", P::Slider(0.0, 300.0, "px")),
             ("choke", "Choke", P::Slider(0.0, 100.0, "%")),
             ("size", "Size", P::Slider(0.0, 250.0, "px")),
-            ("contour", "Contour", P::Choice(CONTOUR)),
+            ("contour", "Contour", P::Contour),
             ("noise", "Noise", P::Slider(0.0, 100.0, "%")),
         ],
         "outerGlow" => &[
@@ -126,7 +120,7 @@ fn spec(kind: &str) -> &'static [(&'static str, &'static str, P)] {
             ("spread", "Spread", P::Slider(0.0, 100.0, "%")),
             ("size", "Size", P::Slider(0.0, 250.0, "px")),
             ("range", "Range", P::Slider(1.0, 100.0, "%")),
-            ("contour", "Contour", P::Choice(CONTOUR)),
+            ("contour", "Contour", P::Contour),
             ("noise", "Noise", P::Slider(0.0, 100.0, "%")),
         ],
         "innerGlow" => &[
@@ -136,7 +130,7 @@ fn spec(kind: &str) -> &'static [(&'static str, &'static str, P)] {
             ("source", "Source", P::Choice(SRC)),
             ("choke", "Choke", P::Slider(0.0, 100.0, "%")),
             ("size", "Size", P::Slider(0.0, 250.0, "px")),
-            ("contour", "Contour", P::Choice(CONTOUR)),
+            ("contour", "Contour", P::Contour),
             ("noise", "Noise", P::Slider(0.0, 100.0, "%")),
         ],
         "stroke" => &[
@@ -174,6 +168,7 @@ fn spec(kind: &str) -> &'static [(&'static str, &'static str, P)] {
             ("angle", "Angle", P::Angle),
             ("useGlobalLight", "Use Global Light", P::Check),
             ("altitude", "Altitude", P::Slider(0.0, 90.0, "°")),
+            ("glossContour", "Gloss Contour", P::Contour),
         ],
         "satin" => &[
             ("blend", "Blend Mode", P::Blend),
@@ -876,6 +871,16 @@ pub fn body(app: &mut PhotocraftApp, ui: &mut egui::Ui, f: &mut Map<String, Valu
                 f.insert(key, p);
                 return;
             }
+            // The Contour Editor takes the page while it is open (for the effect it was opened on).
+            if f.get(contour::EDITOR).and_then(|e| e.get("effect")).and_then(Value::as_str).is_some_and(|e| e != selected) {
+                f.remove(contour::EDITOR);
+            }
+            if let Some(done) = contour::editor(app, ui, f) {
+                if let Some(a) = done {
+                    set_param(f, &a.effect, &a.field, a.value);
+                }
+                return;
+            }
             // The page shows the factory defaults under the instance's values,
             // but only real edits reach the stored params.
             let disp = if selected == BLENDING {
@@ -969,6 +974,13 @@ pub fn body(app: &mut PhotocraftApp, ui: &mut egui::Ui, f: &mut Map<String, Valu
                                 set_param(f, &selected, key, value);
                             }
                         });
+                    }
+                    P::Contour => {
+                        let cur = disp.get(key).cloned().unwrap_or_else(|| json!("Linear"));
+                        if let Some(value) = contour::row(app, ui, f, &selected, key, label, &cur) {
+                            disp[key] = value.clone();
+                            set_param(f, &selected, key, value);
+                        }
                     }
                     P::Check => {
                         let mut b = disp.get(key).and_then(Value::as_bool).unwrap_or(false);
@@ -1403,6 +1415,55 @@ mod tests {
         let column = boxes.iter().map(|r| r.min.x).fold(f32::INFINITY, f32::min);
         let rows = boxes.iter().filter(|r| (r.min.x - column).abs() < 0.5).count();
         assert_eq!(rows, KINDS.len(), "one empty checkbox per effect row");
+    }
+
+    /// FILE-215-15: the Contour Editor adds a point where the graph is clicked, and OK writes the
+    /// edited curve to the effect as `{"name", "points"}`.
+    #[test]
+    fn contour_editor_adds_a_point_and_ok_writes_it_to_the_effect() {
+        use egui_kittest::kittest::Queryable;
+        let app = PhotocraftApp::new(photocraft_engine::Session::new(), crate::Services::default());
+        let mut fields = Map::new();
+        fields.insert("selected".into(), json!("fx1"));
+        fields.insert("effects".into(), json!([{"id": "fx1", "kind": "dropShadow", "on": true, "params": {}}]));
+        contour::open(&mut fields, "fx1", "contour", "Mine", &[(0.0, 0.0), (1.0, 1.0)]);
+        let mut h = egui_kittest::Harness::builder().with_size(vec2(900.0, 700.0)).build_ui_state(
+            |ui, (app, f): &mut (PhotocraftApp, Map<String, Value>)| {
+                if !ui.ctx().fonts(|f| f.families().contains(&egui::FontFamily::Name("medium".into()))) {
+                    return;
+                }
+                body(app, ui, f);
+            },
+            (app, fields),
+        );
+        PhotocraftApp::setup_context(&h.ctx, crate::theme::ThemeKind::Craft);
+        h.run_steps(3);
+        let graph = h
+            .output()
+            .shapes
+            .iter()
+            .find_map(|c| match &c.shape {
+                egui::Shape::Rect(r) if (r.rect.width() - 220.0).abs() < 0.5 && (r.rect.height() - 220.0).abs() < 0.5 => Some(r.rect),
+                _ => None,
+            })
+            .expect("the editor's graph");
+        let inner = graph.shrink(6.0);
+        let pos = egui::pos2(inner.left() + inner.width() * 0.5, inner.bottom() - inner.height() * 0.9);
+        h.event(egui::Event::PointerMoved(pos));
+        h.event(egui::Event::PointerButton { pos, button: egui::PointerButton::Primary, pressed: true, modifiers: egui::Modifiers::NONE });
+        h.step();
+        h.event(egui::Event::PointerButton { pos, button: egui::PointerButton::Primary, pressed: false, modifiers: egui::Modifiers::NONE });
+        h.run_steps(2);
+        let points = h.state().1[contour::EDITOR]["points"].clone();
+        assert_eq!(points.as_array().map(Vec::len), Some(3), "{points}");
+        assert!((points[1][0].as_f64().unwrap() - 0.5).abs() < 0.02 && (points[1][1].as_f64().unwrap() - 0.9).abs() < 0.02, "{points}");
+        h.get_by_label("OK").click();
+        h.run_steps(2);
+        let f = &h.state().1;
+        assert!(f.get(contour::EDITOR).is_none(), "OK closes the editor");
+        let c = &entry(f, "fx1").unwrap()["params"]["contour"];
+        assert_eq!(c["name"], "Mine");
+        assert_eq!(c["points"].as_array().map(Vec::len), Some(3), "{c}");
     }
 
     #[test]
