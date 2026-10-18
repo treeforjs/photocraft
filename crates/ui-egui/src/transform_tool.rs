@@ -1464,10 +1464,47 @@ pub fn draw_overlay(app: &PhotocraftApp, painter: &egui::Painter, xf: &ViewXform
     if let Some(at) = painter.ctx().pointer_hover_pos().filter(|p| xf.rect.contains(*p)) {
         let p = xf.to_doc(at);
         let tol = HANDLE_PX / f64::from(xf.zoom.max(0.01));
+        let show_values = app.session.prefs().tools.show_transformation_values;
         if t.mode != TransformMode::Distort && (rotating || near_rotate_corner(t, p, tol)) {
-            draw_rotate_feedback(painter, at, rotating.then(|| rotation_degrees(t.quad)), xf.rect);
+            draw_rotate_feedback(painter, at, (rotating && show_values).then(|| rotation_degrees(t.quad)), xf.rect);
+        }
+        if let Some(text) = pv.gesture.as_ref().filter(|_| show_values).and_then(|g| values_label(g, t.quad)) {
+            draw_values(painter, at, &text, xf.rect);
         }
     }
+}
+
+/// Preferences › Tools › Show Transformation Values: what a move or scale drag has done so far,
+/// in document pixels and percent of the size at the start of the drag. Rotation shows its
+/// angle by the rotate cursor instead.
+fn values_label(g: &Gesture, quad: [[f64; 2]; 4]) -> Option<String> {
+    let len = |a: [f64; 2], b: [f64; 2]| (b[0] - a[0]).hypot(b[1] - a[1]);
+    match g.hit {
+        Hit::Inside => {
+            // `+ 0.0` turns -0 into 0 so a still drag reads 0, not -0.
+            let (dx, dy) = (quad[0][0] - g.quad0[0][0] + 0.0, quad[0][1] - g.quad0[0][1] + 0.0);
+            Some(format!("ΔX: {dx:.0} px\nΔY: {dy:.0} px"))
+        }
+        Hit::Corner(_) | Hit::Edge(_) => {
+            let (w0, h0) = (len(g.quad0[0], g.quad0[1]), len(g.quad0[0], g.quad0[3]));
+            if !(w0 > 1e-9 && h0 > 1e-9) {
+                return None;
+            }
+            let (w, h) = (len(quad[0], quad[1]) / w0 * 100.0, len(quad[0], quad[3]) / h0 * 100.0);
+            Some(format!("{}: {w:.1}%\n{}: {h:.1}%", tl!("W"), tl!("H")))
+        }
+        Hit::Pivot | Hit::Outside => None,
+    }
+}
+
+/// The values next to the pointer on a dark plate, kept inside the canvas.
+fn draw_values(painter: &egui::Painter, at: Pos2, text: &str, bounds: egui::Rect) {
+    let galley = painter.layout_no_wrap(text.to_string(), egui::FontId::proportional(12.0), Color32::WHITE);
+    let size = galley.size() + vec2(12.0, 8.0);
+    let min = pos2((at.x + 18.0).min(bounds.right() - size.x).max(bounds.left()), (at.y + 18.0).min(bounds.bottom() - size.y).max(bounds.top()));
+    let plate = egui::Rect::from_min_size(min, size);
+    painter.rect_filled(plate, 4.0, Color32::from_black_alpha(200));
+    painter.galley(plate.min + vec2(6.0, 4.0), galley, Color32::WHITE);
 }
 
 /// Width and height of the document being transformed, in document pixels.
@@ -1968,6 +2005,21 @@ fn rotate_about_pivot(app: &mut PhotocraftApp, da: f64) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn transformation_values_report_the_move_and_scale_so_far() {
+        let quad0 = [[10.0, 10.0], [110.0, 10.0], [110.0, 60.0], [10.0, 60.0]];
+        let g = |hit| Gesture { hit, start: [0.0, 0.0], quad0, pivot0: [60.0, 35.0] };
+        let moved = quad0.map(|q| [q[0] + 25.0, q[1] - 7.0]);
+        assert_eq!(values_label(&g(Hit::Inside), moved).as_deref(), Some("ΔX: 25 px\nΔY: -7 px"));
+        assert_eq!(values_label(&g(Hit::Inside), quad0).as_deref(), Some("ΔX: 0 px\nΔY: 0 px"));
+        let scaled = [[10.0, 10.0], [160.0, 10.0], [160.0, 35.0], [10.0, 35.0]];
+        assert_eq!(values_label(&g(Hit::Corner(2)), scaled).as_deref(), Some("W: 150.0%\nH: 50.0%"));
+        assert_eq!(values_label(&g(Hit::Outside), scaled), None, "rotation shows its angle by the cursor");
+        let flat = [[0.0, 0.0], [0.0, 0.0], [0.0, 0.0], [0.0, 0.0]];
+        let zero = Gesture { hit: Hit::Edge(1), start: [0.0, 0.0], quad0: flat, pivot0: [0.0, 0.0] };
+        assert_eq!(values_label(&zero, scaled), None, "no division by a zero start size");
+    }
 
     fn session() -> TransformSession {
         TransformSession {

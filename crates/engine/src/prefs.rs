@@ -877,7 +877,6 @@ pub const HIDDEN_UNTIL_IMPLEMENTED: &[&str] = &[
     "workspace.enableNarrowOptionsBar",
     "tools.enableFlickPanning",
     "tools.varyRoundBrushHardnessOnHud",
-    "tools.showTransformationValues",
     "tools.doubleClickLayerMaskLaunchesSelectAndMask",
     "fileHandling.imagePreviews",
     "fileHandling.saveInBackground",
