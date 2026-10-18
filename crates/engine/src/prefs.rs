@@ -895,7 +895,6 @@ pub const HIDDEN_UNTIL_IMPLEMENTED: &[&str] = &[
     "type.missingGlyphProtection",
     "type.showFontNamesInEnglish",
     "type.textEngine",
-    "enhancedControls.scrubbySliderAcceleration",
     "enhancedControls.touchGestures",
     "rawDefaults.sharpenFor",
     "rawDefaults.openAsSmartObject",

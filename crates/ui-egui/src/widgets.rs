@@ -656,22 +656,28 @@ pub fn scrub(ui: &Ui, label: &Response, value: &mut f32, range: std::ops::RangeI
     if label.hovered() || label.dragged() {
         ui.ctx().set_cursor_icon(egui::CursorIcon::ResizeHorizontal);
     }
-    let start_key = label.id.with("scrub-start");
-    if label.drag_started() {
-        ui.data_mut(|d| d.insert_temp(start_key, *value));
+    // (value at the start, accumulated travel in points, pointer x last frame)
+    let state_key = label.id.with("scrub-start");
+    if label.drag_started()
+        && let Some(origin) = ui.input(|i| i.pointer.press_origin())
+    {
+        ui.data_mut(|d| d.insert_temp(state_key, (*value, 0.0_f32, origin.x)));
     }
     if !label.dragged() {
         return false;
     }
-    let (Some(start), Some(origin), Some(pos)) =
-        (ui.data(|d| d.get_temp::<f32>(start_key)), ui.input(|i| i.pointer.press_origin()), label.interact_pointer_pos())
-    else {
+    let (Some((start, travel, last_x)), Some(pos)) = (ui.data(|d| d.get_temp::<(f32, f32, f32)>(state_key)), label.interact_pointer_pos()) else {
         return false;
     };
+    // Enhanced Controls › Scrubby Slider Acceleration: a fast drag covers more of the range.
+    let dx = pos.x - last_x;
+    let accel = if scrub_acceleration_on(ui.ctx()) { scrub_acceleration(dx.abs() / ui.input(|i| i.stable_dt).max(1e-3)) } else { 1.0 };
+    let travel = travel + dx * accel;
+    ui.data_mut(|d| d.insert_temp(state_key, (start, travel, pos.x)));
     let mods = ui.input(|i| i.modifiers);
     let grid = if fine { 0.01 } else { 1.0 } * if mods.alt { 0.1 } else { 1.0 };
     let step = grid * if mods.shift { 10.0 } else { 1.0 };
-    let v = ((start + (pos.x - origin.x) * step) / grid).round() * grid;
+    let v = ((start + travel * step) / grid).round() * grid;
     let v = (v * 1e4).round() / 1e4;
     let (lo, hi) = (*range.start(), *range.end());
     let v = if lo <= hi { v.clamp(lo, hi) } else { v };
@@ -680,6 +686,28 @@ pub fn scrub(ui: &Ui, label: &Response, value: &mut f32, range: std::ops::RangeI
     }
     *value = v;
     true
+}
+
+/// How much faster a scrub moves at `speed` points per second: not at all up to 400, then
+/// growing to four times at 1600 and beyond.
+pub fn scrub_acceleration(speed: f32) -> f32 {
+    if !speed.is_finite() {
+        return 1.0;
+    }
+    1.0 + ((speed - 400.0) / 400.0).clamp(0.0, 3.0)
+}
+
+fn scrub_acceleration_id() -> egui::Id {
+    egui::Id::new("prefs.scrubbySliderAcceleration")
+}
+
+/// Mirror Enhanced Controls › Scrubby Slider Acceleration for [`scrub`] (set every frame).
+pub fn set_scrub_acceleration(ctx: &egui::Context, on: bool) {
+    ctx.data_mut(|d| d.insert_temp(scrub_acceleration_id(), on));
+}
+
+fn scrub_acceleration_on(ctx: &egui::Context) -> bool {
+    ctx.data(|d| d.get_temp::<bool>(scrub_acceleration_id())).unwrap_or(true)
 }
 
 /// iOS-style toggle switch.
@@ -1311,6 +1339,44 @@ mod tests {
             }
             assert!(outlined || kind.is_dark(), "{kind:?}: a light theme's knob needs an outline");
         }
+    }
+
+    #[test]
+    fn scrub_acceleration_speeds_up_fast_drags_only() {
+        assert_eq!(super::scrub_acceleration(0.0), 1.0);
+        assert_eq!(super::scrub_acceleration(400.0), 1.0, "slow drags stay one unit per point");
+        assert_eq!(super::scrub_acceleration(800.0), 2.0);
+        assert_eq!(super::scrub_acceleration(1e9), 4.0);
+        assert_eq!(super::scrub_acceleration(f32::NAN), 1.0);
+        // A fast scrub of a label goes further with the preference on than off.
+        let scrubbed = |on: bool| {
+            let mut h = Harness::new_ui_state(
+                move |ui, v: &mut f32| {
+                    super::set_scrub_acceleration(ui.ctx(), on);
+                    let r = ui.add(egui::Label::new("Size").selectable(false).sense(egui::Sense::drag()));
+                    super::scrub(ui, &r, v, -1e6..=1e6, false);
+                },
+                0.0_f32,
+            );
+            h.run();
+            let at = h.get_by_label("Size").rect().center();
+            h.event(egui::Event::PointerMoved(at));
+            h.event(egui::Event::PointerButton { pos: at, button: egui::PointerButton::Primary, pressed: true, modifiers: Modifiers::NONE });
+            h.step();
+            // Kittest frames are a quarter second: 300 points a frame is 1200 points/s.
+            let mut p = at;
+            for _ in 0..8 {
+                p.x += 300.0;
+                h.event(egui::Event::PointerMoved(p));
+                h.step();
+            }
+            h.event(egui::Event::PointerButton { pos: p, button: egui::PointerButton::Primary, pressed: false, modifiers: Modifiers::NONE });
+            h.step();
+            *h.state()
+        };
+        let (off, on) = (scrubbed(false), scrubbed(true));
+        assert_eq!(off, 2400.0, "one unit per point without acceleration");
+        assert!(on > off, "accelerated {on} vs {off}");
     }
 
     /// Sets up a test with one value field. Its state is its value and how many times it changed.
