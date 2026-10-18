@@ -890,7 +890,8 @@ fn dab_cmd(s: &mut Session, p: &Value, cmd: &str) -> Result<Value> {
 /// A Dodge, Burn, Sponge, Blur, Sharpen or Smudge stroke shown while it is drawn: each new dab
 /// runs the tool's effect on a working copy of the target, in order, and the changed area is
 /// mixed back over the original at the brush opacity, as `apply_dab_stroke` does on release.
-/// Sample All Layers isn't previewed (its composite spans the whole stroke).
+/// With Sample All Layers, Blur, Sharpen and Smudge work on the visible composite, composited a
+/// tile at a time as the stroke reaches it.
 pub struct LiveDab {
     /// The active document with the stroke so far.
     pub doc: std::sync::Arc<Document>,
@@ -907,18 +908,71 @@ pub struct LiveDab {
     sel: Option<Surface>,
     lock: bool,
     bounds: Rect,
+    all: Option<LiveAllLayers>,
+}
+
+/// The visible composite a Sample All Layers live stroke edits, as `AllLayers` does for the commit:
+/// each dab's effect runs on it (so later dabs see earlier ones) and the dab's footprint is copied
+/// onto the layer. Only the tiles the stroke has reached are composited.
+struct LiveAllLayers {
+    pre: std::sync::Arc<Document>,
+    visible: Surface,
+    tiles: std::collections::HashSet<(i32, i32)>,
+}
+
+impl LiveAllLayers {
+    const TILE: i32 = 128;
+
+    /// Composite the tiles of `r` not composited yet.
+    fn reach(&mut self, r: Rect) {
+        if r.is_empty() {
+            return;
+        }
+        let t = Self::TILE;
+        let (tx0, ty0, tx1, ty1) = (r.x0.div_euclid(t), r.y0.div_euclid(t), (r.x1 - 1).div_euclid(t), (r.y1 - 1).div_euclid(t));
+        let missing: Vec<(i32, i32)> = (ty0..=ty1).flat_map(|ty| (tx0..=tx1).map(move |tx| (tx, ty))).filter(|k| !self.tiles.contains(k)).collect();
+        let tile = |(tx, ty): (i32, i32)| Rect {
+            x0: tx.saturating_mul(t),
+            y0: ty.saturating_mul(t),
+            x1: tx.saturating_mul(t).saturating_add(t),
+            y1: ty.saturating_mul(t).saturating_add(t),
+        };
+        let Some(span) = missing.iter().map(|k| tile(*k)).reduce(|a, b| a.union(&b)) else { return };
+        let fresh = composite_region(&self.pre, None, SampleLayers::All, span, self.visible.format());
+        for k in missing {
+            fresh.crop(tile(k)).write(&mut self.visible);
+            self.tiles.insert(k);
+        }
+    }
+
+    /// Run `effect` for one dab on the composite and copy its footprint into `work`.
+    fn dab(&mut self, work: &mut Region, fp: &Footprint, effect: &mut DabEffect) {
+        self.reach(work.rect);
+        let mut visible = Region::read(&self.visible, work.rect);
+        if visible.ch != work.ch {
+            return effect(work, fp);
+        }
+        effect(&mut visible, fp);
+        let r = fp.rect.intersect(&work.rect);
+        for y in r.y0..r.y1 {
+            for x in r.x0..r.x1 {
+                if fp.at(x, y) > 0.0 {
+                    work.px_mut(x, y).copy_from_slice(visible.px(x, y));
+                }
+            }
+        }
+        visible.write(&mut self.visible);
+    }
 }
 
 impl LiveDab {
     /// Start a live stroke of `cmd` from its params; their `points` are rendered.
     pub fn begin(s: &Session, cmd: &str, p: &Value) -> Result<Self> {
         has_pixel_layer(s).map_err(EngineError::Other)?;
-        if sample_all_layers(p) {
-            return Err(bad(cmd, "Sample All Layers strokes aren't previewed live"));
-        }
         let (stroke, id) = parse_brush(s, p, cmd)?;
         let (tool, _) = DabTool::parse(s, cmd, p, &stroke)?;
-        let mut doc = (*s.active().ok_or(EngineError::NoDocument)?.doc).clone();
+        let pre = s.active().ok_or(EngineError::NoDocument)?.doc.clone();
+        let mut doc = (*pre).clone();
         let sel = doc.selection.clone();
         let (surf, lock) = crate::channel_cmds::target_surface(&mut doc, id, p)?;
         let pre_surf = surf.clone();
@@ -940,7 +994,12 @@ impl LiveDab {
             sel,
             lock,
             bounds: Rect::EMPTY,
+            all: None,
         };
+        // As `dab_cmd`: only Blur, Sharpen and Smudge sample all layers.
+        if matches!(tool, DabTool::Focus { .. } | DabTool::Smudge { .. }) && sample_all_layers(p) {
+            live.all = Some(LiveAllLayers { pre, visible: Surface::new(live.work.format()), tiles: Default::default() });
+        }
         live.push(&stroke.points)?;
         Ok(live)
     }
@@ -964,7 +1023,11 @@ impl LiveDab {
                 continue;
             }
             let mut region = Region::read(&self.work, r.inflate(self.halo));
-            (self.effect)(&mut region, &ctx.footprint(d, self.done + k));
+            let fp = ctx.footprint(d, self.done + k);
+            match &mut self.all {
+                Some(all) => all.dab(&mut region, &fp, &mut self.effect),
+                None => (self.effect)(&mut region, &fp),
+            }
             region.crop(r).write(&mut self.work);
             dmg = dmg.union(&r);
         }
