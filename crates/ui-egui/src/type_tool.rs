@@ -343,6 +343,35 @@ pub(crate) fn insert(app: &mut PhotocraftApp, s: &str) {
     }
 }
 
+/// Typed straight quotes become curly ones when Preferences › Type › Use Smart Quotes is on:
+/// opening after the start of the text, a space, an opening bracket or dash, else closing (so
+/// apostrophes in "don't" close). Pasted text is left as it is.
+fn smarten(app: &PhotocraftApp, text: &str, at: usize, typed: &str) -> String {
+    if !app.session.prefs().type_.smart_quotes || !typed.contains(['"', '\'']) {
+        return typed.to_string();
+    }
+    let mut prev = at.checked_sub(1).and_then(|i| text.chars().nth(i));
+    let mut out = String::with_capacity(typed.len());
+    for c in typed.chars() {
+        let c = smart_quote(prev, c);
+        out.push(c);
+        prev = Some(c);
+    }
+    out
+}
+
+/// The curly form of a straight quote `c` typed after `prev`; any other character is unchanged.
+fn smart_quote(prev: Option<char>, c: char) -> char {
+    let opening = prev.is_none_or(|p| p.is_whitespace() || matches!(p, '(' | '[' | '{' | '<' | '\u{2013}' | '\u{2014}' | '-' | '/' | '\u{201C}' | '\u{2018}'));
+    match (c, opening) {
+        ('"', true) => '\u{201C}',
+        ('"', false) => '\u{201D}',
+        ('\'', true) => '\u{2018}',
+        ('\'', false) => '\u{2019}',
+        _ => c,
+    }
+}
+
 /// Alt+←/→: kern the pair before the caret by `by` (1/1000 em). No pair (caret at a text or line
 /// edge): nothing happens, like Photoshop. Not coalesced: one history step per press.
 fn kern_pair(app: &mut PhotocraftApp, id: LayerId, caret: usize, by: f32) {
@@ -526,7 +555,11 @@ pub fn handle_keys(app: &mut PhotocraftApp, ctx: &egui::Context) -> bool {
         };
         handled[k] = true;
         match ev {
-            egui::Event::Text(s) | egui::Event::Paste(s) => insert(app, s),
+            egui::Event::Text(s) => {
+                let s = smarten(app, &text, a, s);
+                insert(app, &s);
+            }
+            egui::Event::Paste(s) => insert(app, s),
             // A bare line break from the IME is the Enter key, which the key arm handles.
             egui::Event::Ime(egui::ImeEvent::Preedit { text: s, .. } | egui::ImeEvent::Commit(s)) if s == "\n" || s == "\r" => handled[k] = false,
             egui::Event::Ime(egui::ImeEvent::Preedit { text, .. }) => ime_update(app, text, false),
@@ -1825,6 +1858,40 @@ mod tests {
     fn layer_text(app: &PhotocraftApp) -> String {
         let ed = app.ui.text_edit.as_ref().unwrap();
         current_text(app, LayerId(ed.layer)).unwrap()
+    }
+
+    fn type_keys(app: &mut PhotocraftApp, typed: &str) {
+        let ctx = egui::Context::default();
+        let mut input = egui::RawInput { focused: true, ..Default::default() };
+        input.events = typed.chars().map(|c| egui::Event::Text(c.to_string())).collect();
+        let mut out = ctx.run_ui(input, |ui| {
+            handle_keys(app, ui.ctx());
+        });
+        out.textures_delta.clear();
+    }
+
+    #[test]
+    fn typed_quotes_curl_and_pasted_or_disabled_ones_stay_straight() {
+        let mut app = app();
+        assert!(!pointer_down(&mut app, 50.0, 100.0, false));
+        pointer_up(&mut app, [50.0, 100.0], [50.0, 100.0]);
+        type_keys(&mut app, "\"I don't\" ('x')");
+        assert_eq!(layer_text(&app), "\u{201C}I don\u{2019}t\u{201D} (\u{2018}x\u{2019})");
+        insert(&mut app, " \"pasted\"");
+        assert!(layer_text(&app).ends_with(" \"pasted\""));
+        app.session.prefs.edit(|p| p.type_.smart_quotes = false);
+        type_keys(&mut app, " 'raw'");
+        assert!(layer_text(&app).ends_with(" 'raw'"));
+    }
+
+    #[test]
+    fn smart_quote_direction_follows_the_previous_character() {
+        assert_eq!(smart_quote(None, '"'), '\u{201C}');
+        assert_eq!(smart_quote(Some('\n'), '\''), '\u{2018}');
+        assert_eq!(smart_quote(Some('\u{2014}'), '"'), '\u{201C}');
+        assert_eq!(smart_quote(Some('s'), '\''), '\u{2019}');
+        assert_eq!(smart_quote(Some('.'), '"'), '\u{201D}');
+        assert_eq!(smart_quote(Some('a'), 'b'), 'b');
     }
 
     #[test]
