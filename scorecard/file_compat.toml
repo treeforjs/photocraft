@@ -22,9 +22,9 @@ note = "smart_map.rs: 14 filters plus a verified Camera Raw subset mapped both w
 [[item]]
 id = "FILE-215-3"
 target = "Filter mask can be painted directly, with undo"
-status = "missing"
+status = "done"
 issue = 215
-note = "smart_cmds.rs:382 mask only from the selection"
+note = "\"target\":\"filterMask\" (channel_cmds.rs Target::FilterMask, commands.rs target_mask) for paint, fills, filters and adjustments; layer.smartFilter.addFilterMask; Session::edit re-renders the smart object (smart_cmds.rs refresh_after_filter_mask_edit), one undo step; Layers panel swatch click targets it (smart_ui.rs target_filter_mask)"
 
 [[item]]
 id = "FILE-215-4"

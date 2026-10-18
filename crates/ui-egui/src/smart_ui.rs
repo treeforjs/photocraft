@@ -20,6 +20,36 @@ pub fn thumb_badge(ui: &egui::Ui, l: &Layer, thumb: Rect) {
     icons::paint(ui, r, "app-window", 9.0, t.icon);
 }
 
+fn swatch_id(layer: u64) -> egui::Id {
+    egui::Id::new(("filter-mask-swatch", layer))
+}
+
+/// Where the filter mask swatch of smart layer `layer` was last drawn (for tests and automation).
+pub fn filter_mask_swatch(ctx: &egui::Context, layer: u64) -> Option<Rect> {
+    ctx.data(|d| d.get_temp(swatch_id(layer)))
+}
+
+/// The active layer is a smart object with a filter mask.
+pub(crate) fn active_filter_mask(st: &photocraft_engine::DocState) -> bool {
+    st.active_layer.and_then(|id| st.doc.layer(id)).is_some_and(|l| matches!(&l.content, LayerContent::Smart(sm) if sm.filter_mask.is_some()))
+}
+
+/// Targets the filter mask of smart layer `layer`: selects the layer, adds a white filter mask
+/// when it has none, and points painting at it (the layer and its masks stop being targeted).
+pub(crate) fn target_filter_mask(app: &mut PhotocraftApp, layer: u64) {
+    let active = app.session.active().and_then(|st| st.active_layer).map(|l| l.0);
+    if active != Some(layer) && app.run("layer.select", json!({"layer": layer})).is_err() {
+        return;
+    }
+    let has_mask = app.session.active().is_some_and(active_filter_mask);
+    if !has_mask && app.run("layer.smartFilter.addFilterMask", json!({"layer": layer})).is_err() {
+        return;
+    }
+    app.ui.filter_mask_target = true;
+    app.ui.mask_target = false;
+    app.ui.vector_mask_target = false;
+}
+
 /// The display name of a smart filter (its command's label without the ellipsis). A Photoshop
 /// filter PhotoCraft doesn't implement shows its own name and is marked as kept as is.
 fn filter_label(f: &photocraft_doc::SmartFilter) -> String {
@@ -73,7 +103,15 @@ pub fn filter_rows(app: &mut PhotocraftApp, ui: &mut egui::Ui, l: &Layer, depth:
         if index.is_none() {
             let sw = Rect::from_center_size(pos2(x - 12.0, rect.center().y), vec2(14.0, 10.0));
             ui.painter().rect_filled(sw, 1.0, if sm.filter_mask.as_ref().is_some_and(|m| m.enabled) { Color32::from_gray(200) } else { Color32::WHITE });
-            ui.painter().rect_stroke(sw, 1.0, Stroke::new(1.0, t.field_border), egui::StrokeKind::Inside);
+            let targeted = app.ui.filter_mask_target && app.session.active().and_then(|st| st.active_layer) == Some(l.id) && sm.filter_mask.is_some();
+            ui.painter().rect_stroke(sw, 1.0, if targeted { Stroke::new(1.5, t.accent) } else { Stroke::new(1.0, t.field_border) }, egui::StrokeKind::Inside);
+            // Clicking the swatch targets the filter mask (adding a white one first), so the
+            // brush and fills paint where the filters show, as in Photoshop.
+            let sw_resp = ui.interact(sw.expand(3.0), ui.id().with(("sf-mask", l.id.0)), Sense::click()).on_hover_text(tl!("Filter mask"));
+            ui.ctx().data_mut(|d| d.insert_temp(swatch_id(l.id.0), sw));
+            if sw_resp.clicked() {
+                actions.push(("ui.filterMaskTarget".into(), json!(l.id.0)));
+            }
         }
         ui.painter().text(pos2(x, rect.center().y), Align2::LEFT_CENTER, name, egui::FontId::proportional(11.5), if on { t.text_dim } else { t.text_faint });
         if let Some(i) = index
@@ -254,7 +292,7 @@ pub(crate) fn authorize_creation_preview(app: &PhotocraftApp, command: &str, par
     }
     let params = photocraft_engine::channel_cmds::inject_target(&app.session, command, app.with_mask_target(command, params.clone()));
     let channel_target = match params.get("target") {
-        Some(Value::String(target)) => matches!(target.as_str(), "mask" | "quickMask"),
+        Some(Value::String(target)) => matches!(target.as_str(), "mask" | "filterMask" | "quickMask"),
         Some(Value::Object(target)) => target.get("channel").and_then(Value::as_u64).is_some(),
         _ => false,
     };
@@ -304,3 +342,6 @@ pub fn confirm_command(fields: &serde_json::Map<String, Value>, command: String,
         None => (command, params),
     }
 }
+
+#[cfg(test)]
+mod filter_mask_tests;
