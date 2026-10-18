@@ -194,3 +194,23 @@ fn font_cycle_in_options_bar_edits_the_layer_and_can_be_undone() {
     h.state_mut().run("edit.undo", json!({})).unwrap();
     assert_eq!(font(h.state()), "Inter");
 }
+
+#[test]
+fn a_picked_family_is_listed_under_recent_fonts_next_time() {
+    let mut h = harness();
+    let mut app = crate::PhotocraftApp::new(photocraft_engine::Session::new(), crate::Services::default());
+    crate::font_recents::sync(&mut app, &h.ctx);
+    open(&mut h);
+    assert!(h.query_by_label("Recent fonts").is_none(), "nothing picked yet");
+    // The last family is scrolled out of view: search for it.
+    h.get_by_role(Role::TextInput).type_text("zeta");
+    h.run();
+    h.get_by_label("Zeta Sans").click();
+    h.run();
+    assert_eq!(h.state().current, "Zeta Sans");
+    crate::font_recents::sync(&mut app, &h.ctx);
+    open(&mut h);
+    assert!(h.query_by_label("Recent fonts").is_some());
+    assert_eq!(h.query_all_by_label("Zeta Sans").count(), 2, "once under Recent fonts, once in the full list");
+    assert_eq!(app.session.prefs().dialogs.get(crate::font_recents::KEY), Some(&serde_json::json!(["Zeta Sans"])));
+}
