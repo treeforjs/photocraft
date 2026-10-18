@@ -3468,6 +3468,9 @@ theme	Warm	ウォーム
 	New brush “{name}” from the image	画像から新規ブラシ「{name}」
 	Float Panel Group	パネルグループをフローティング
 	Dock Panel Group	パネルグループをドッキング
+	No Suggestions	候補なし
+	Add to Dictionary	辞書に追加
+	The text changed; right-click the word again.	テキストが変更されました。もう一度単語を右クリックしてください。
 	Show rulers for new documents	新規ドキュメントで定規を表示
 	Animations	アニメーション
 	Canvas pattern in dark themes	ダークテーマでカンバスのパターンを表示
