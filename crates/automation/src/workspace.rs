@@ -914,6 +914,8 @@ mod tests {
                 | "shape.create"
                 | "shape.edit"
                 | "shape.info"
+                | "type.create"
+                | "type.edit"
                 | "shape.presets.list"
                 | "shape.presets.new"
                 | "path.list"
