@@ -400,6 +400,13 @@ fn type_checked(app: &PhotocraftApp, id: &str) -> Option<bool> {
     if let Some(k) = id.strip_prefix("type.orientation.") {
         return Some((t.orientation == photocraft_doc::text::Orientation::Vertical) == (k == "vertical"));
     }
+    if let Some(k) = id.strip_prefix("type.openType.numerals.") {
+        return Some(t.char_runs().first().is_some_and(|r| photocraft_engine::type_extra_cmds::numerals_of(&r.style) == k));
+    }
+    if let Some(n) = id.strip_prefix("type.openType.stylisticSet").and_then(|n| n.parse::<u8>().ok()) {
+        let tag = format!("ss{n:02}");
+        return Some(t.char_runs().first().is_some_and(|r| photocraft_engine::type_extra_cmds::feature_on(&r.style, &tag)));
+    }
     let tag = match id.strip_prefix("type.openType.")? {
         "standardLigatures" => "liga",
         "contextualAlternates" => "calt",
