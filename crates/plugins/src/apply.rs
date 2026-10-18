@@ -2,7 +2,9 @@
 
 use photocraft_color::{ColorMode, PixelFormat, SampleType};
 use photocraft_geom::{Rect, TILE_SIZE, TileCoord};
-use photocraft_raster::Surface;
+use std::sync::atomic::{AtomicU32, AtomicUsize, Ordering};
+
+use photocraft_raster::{Interrupt, Surface};
 use serde_json::{Value, json};
 
 use crate::manifest::Area;
@@ -91,6 +93,13 @@ impl Plugin {
     /// returns the new surface. `canvas` is the document bounds; `selection` (coverage in
     /// channel 0) limits and feathers the result, as for built-in filters.
     pub fn apply(&self, surface: &Surface, canvas: Rect, selection: Option<&Surface>, params: &Value) -> Result<Surface> {
+        self.apply_with(surface, canvas, selection, params, Interrupt::NONE)
+    }
+
+    /// [`Plugin::apply`] reporting progress to `ctl` (bands done, plus what a v2 module reports
+    /// through `photocraft.progress` within a band) and ending with [`Error::Cancelled`] soon
+    /// after `ctl` is cancelled.
+    pub fn apply_with(&self, surface: &Surface, canvas: Rect, selection: Option<&Surface>, params: &Value, ctl: Interrupt) -> Result<Surface> {
         let resolved = self.manifest().resolve_params(params)?;
         let area = self.output_area(surface, canvas, selection);
         let mut out = surface.clone();
@@ -122,10 +131,24 @@ impl Plugin {
                 tx += across;
             }
         }
-        let deadline = Deadline::new(self.limits());
+        let deadline = Deadline::new(self.limits(), ctl);
         let ctx = BandCtx { surface, extent, canvas, selection, fmt, ov, params: Value::Object(resolved) };
+        // Overall progress: finished bands plus the in-band fraction a module reports, never
+        // moving backwards although bands finish out of order.
+        let total = bands.len().max(1) as f32;
+        let (finished, shown) = (AtomicUsize::new(0), AtomicU32::new(0f32.to_bits()));
+        let report = |extra: f32| {
+            let f = ((finished.load(Ordering::Relaxed) as f32 + extra) / total).clamp(0.0, 1.0);
+            if shown.fetch_max(f.to_bits(), Ordering::Relaxed) < f.to_bits() {
+                ctl.progress(f);
+            }
+        };
         let run = |b: &Rect| {
-            let r = self.run_band(&ctx, *b, &deadline).map(|data| encode_band(surface, *b, &data));
+            let r = self.run_band(&ctx, *b, &deadline, &report).map(|data| encode_band(surface, *b, &data));
+            if r.is_ok() {
+                finished.fetch_add(1, Ordering::Relaxed);
+                report(0.0);
+            }
             if let Err(error) = &r {
                 deadline.abort(error.clone());
             }
@@ -154,7 +177,7 @@ impl Plugin {
         Ok(out)
     }
 
-    fn run_band(&self, c: &BandCtx, band: Rect, deadline: &Deadline) -> Result<Vec<f32>> {
+    fn run_band(&self, c: &BandCtx, band: Rect, deadline: &Deadline, progress: &(dyn Fn(f32) + Sync)) -> Result<Vec<f32>> {
         let n = c.fmt.channels();
         let input = band.inflate(c.ov);
         let mut data = read_clamped(c.surface, input, c.extent);
@@ -172,8 +195,9 @@ impl Plugin {
         }
         let pbytes = serde_json::to_vec(&params).map_err(|e| Error::Params(e.to_string()))?;
         let orig_full = data.clone();
-        let run =
-            std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| self.filter_buffer(&mut data, iw, ih, n as u32, format_code(c.fmt), &pbytes, deadline)));
+        let run = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            self.filter_buffer(&mut data, iw, ih, n as u32, format_code(c.fmt), &pbytes, deadline, progress)
+        }));
         run.map_err(|_| Error::Trap("the runtime panicked".into()))??;
         // Keep the band (drop the overlap margins), sanitise and blend by the selection.
         let (bw, bh) = (band.width() as usize, band.height() as usize);

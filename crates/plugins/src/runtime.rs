@@ -2,16 +2,22 @@
 
 use std::sync::{Arc, Mutex};
 
+use photocraft_raster::Interrupt;
 use wasmi::{
-    Config, EnforcedLimits, Engine, Instance, Linker, Memory, Module, Store, StoreLimits, StoreLimitsBuilder, TypedFunc, TypedResumableCall, WasmParams,
-    WasmResults,
+    Caller, Config, EnforcedLimits, Engine, Instance, Linker, Memory, Module, Store, StoreLimits, StoreLimitsBuilder, TypedFunc, TypedResumableCall,
+    WasmParams, WasmResults,
 };
 
 use crate::manifest::Manifest;
 use crate::{Error, Result};
 
-/// The plug-in ABI version this host implements (`pc_abi_version` must return it).
-pub const ABI_VERSION: i32 = 1;
+/// The newest plug-in ABI version this host implements. `pc_abi_version` may return any version
+/// from [`MIN_ABI_VERSION`] up to this one.
+pub const ABI_VERSION: i32 = 2;
+/// The oldest ABI version still accepted (v1 modules run unchanged).
+pub const MIN_ABI_VERSION: i32 = 1;
+/// The import module of the host functions (ABI v2): `photocraft.progress`.
+pub const HOST_MODULE: &str = "photocraft";
 
 /// Fuel handed out per slice; between slices the host checks the deadline and the abort flag.
 const FUEL_SLICE: u64 = 20_000_000;
@@ -67,22 +73,25 @@ impl std::fmt::Debug for Plugin {
     }
 }
 
-/// When a run must stop: a wall-clock deadline (native) and a flag shared by parallel bands.
+/// When a run must stop: a wall-clock deadline (native), the caller's cancellation and a flag
+/// shared by parallel bands.
 #[derive(Clone)]
-pub(crate) struct Deadline {
+pub(crate) struct Deadline<'a> {
     #[cfg(not(target_arch = "wasm32"))]
     at: std::time::Instant,
     abort: Arc<Mutex<Option<Error>>>,
+    ctl: Interrupt<'a>,
 }
 
-impl Deadline {
-    pub(crate) fn new(limits: &Limits) -> Self {
+impl<'a> Deadline<'a> {
+    pub(crate) fn new(limits: &Limits, ctl: Interrupt<'a>) -> Self {
         #[cfg(target_arch = "wasm32")]
         let _ = limits;
         Self {
             #[cfg(not(target_arch = "wasm32"))]
             at: std::time::Instant::now() + std::time::Duration::from_millis(limits.wall_time_ms),
             abort: Arc::new(Mutex::new(None)),
+            ctl,
         }
     }
     pub(crate) fn abort(&self, error: Error) {
@@ -94,6 +103,10 @@ impl Deadline {
         if let Some(error) = self.abort.lock().unwrap_or_else(std::sync::PoisonError::into_inner).clone() {
             return Err(error);
         }
+        if self.ctl.cancelled() {
+            self.abort(Error::Cancelled);
+            return Err(Error::Cancelled);
+        }
         #[cfg(not(target_arch = "wasm32"))]
         if std::time::Instant::now() >= self.at {
             let error = Error::Limit("time budget".into());
@@ -104,9 +117,28 @@ impl Deadline {
     }
 }
 
+/// What the host functions see: the memory limit, the module's latest progress report and
+/// whether the run has been cancelled.
+pub(crate) struct Host {
+    limits: StoreLimits,
+    /// Fraction of this call done, as last reported through `photocraft.progress`.
+    progress: Option<f32>,
+    cancelled: bool,
+}
+
+/// `photocraft.progress(done, total) -> i32`: records `done / total` and returns 1 once the run
+/// is cancelled (the module should then return early), else 0. Bad values are ignored.
+fn host_progress(mut caller: Caller<'_, Host>, done: i32, total: i32) -> i32 {
+    let host = caller.data_mut();
+    if total > 0 {
+        host.progress = Some((done.max(0) as f32 / total as f32).clamp(0.0, 1.0));
+    }
+    i32::from(host.cancelled)
+}
+
 /// One live instance: a store with its own memory limit, and the module's exports.
 pub(crate) struct Live {
-    store: Store<StoreLimits>,
+    store: Store<Host>,
     instance: Instance,
     memory: Memory,
 }
@@ -128,23 +160,27 @@ impl Plugin {
         config.consume_fuel(true).enforced_limits(EnforcedLimits::strict()).set_max_recursion_depth(limits.max_recursion_depth.max(16));
         let engine = Engine::new(&config);
         let module = Module::new(&engine, bytes).map_err(|e| Error::Module(e.to_string()))?;
-        if let Some(imp) = module.imports().next() {
+        if let Some(imp) = module.imports().find(|i| !(i.module() == HOST_MODULE && i.name() == "progress")) {
             return Err(Error::Abi(format!(
-                "the module imports `{}.{}`, but plug-ins get no host imports (no WASI, files or network)",
+                "the module imports `{}.{}`, but plug-ins get no host imports beyond `{HOST_MODULE}.progress` (no WASI, files or network)",
                 imp.module(),
                 imp.name()
             )));
         }
+        let imports_host = module.imports().next().is_some();
         let mut p = Plugin { manifest: placeholder_manifest(), engine, module, limits, size: bytes.len(), source: None };
-        let deadline = Deadline::new(&p.limits);
+        let deadline = Deadline::new(&p.limits, Interrupt::NONE);
         let mut live = p.instantiate(&deadline)?;
         let version: TypedFunc<(), i32> = live.func("pc_abi_version")?;
-        let v = p.call(&mut live, &version, (), p.limits.fuel_base, &deadline)?;
-        if v != ABI_VERSION {
-            return Err(Error::Abi(format!("pc_abi_version returned {v}; this host implements version {ABI_VERSION}")));
+        let v = p.call(&mut live, &version, (), p.limits.fuel_base, &deadline, &|_| {})?;
+        if !(MIN_ABI_VERSION..=ABI_VERSION).contains(&v) {
+            return Err(Error::Abi(format!("pc_abi_version returned {v}; this host implements versions {MIN_ABI_VERSION} to {ABI_VERSION}")));
+        }
+        if v < 2 && imports_host {
+            return Err(Error::Abi(format!("host imports need ABI version 2, but pc_abi_version returned {v}")));
         }
         let manifest: TypedFunc<(), i64> = live.func("pc_manifest")?;
-        let packed = p.call(&mut live, &manifest, (), p.limits.fuel_base, &deadline)? as u64;
+        let packed = p.call(&mut live, &manifest, (), p.limits.fuel_base, &deadline, &|_| {})? as u64;
         let (ptr, len) = ((packed & 0xffff_ffff) as usize, (packed >> 32) as usize);
         if len > crate::manifest::MAX_MANIFEST_BYTES {
             return Err(Error::Manifest(format!("manifest is {len} bytes (limit {})", crate::manifest::MAX_MANIFEST_BYTES)));
@@ -182,18 +218,29 @@ impl Plugin {
     pub(crate) fn instantiate(&self, deadline: &Deadline) -> Result<Live> {
         deadline.check()?;
         let limits = StoreLimitsBuilder::new().memory_size(self.limits.max_memory_bytes).memories(1).tables(4).table_elements(100_000).instances(1).build();
-        let mut store = Store::new(&self.engine, limits);
-        store.limiter(|l| l);
+        let mut store = Store::new(&self.engine, Host { limits, progress: None, cancelled: false });
+        store.limiter(|h| &mut h.limits);
         // The start function (if any) runs on this fuel.
         store.set_fuel(self.limits.fuel_base).map_err(wasm_err)?;
-        let linker = Linker::<StoreLimits>::new(&self.engine);
+        let mut linker = Linker::<Host>::new(&self.engine);
+        linker.func_wrap(HOST_MODULE, "progress", host_progress).map_err(|e| Error::Abi(e.to_string()))?;
         let instance = linker.instantiate_and_start(&mut store, &self.module).map_err(wasm_err)?;
         let memory = instance.get_memory(&store, "memory").ok_or_else(|| Error::Abi("the module must export its linear memory as `memory`".into()))?;
         Ok(Live { store, instance, memory })
     }
 
     /// Calls `f` with at most `fuel` instructions, in slices, checking the deadline between them.
-    pub(crate) fn call<P: WasmParams, R: WasmResults>(&self, live: &mut Live, f: &TypedFunc<P, R>, params: P, fuel: u64, deadline: &Deadline) -> Result<R> {
+    /// Between slices the module's latest `photocraft.progress` report goes to `progress` and a
+    /// cancellation is made visible to it (and, if it doesn't return, ends the call).
+    pub(crate) fn call<P: WasmParams, R: WasmResults>(
+        &self,
+        live: &mut Live,
+        f: &TypedFunc<P, R>,
+        params: P,
+        fuel: u64,
+        deadline: &Deadline,
+        progress: &dyn Fn(f32),
+    ) -> Result<R> {
         let mut left = fuel;
         let give = left.min(FUEL_SLICE);
         left -= give;
@@ -201,14 +248,31 @@ impl Plugin {
         let mut call = f.call_resumable(&mut live.store, params).map_err(wasm_err)?;
         loop {
             match call {
-                TypedResumableCall::Finished(r) => return Ok(r),
+                TypedResumableCall::Finished(r) => {
+                    if live.store.data().cancelled {
+                        return Err(Error::Cancelled);
+                    }
+                    if let Some(p) = live.store.data_mut().progress.take() {
+                        progress(p);
+                    }
+                    return Ok(r);
+                }
                 TypedResumableCall::HostTrap(_) => return Err(Error::Trap("unexpected host trap".into())),
                 TypedResumableCall::OutOfFuel(inv) => {
                     let need = inv.required_fuel();
                     if left == 0 || need > left {
                         return Err(Error::Limit("instruction budget".into()));
                     }
-                    deadline.check()?;
+                    if let Some(p) = live.store.data_mut().progress.take() {
+                        progress(p);
+                    }
+                    if let Err(e) = deadline.check() {
+                        if e != Error::Cancelled || live.store.data().cancelled {
+                            return Err(e);
+                        }
+                        // One more slice for the module to see the cancellation and return.
+                        live.store.data_mut().cancelled = true;
+                    }
                     let give = left.min(FUEL_SLICE.max(need));
                     left -= give;
                     live.store.set_fuel(give).map_err(wasm_err)?;
@@ -220,14 +284,24 @@ impl Plugin {
 
     /// Runs `pc_filter` on `data` (interleaved `f32`, `w × h × channels`) in a fresh instance.
     #[allow(clippy::too_many_arguments)]
-    pub(crate) fn filter_buffer(&self, data: &mut [f32], w: u32, h: u32, channels: u32, format: u32, params: &[u8], deadline: &Deadline) -> Result<()> {
+    pub(crate) fn filter_buffer(
+        &self,
+        data: &mut [f32],
+        w: u32,
+        h: u32,
+        channels: u32,
+        format: u32,
+        params: &[u8],
+        deadline: &Deadline,
+        progress: &dyn Fn(f32),
+    ) -> Result<()> {
         let bytes = data.len().checked_mul(4).filter(|b| *b <= i32::MAX as usize && *b + params.len() <= self.limits.max_memory_bytes);
         let bytes = bytes.ok_or_else(|| Error::Limit("memory budget (band too large)".into()))?;
         let mut live = self.instantiate(deadline)?;
         let alloc: TypedFunc<i32, i32> = live.func("pc_alloc")?;
         let filter: TypedFunc<FilterArgs, i32> = live.func("pc_filter")?;
-        let ptr = self.call(&mut live, &alloc, bytes as i32, self.limits.fuel_base, deadline)? as u32 as usize;
-        let pptr = self.call(&mut live, &alloc, params.len().max(1) as i32, self.limits.fuel_base, deadline)? as u32 as usize;
+        let ptr = self.call(&mut live, &alloc, bytes as i32, self.limits.fuel_base, deadline, &|_| {})? as u32 as usize;
+        let pptr = self.call(&mut live, &alloc, params.len().max(1) as i32, self.limits.fuel_base, deadline, &|_| {})? as u32 as usize;
         if ptr == 0 || pptr == 0 {
             return Err(Error::Failed("pc_alloc returned 0 (out of memory)".into()));
         }
@@ -245,7 +319,7 @@ impl Plugin {
         }
         let fuel = self.limits.fuel_base.saturating_add((data.len() as u64).saturating_mul(self.limits.fuel_per_sample));
         let args = (ptr as i32, bytes as i32, w as i32, h as i32, channels as i32, format as i32, pptr as i32, params.len() as i32);
-        let rc = self.call(&mut live, &filter, args, fuel, deadline)?;
+        let rc = self.call(&mut live, &filter, args, fuel, deadline, progress)?;
         if rc != 0 {
             return Err(Error::Failed(format!("pc_filter returned error code {rc}")));
         }

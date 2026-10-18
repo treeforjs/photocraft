@@ -1,4 +1,4 @@
-# Plug-ins: the WebAssembly plug-in API (ABI v1)
+# Plug-ins: the WebAssembly plug-in API (ABI v2)
 
 PhotoCraft does not host native Photoshop plug-ins (`.8BF`, CEP, UXP): that needs unsafe FFI into
 arbitrary machine code and cannot work in the browser build. Instead, plug-ins are **WebAssembly
@@ -38,7 +38,7 @@ build. Limits (`photocraft_plugins::Limits`, defaults):
 
 | Limit | Default | On violation |
 |---|---|---|
-| Host imports | none: no WASI, file system, network, clock or randomness | module rejected at install |
+| Host imports | only `photocraft.progress` (ABI v2); no WASI, file system, network, clock or randomness | module rejected at install |
 | Module size | 32 MiB | rejected |
 | Linear memory | 512 MiB per instance | `memory.grow` returns -1; oversized initial memory fails |
 | Instructions (fuel) | 50 M per call + 4,000 per sample for `pc_filter` | `Limit("instruction budget")` |
@@ -60,6 +60,9 @@ stack, which aborts the process instead of returning an error.
 
 ## ABI v1
 
+ABI v1 is the base contract; [ABI v2](#abi-v2) adds one optional host import. Modules that return
+`1` keep loading unchanged.
+
 A plug-in is a core WebAssembly module (MVP + the usual post-MVP features: bulk memory, sign
 extension, multi-value, saturating conversions; no SIMD, no memory64) with **no imports** and these
 exports. All integers are `i32` unless noted; pointers are offsets into the module's memory.
@@ -67,7 +70,7 @@ exports. All integers are `i32` unless noted; pointers are offsets into the modu
 | Export | Signature | Meaning |
 |---|---|---|
 | `memory` | memory | The module's linear memory. |
-| `pc_abi_version` | `() -> i32` | Must return `1`. |
+| `pc_abi_version` | `() -> i32` | `1` or `2` (see [ABI v2](#abi-v2)). |
 | `pc_manifest` | `() -> i64` | `(len << 32) \| ptr` of the UTF-8 manifest JSON (≤ 64 KiB). |
 | `pc_alloc` | `(size) -> ptr` | A block of `size` bytes the host may write, or `0` on failure. Never freed: each band gets a fresh instance. |
 | `pc_filter` | `(buf, buf_len, width, height, channels, format, params, params_len) -> i32` | Filters the pixels in place; `0` = success, anything else is an error code. |
@@ -159,6 +162,24 @@ that source. Any language that targets core WebAssembly works (C, Zig, AssemblyS
 long as the module has no imports: in Rust, that means `no_std` or a `std` build that never touches
 WASI.
 
+## ABI v2
+
+A module whose `pc_abi_version` returns `2` may import one host function:
+
+| Import | Signature | Meaning |
+|---|---|---|
+| `photocraft.progress` | `(done: i32, total: i32) -> i32` | Reports `done / total` of the current band (clamped to 0–1; ignored when `total <= 0`). Returns `0` to keep going, `1` once the user has cancelled. |
+
+`plugin.run` is a background job: the progress bar shows finished bands plus the reported fraction
+of running ones, and Esc / Cancel stops it. A cooperative plug-in sees `1` from `progress` and
+should return a non-zero code soon. The host does not rely on that: it checks for cancellation every
+20 M instructions and stops a module that ignores the flag after one more slice. A cancelled run
+leaves the document untouched, even if the module finished its band. Any other import, or the
+`progress` import in a module that declares v1, is rejected at install.
+
+Filter › Last Filter (`filter.lastFilter`) repeats the most recent `plugin.run` with the same plug-in,
+layer and parameters, like any built-in filter.
+
 ## Performance
 
 The interpreter costs roughly 10–100× native speed per instruction, so plug-ins suit per-pixel and
@@ -169,8 +190,6 @@ RGBA 8-bit layer (24 MP, release, 14-core Apple Silicon under heavy load) took 1
 `cargo run --release -p photocraft-plugins --example bench_invert`). Peak extra memory is about three bands per worker thread (input,
 original for the selection blend, and the instance's memory), i.e. ~12 MiB per thread.
 
-## Not in v1
+## Not in v2
 
-- Panel / UI plug-ins, plug-ins that read other layers or documents, host callbacks (progress,
-  cancel), plug-in-provided file formats.
-- Filter › Last Filter does not repeat plug-in runs yet.
+- Panel / UI plug-ins, plug-ins that read other layers or documents, plug-in-provided file formats.
