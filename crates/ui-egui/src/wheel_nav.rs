@@ -4,7 +4,8 @@
 //! - ⌥/Alt + wheel zooms around the pointer, 5% per wheel notch, applied the frame it arrives.
 //! - Preferences › General › Zoom with Scroll Wheel swaps the two: the wheel zooms and
 //!   ⌥/Alt + wheel scrolls.
-//! - A trackpad pinch zooms around the pointer.
+//! - A trackpad pinch zooms around the pointer (unless Preferences › Enhanced Controls › Zoom with
+//!   Trackpad Pinch is off).
 //!
 //! [`configure`] makes egui fold ⌘/Ctrl + wheel into a sideways scroll as it does ⇧ + wheel, so
 //! only a real pinch (egui's `Event::Zoom`, or a touch screen) reaches `zoom_delta`. macOS and
@@ -134,8 +135,9 @@ fn alt_id() -> Id {
 }
 
 /// Read this frame's wheel input. Call it every frame (hovered or not) so the Alt state of the
-/// gesture follows the latest wheel event.
-pub fn read(ctx: &Context, zoom_with_wheel: bool) -> Option<Wheel> {
+/// gesture follows the latest wheel event. `pinch` is Preferences › Enhanced Controls › Zoom with
+/// Trackpad Pinch: off, a pinch leaves the view alone.
+pub fn read(ctx: &Context, zoom_with_wheel: bool, pinch: bool) -> Option<Wheel> {
     let notch = ctx.options(|o| o.input_options.line_scroll_speed);
     let (scroll, zoom_delta, latest, wheel, page) = ctx.input(|i| {
         let latest = i.events.iter().rev().find_map(|e| match e {
@@ -150,7 +152,7 @@ pub fn read(ctx: &Context, zoom_with_wheel: bool) -> Option<Wheel> {
                 _ => None,
             })
             .collect();
-        (i.smooth_scroll_delta, i.zoom_delta(), latest, wheel, i.content_rect().height())
+        (i.smooth_scroll_delta, if pinch { i.zoom_delta() } else { 1.0 }, latest, wheel, i.content_rect().height())
     });
     let alt = match latest {
         Some(a) => {
@@ -195,6 +197,10 @@ mod tests {
     /// Feed `events` through an egui context set up like the app's (`legacy`: the Windows pinch
     /// fold on) and add up what the wheel did to the view over the following second.
     fn gesture(frames: Vec<Vec<Event>>, zoom_with_wheel: bool, legacy: bool) -> (Vec2, f32) {
+        gesture_with(frames, zoom_with_wheel, legacy, true)
+    }
+
+    fn gesture_with(frames: Vec<Vec<Event>>, zoom_with_wheel: bool, legacy: bool, pinch: bool) -> (Vec2, f32) {
         let ctx = Context::default();
         configure(&ctx);
         let (mut pan, mut zoom) = (Vec2::ZERO, 1.0);
@@ -205,7 +211,7 @@ mod tests {
             if legacy {
                 fold_legacy_pinch(&ctx, &mut raw);
             }
-            let mut out = ctx.run_ui(raw, |ui| match read(ui.ctx(), zoom_with_wheel) {
+            let mut out = ctx.run_ui(raw, |ui| match read(ui.ctx(), zoom_with_wheel, pinch) {
                 Some(Wheel::Pan(d)) => pan += d,
                 Some(Wheel::Zoom(f)) => zoom *= f,
                 None => {}
@@ -299,6 +305,16 @@ mod tests {
         assert!(pan == Vec2::ZERO && (zoom - (speed * 40.0 * 0.75).exp()).abs() < 1e-4, "the pinch zooms: {pan:?} {zoom}");
         let (pan, zoom) = gesture(vec![vec![wheel(Vec2::new(0.0, 1.0), CTRL)]], false, true);
         assert!(near(pan, Vec2::new(40.0, 0.0)) && zoom == 1.0, "Ctrl + mouse wheel scrolls sideways: {pan:?} {zoom}");
+    }
+
+    #[test]
+    fn zoom_with_trackpad_pinch_off_ignores_the_pinch_only() {
+        let (pan, zoom) = gesture_with(vec![vec![Event::Zoom(1.1)], vec![Event::Zoom(1.1)]], false, false, false);
+        assert!(pan == Vec2::ZERO && zoom == 1.0, "{pan:?} {zoom}");
+        let (pan, zoom) = gesture_with(vec![vec![wheel(Vec2::new(0.0, 0.5), CTRL)]], false, true, false);
+        assert!(pan == Vec2::ZERO && zoom == 1.0, "a Windows touchpad pinch is ignored too: {pan:?} {zoom}");
+        let (pan, zoom) = gesture_with(vec![vec![wheel(Vec2::new(0.0, 1.0), Modifiers::ALT)]], false, false, false);
+        assert!(pan == Vec2::ZERO && (zoom - NOTCH).abs() < 1e-4, "⌥ + wheel still zooms: {pan:?} {zoom}");
     }
 
     #[test]
