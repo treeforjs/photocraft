@@ -46,6 +46,7 @@ pub mod color_picker_ui;
 pub mod color_range_ui;
 pub mod comps_ui;
 pub mod control;
+pub mod corner_radius_ui;
 pub mod credits;
 pub mod crop_overlay;
 pub mod crop_shield;
@@ -543,6 +544,8 @@ pub struct PhotocraftApp {
     pub(crate) move_box: Option<move_ui::MoveBox>,
     /// The newest document id seen, for Show Rulers for New Documents (rulers.rs).
     pub(crate) newest_doc: u64,
+    /// A live rectangle's corner radius drag (corner_radius_ui.rs).
+    pub(crate) radius_drag: Option<corner_radius_ui::RadiusDrag>,
     /// Crop tool gesture in progress (see `crop_ui`).
     pub(crate) crop: crop_ui::CropState,
     /// Type tool layout cache: ((doc, revision, layer), layout).
@@ -653,6 +656,7 @@ impl PhotocraftApp {
             guide_drag: None,
             move_box: None,
             newest_doc: 0,
+            radius_drag: None,
             crop: Default::default(),
             hover_doc: None,
             clone_preview: None,
