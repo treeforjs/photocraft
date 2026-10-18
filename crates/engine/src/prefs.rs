@@ -898,7 +898,6 @@ pub const HIDDEN_UNTIL_IMPLEMENTED: &[&str] = &[
     "type.missingGlyphProtection",
     "type.showFontNamesInEnglish",
     "type.textEngine",
-    "type.fontPreview",
     "enhancedControls.scrubbySliderAcceleration",
     "enhancedControls.touchGestures",
     "rawDefaults.colorSpace",
