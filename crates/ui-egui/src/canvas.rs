@@ -2570,6 +2570,22 @@ pub fn canvas_view(app: &mut PhotocraftApp, ui: &mut egui::Ui, idx: usize, rect:
             crate::color_range_ui::canvas_eyedropper(app, &ctx, p, press);
         }
     }
+    // Preferences › Tools › Enable Flick Panning: a Hand drag let go while moving glides on.
+    let flick = egui::Id::new(("pc-flick-pan", idx));
+    let glide = if tool == Tool::Hand && response.dragged() {
+        crate::flick_pan::track(&ctx, flick, response.drag_delta());
+        None
+    } else {
+        if tool == Tool::Hand && response.drag_stopped() {
+            crate::flick_pan::release(&ctx, flick, app.session.prefs().tools.enable_flick_panning);
+        }
+        crate::flick_pan::step(&ctx, flick)
+    };
+    if let Some(g) = glide {
+        let d = xf.unmap_vec(g) / (view.zoom / ppp);
+        view.center[0] -= d.x;
+        view.center[1] -= d.y;
+    }
     if tool == Tool::Hand && response.dragged() {
         let d = xf.unmap_vec(response.drag_delta()) / (view.zoom / ppp);
         view.center[0] -= d.x;
