@@ -515,6 +515,7 @@ fn shape_info(s: &Session, id: LayerId) -> Result<Value> {
         "live": sh.live.as_ref().map(live_json),
         "kind": sh.live.as_ref().map_or("path", live_kind),
         "bounds": bounds,
+        "feather": sh.feather,
     }))
 }
 
@@ -640,6 +641,10 @@ fn shape_edit(s: &mut Session, p: &Value) -> Result<Value> {
         }
         if let Some(v) = p.get("stroke") {
             sh.stroke = parse_stroke(v, sh.stroke.clone(), fgc).map_err(|e| bad(CMD, e))?;
+        }
+        if let Some(v) = p.get("feather") {
+            let f = v.as_f64().filter(|f| f.is_finite()).ok_or_else(|| bad(CMD, "`feather` must be a number of pixels"))?;
+            sh.feather = f.clamp(0.0, f64::from(vector::feather::MAX_FEATHER)) as f32;
         }
         if let Some(n) = name {
             layer.name = n;
@@ -1390,7 +1395,7 @@ pub fn specs() -> Vec<CommandSpec> {
             "Edit Shape",
             [],
             leak(format!(
-                r##"{{"layer":id?,"path":{{…}}? (replaces; drops live shape),"kind":str?,"rect":[x,y,w,h]?,"radii":[tl,tr,br,bl]|r?,"sides":n?,"starRatio":r?,"from":[x,y]?,"to":[x,y]?,"weight":px? (live-shape params regenerate the path),"move":[dx,dy]?,"transform":[a,b,c,d,e,f]?,"op":"combine|…"? + "subpath":index? (default all but the first),"fillRule":"nonzero|evenodd"?,{fill}?,{stroke}? (merged into the current stroke),"name":str?}} → shape.info"##
+                r##"{{"layer":id?,"path":{{…}}? (replaces; drops live shape),"kind":str?,"rect":[x,y,w,h]?,"radii":[tl,tr,br,bl]|r?,"sides":n?,"starRatio":r?,"from":[x,y]?,"to":[x,y]?,"weight":px? (live-shape params regenerate the path),"move":[dx,dy]?,"transform":[a,b,c,d,e,f]?,"op":"combine|…"? + "subpath":index? (default all but the first),"fillRule":"nonzero|evenodd"?,{fill}?,{stroke}? (merged into the current stroke),"feather":px? (0–1000, softens the edges),"name":str?}} → shape.info"##
             )),
             has_layer,
             shape_edit
