@@ -151,6 +151,7 @@ fn layer_m(l: &Layer, sink: &mut dyn Sink) -> LayerM {
             path: s.path.clone(),
             stroke: s.stroke.clone(),
             live: s.live.clone(),
+            feather: s.feather,
         },
         LayerContent::Smart(s) => ContentM::Smart {
             source: match &s.source {
@@ -430,13 +431,14 @@ impl Loader<'_> {
                     warp: warp.clone(),
                 })
             }
-            ContentM::Shape { fill, cache, psd_raw, path, stroke, live } => LayerContent::Shape(ShapeLayer {
+            ContentM::Shape { fill, cache, psd_raw, path, stroke, live, feather } => LayerContent::Shape(ShapeLayer {
                 path: path.clone(),
                 fill: fill.clone(),
                 stroke: stroke.clone(),
                 live: live.clone(),
                 cache: self.opt_surface(cache)?,
                 psd_raw: self.opt_blob(psd_raw)?,
+                feather: if feather.is_finite() { feather.clamp(0.0, 1000.0) } else { 0.0 },
             }),
             ContentM::Smart { source, transform, smart_filters, cache, psd_raw, filters_enabled, filter_mask, warp, stack_mode, perspective } => {
                 LayerContent::Smart(SmartObject {
