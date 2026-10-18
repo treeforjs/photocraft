@@ -21,6 +21,7 @@ pub mod adjust_preview;
 pub mod adjust_ui;
 mod alt_grab;
 pub mod analysis_ui;
+pub mod appearance;
 pub mod artboard_ui;
 pub(crate) mod blend_preview;
 mod brand;
@@ -1247,6 +1248,7 @@ impl eframe::App for PhotocraftApp {
         self.last_frame_time = now;
         self.sync_views();
         widgets::set_field_resolution(ctx, self.session.active().map(|st| st.doc.resolution_dpi));
+        appearance::apply(self, ctx);
         self.check_gpu(ctx);
         #[cfg(all(debug_assertions, not(target_arch = "wasm32")))]
         if self.live_tokens.poll(ctx, self.ui.theme) {
