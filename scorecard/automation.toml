@@ -63,9 +63,9 @@ note = "No ONNX runtime dependency"
 [[item]]
 id = "AUTO-219-8"
 target = "xtask check that every panel button routes through a command id"
-status = "missing"
+status = "done"
 issue = 219
-note = "No such xtask check"
+note = "`cargo xtask ui-commands` (ci.yml, xtask ci) fails when non-test ui-egui code edits the live document, rewrites history or moves revisions outside a command; 7 listed exceptions with reasons (history folding, save bookkeeping)"
 
 [[item]]
 id = "AUTO-219-9"
