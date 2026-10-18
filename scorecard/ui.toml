@@ -99,9 +99,9 @@ note = "widgets.rs parse_px: pixel fields take px/in/cm/mm/pt/pica in + - * / ex
 [[item]]
 id = "UI-217-14"
 target = "Layers panel: wheel steps blend modes, drop on New/Trash duplicates/deletes, checker behind art"
-status = "partial"
+status = "done"
 issue = 217
-note = "panels.rs: the wheel steps the blend-mode dropdown (widgets::dropdown_wheel_hovered, #1747); trash is click-only, no drop on New/Trash, no checker behind art"
+note = "panels.rs: the wheel steps the blend-mode dropdown (widgets::dropdown_wheel_hovered, #1747); footer_drop: a row dropped on Trash deletes, on New Layer duplicates, on Group groups (#736; layer_row_ui/tests.rs drag_to Delete layer); draw_layer_thumb paints widgets::checker behind pixel thumbnails"
 
 [[item]]
 id = "UI-217-15"
