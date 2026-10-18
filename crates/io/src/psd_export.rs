@@ -340,7 +340,11 @@ impl Ex {
         };
         let mut mask = MaskData::None;
         // Vector mask density/feather live in the mask parameters, with or without a user mask.
-        let vector = l.vector_mask.as_ref().map(|vm| (vm.density, vm.feather));
+        // A shape's feather is its vector mask's (the shape's path is that mask in the file).
+        let vector = match &l.content {
+            LayerContent::Shape(sh) if sh.feather > 0.0 => Some((1.0, sh.feather)),
+            _ => l.vector_mask.as_ref().map(|vm| (vm.density, vm.feather)),
+        };
         if let Some(m) = &l.mask {
             let (md, ch) = self.mask(m, vector);
             mask = md;

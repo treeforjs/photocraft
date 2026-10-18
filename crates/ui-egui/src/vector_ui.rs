@@ -742,6 +742,14 @@ pub fn shape_properties(app: &mut PhotocraftApp, ui: &mut egui::Ui, id: photocra
                 }
             }
         });
+        // Softens the shape's edges, as a feathered vector mask would.
+        ui.horizontal(|ui| {
+            ui.label(egui::RichText::new(tl!("Feather")).color(t.text_dim).size(12.0));
+            let mut f = sh.feather;
+            if crate::widgets::value_field(ui, &mut f, 0.0..=1000.0, "px", 64.0).changed() {
+                edit = Some(json!({"feather": f, "coalesce": key("feather")}));
+            }
+        });
     }
     if let Some(live) = &sh.live
         && crate::props_layout::section(ui, "liveShape", tl!("Shape"))
