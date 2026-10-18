@@ -317,6 +317,9 @@ pub struct Tools {
     pub right_click_with_painting_tools: RightClickPaint,
     /// Pen tablets: pressure, tilt and rotation reach the brush (off: a pen paints like a mouse).
     pub use_tablet_pressure: bool,
+    /// How pen pressure maps onto every tool (TOOL-213-11): a light touch can paint firmly, or
+    /// only a firm press fully. Each Pen Pressure brush dynamic has its own curve on top.
+    pub pressure_curve: photocraft_paint::PressureCurve,
 }
 
 impl Default for Tools {
@@ -333,6 +336,7 @@ impl Default for Tools {
             double_click_layer_mask_launches_select_and_mask: true,
             right_click_with_painting_tools: RightClickPaint::BrushPicker,
             use_tablet_pressure: true,
+            pressure_curve: photocraft_paint::PressureCurve::LINEAR,
         }
     }
 }

@@ -2848,5 +2848,9 @@ theme	Warm	Hangat
 	Slant	Kemiringan
 	Optical Size	Ukuran optik
 	Optical size follows the font size	Ukuran optik mengikuti ukuran font
+	Pressure curve	Kurva Tekanan
+	Curve:	Kurva:
+	Firm	Tegas
+	How hard a pen press must be, for every tool. Double-click the graph to reset.	Seberapa kuat tekanan pena yang diperlukan, untuk semua alat. Klik dua kali grafik untuk mengatur ulang.
 	Import Image as Brush…	Impor Gambar sebagai Kuas…
 	New brush “{name}” from the image	Kuas baru “{name}” dari gambar

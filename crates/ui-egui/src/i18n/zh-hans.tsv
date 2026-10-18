@@ -2459,5 +2459,9 @@ theme	Warm	暖色
 	Slant	倾斜
 	Optical Size	光学尺寸
 	Optical size follows the font size	光学尺寸跟随字号
+	Pressure curve	压力曲线
+	Curve:	曲线：
+	Firm	偏硬
+	How hard a pen press must be, for every tool. Double-click the graph to reset.	所有工具需要的笔压力度。双击图表可重置。
 	Import Image as Brush…	将图像导入为画笔…
 	New brush “{name}” from the image	从图像新建画笔“{name}”
