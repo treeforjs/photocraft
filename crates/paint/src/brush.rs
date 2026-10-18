@@ -51,20 +51,24 @@ pub struct Dynamic {
     pub fade_steps: u32,
     /// 0..1 floor the control/jitter may reduce the value to (minimum diameter, roundness, depth…).
     pub minimum: f32,
+    /// How pen pressure maps onto this control when it is [`Control::PenPressure`] (on top of
+    /// the global curve in Preferences). Left out of the JSON when it is the straight line.
+    #[serde(skip_serializing_if = "crate::PressureCurve::is_linear")]
+    pub pressure_curve: crate::PressureCurve,
 }
 
 impl Default for Dynamic {
     fn default() -> Self {
-        Self { jitter: 0.0, control: Control::Off, fade_steps: 25, minimum: 0.0 }
+        Self { jitter: 0.0, control: Control::Off, fade_steps: 25, minimum: 0.0, pressure_curve: crate::PressureCurve::LINEAR }
     }
 }
 
 impl Dynamic {
     pub const fn controlled(control: Control) -> Self {
-        Self { jitter: 0.0, control, fade_steps: 25, minimum: 0.0 }
+        Self { jitter: 0.0, control, fade_steps: 25, minimum: 0.0, pressure_curve: crate::PressureCurve::LINEAR }
     }
     pub const fn jitter(jitter: f32) -> Self {
-        Self { jitter, control: Control::Off, fade_steps: 25, minimum: 0.0 }
+        Self { jitter, control: Control::Off, fade_steps: 25, minimum: 0.0, pressure_curve: crate::PressureCurve::LINEAR }
     }
     pub fn is_active(&self) -> bool {
         self.jitter > 0.0 || self.control != Control::Off
