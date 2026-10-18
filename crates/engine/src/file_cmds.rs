@@ -413,7 +413,8 @@ pub fn place_bytes(s: &mut Session, name: &str, bytes: Vec<u8>, linked: Option<S
     let (w, h) = (src.size.width as f64, src.size.height as f64);
     let scale = match f64_param(p, "scale") {
         Some(k) => (k / 100.0).max(1e-4),
-        None if p.get("fit").and_then(Value::as_bool) != Some(false) && (w > cw || h > ch) => (cw / w).min(ch / h),
+        // Preferences › General › Resize Image During Place decides when the call doesn't.
+        None if p.get("fit").and_then(Value::as_bool).unwrap_or(s.prefs().general.resize_image_during_place) && (w > cw || h > ch) => (cw / w).min(ch / h),
         None => 1.0,
     };
     let center = match p.get("center").and_then(Value::as_array) {
@@ -437,12 +438,24 @@ pub fn place_bytes(s: &mut Session, name: &str, bytes: Vec<u8>, linked: Option<S
     }
     let layer_name = stem(name);
     let label = if matches!(so.source, SmartSource::Linked { .. }) { "Place Linked" } else { PLACE_EMBEDDED };
+    // Preferences › General › Always Create Smart Objects when Placing off: an embedded place is
+    // an ordinary pixel layer (a linked one stays a smart object, it refers to its file).
+    let smart = linked_place(&so) || p.get("smartObject").and_then(Value::as_bool).unwrap_or(s.prefs().general.always_create_smart_objects_when_placing);
+    let content = match (smart, so.cache.clone()) {
+        (false, Some(px)) => LayerContent::Raster(px),
+        _ => LayerContent::Smart(so),
+    };
+    let smart = matches!(content, LayerContent::Smart(_));
     let id = s.edit(label, |doc, active| {
-        let id = doc.insert_above(*active, Layer::new(layer_name, LayerContent::Smart(so)));
+        let id = doc.insert_above(*active, Layer::new(layer_name, content));
         *active = Some(id);
         Ok(id)
     })?;
-    Ok(json!({"layer": id.0, "scale": scale * 100.0, "bounds": [dx, dy, dx + w * scale, dy + h * scale]}))
+    Ok(json!({"layer": id.0, "scale": scale * 100.0, "bounds": [dx, dy, dx + w * scale, dy + h * scale], "smartObject": smart}))
+}
+
+fn linked_place(so: &SmartObject) -> bool {
+    matches!(so.source, SmartSource::Linked { .. })
 }
 
 fn place(s: &mut Session, p: &Value, linked: bool) -> Result<Value> {
@@ -1259,13 +1272,19 @@ pub fn specs() -> Vec<CommandSpec> {
             "Place Embedded…",
             &["File"],
             None,
-            r##"{"path":str,"scale":%? (default: fit when larger than the canvas),"fit":bool=true,"center":[x,y]?}"##,
+            r##"{"path":str,"scale":%? (default: fit when larger than the canvas),"fit":bool? (default: Preferences › Resize Image During Place),"smartObject":bool? (default: Preferences › Always Create Smart Objects when Placing; false = a pixel layer),"center":[x,y]?}"##,
             native_doc,
             |s, p| place(s, p, false)
         ),
-        spec!("file.placeLinked", "Place Linked…", &["File"], None, r##"{"path":str,"scale":%?,"fit":bool=true,"center":[x,y]?}"##, native_doc, |s, p| place(
-            s, p, true
-        )),
+        spec!(
+            "file.placeLinked",
+            "Place Linked…",
+            &["File"],
+            None,
+            r##"{"path":str,"scale":%?,"fit":bool? (default: Preferences › Resize Image During Place),"center":[x,y]?}"##,
+            native_doc,
+            |s, p| place(s, p, true)
+        ),
         spec!(
             "file.fileInfo",
             "File Info…",
