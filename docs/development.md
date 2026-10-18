@@ -257,6 +257,7 @@ translations do not affect the denominator. Unregistered locale TSV files are ig
   - byte-exact round trips
   - malformed-input sweeps (truncate at every offset)
   - fuzz targets (`crates/*/fuzz`)
+  - a third-party reader: `crates/io/tests/oracle_pillow.rs` re-opens our flat exports and a layered PSD with [Pillow](https://python-pillow.org) (`python3`, run as an external program) and compares pixels. It skips without Pillow; Linux CI installs `python3-pil` and sets `PHOTOCRAFT_ORACLE_REQUIRED=1` so it can't skip there
 - **Real-file corpora** in `corpus/` (gitignored, fetched at pinned commits, sha256-verified): opt-in locally through the `corpus` cargo feature, always run in CI. See [Test corpora](#test-corpora).
 - **Composite oracle:** a PSD's embedded merged image is compared with our compositor's output. The pass rate is tracked in the roadmap.
 - **UI:** unit tests for widgets and state, plus screenshot checks through the control channel.

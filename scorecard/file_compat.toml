@@ -176,9 +176,9 @@ note = "EXR: corpus/exr (the OpenEXR deep test images, pinned) is read by codecs
 [[item]]
 id = "FILE-216-4"
 target = "Exports re-open in a third-party oracle editor"
-status = "missing"
+status = "partial"
 issue = 216
-note = "The round trip is our export -> our import"
+note = "io/tests/oracle_pillow.rs: Pillow (python3-pil, required in Linux CI) re-opens PNG, TIFF (RGBA and CMYK), BMP, TGA, PPM, QOI, ICO, WebP, GIF, JPEG and a layered PSD's composite with matching pixels. Not covered: a full editor (GIMP, Krita) opening PSD layers, 16-bit and EXR exports"
 
 [[item]]
 id = "FILE-216-5"
