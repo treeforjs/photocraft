@@ -57,9 +57,9 @@ note = "palette.rs: note_recent from menus::invoke keeps the last 8 commands (de
 [[item]]
 id = "UI-217-8"
 target = "Tool-specific canvas right-click menu; right-click spelling suggestions in text fields"
-status = "partial"
+status = "done"
 issue = 217
-note = "paint_mouse.rs brush picker and canvas_tool_menu.rs selection actions; other tools and text spelling menus missing"
+note = "paint_mouse.rs brush picker; canvas_tool_menu.rs selection, path, shape and eyedropper menus; type_spell_menu.rs underlines misspelled words while typing and right-click lists suggestions, Add to Dictionary and Check Spelling"
 
 [[item]]
 id = "UI-217-9"

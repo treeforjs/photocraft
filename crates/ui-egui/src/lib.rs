@@ -163,6 +163,7 @@ pub mod tool_memory;
 pub mod transform_tex;
 pub mod transform_tool;
 pub mod type_panels_ui;
+pub mod type_spell_menu;
 pub mod type_tool;
 mod type_transform;
 mod variables_ui;
