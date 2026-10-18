@@ -81,6 +81,8 @@
 	Import	Importar
 	Browse…	Examinar…
 	Reveal in Finder	Mostrar en Finder
+	Reveal in Explorer	Mostrar en el Explorador
+	Show in File Manager	Mostrar en el gestor de archivos
 	File Info…	Información del archivo…
 	Print…	Imprimir…
 	Print One Copy	Imprimir un ejemplar
@@ -2166,7 +2168,7 @@
 	GPU Backend	Motor GPU
 	Details	Detalles
 	Rendering mode	Modo de renderizado
-	Freeze Lasso: drag to freeze an area, Alt-drag to thaw it (L)	Lazo de congelación: arrastre para congelar un área; Alt+arrastrar para descongelarla (L)
+	Freeze Lasso: drag to freeze an area, {key}-drag to thaw it (L)	Lazo de congelación: arrastre para congelar un área; {key}+arrastrar para descongelarla (L)
 	Shadow Clipping Warning (U)	Aviso de recorte de sombras (U)
 	Highlight Clipping Warning (O)	Aviso de recorte de luces (O)
 	Show Lab Color Readouts	Mostrar valores de color Lab

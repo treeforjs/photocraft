@@ -84,6 +84,8 @@
 	Import	Importuj
 	Browse…	Przeglądaj…
 	Reveal in Finder	Pokaż w Finderze
+	Reveal in Explorer	Pokaż w Eksploratorze
+	Show in File Manager	Pokaż w menedżerze plików
 	File Info…	Informacje o pliku…
 	Print…	Drukuj…
 	Print One Copy	Drukuj jedną kopię
@@ -2533,7 +2535,7 @@
 	GPU Backend	Backend GPU
 	Details	Szczegóły
 	Rendering mode	Tryb renderowania
-	Freeze Lasso: drag to freeze an area, Alt-drag to thaw it (L)	Lasso zamrażania: przeciągnij, aby zamrozić obszar, przeciągnij z Alt, aby go odmrozić (L)
+	Freeze Lasso: drag to freeze an area, {key}-drag to thaw it (L)	Lasso zamrażania: przeciągnij, aby zamrozić obszar, przeciągnij z {key}, aby go odmrozić (L)
 	Shadow Clipping Warning (U)	Ostrzeżenie o obcięciu cieni (U)
 	Highlight Clipping Warning (O)	Ostrzeżenie o obcięciu świateł (O)
 	Show Lab Color Readouts	Pokaż odczyty kolorów Lab
