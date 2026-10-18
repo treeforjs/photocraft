@@ -2436,3 +2436,6 @@ theme	Warm	暖色
 	New brush “{name}” from the image	從影像新增筆刷「{name}」
 	Float Panel Group	浮動面板群組
 	Dock Panel Group	停駐面板群組
+	Animations	動畫
+	Canvas pattern in dark themes	深色主題中的畫布圖樣
+	Canvas pattern in light themes	淺色主題中的畫布圖樣

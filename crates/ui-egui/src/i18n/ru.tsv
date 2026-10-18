@@ -2734,3 +2734,6 @@ theme	Warm	Тёплая
 	New brush “{name}” from the image	Новая кисть «{name}» из изображения
 	Float Panel Group	Открепить группу панелей
 	Dock Panel Group	Закрепить группу панелей
+	Animations	Анимация
+	Canvas pattern in dark themes	Узор холста в тёмных темах
+	Canvas pattern in light themes	Узор холста в светлых темах

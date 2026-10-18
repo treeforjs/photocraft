@@ -71,9 +71,9 @@ note = "prefs_ui.rs display_scale maps UiScale (75/100/115/125/150/175/200/250/3
 [[item]]
 id = "UI-217-10"
 target = "Appearance: animation toggle, canvas pattern toggle per theme, start-screen recents"
-status = "partial"
+status = "done"
 issue = 217
-note = "Start screen lists recents (canvas.rs home_recent); no animation toggle or per-theme canvas pattern"
+note = "Start screen lists recents (canvas.rs home_recent); Preferences > Interface Animations and Canvas pattern in dark / light themes (prefs.rs Interface, appearance.rs; test animations_and_the_canvas_pattern_follow_the_preferences)"
 
 [[item]]
 id = "UI-217-11"

@@ -3468,3 +3468,6 @@ theme	Warm	ウォーム
 	New brush “{name}” from the image	画像から新規ブラシ「{name}」
 	Float Panel Group	パネルグループをフローティング
 	Dock Panel Group	パネルグループをドッキング
+	Animations	アニメーション
+	Canvas pattern in dark themes	ダークテーマでカンバスのパターンを表示
+	Canvas pattern in light themes	ライトテーマでカンバスのパターンを表示
