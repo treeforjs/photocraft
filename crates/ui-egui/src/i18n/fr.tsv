@@ -2897,3 +2897,14 @@ theme	Warm	Chaud
 	Place as an embedded smart object (a copy)	Importer comme objet dynamique incorporé (une copie)
 	Place as a linked smart object that refers to the library's file	Importer comme objet dynamique lié qui renvoie au fichier de la bibliothèque
 	Added to the document's patterns:	Ajouté aux motifs du document :
+	Title	Titre
+	A short summary of the problem	Un bref résumé du problème
+	What happened?	Que s’est-il passé ?
+	Steps to reproduce, what you expected, what happened instead	Étapes pour reproduire, ce que vous attendiez, ce qui s’est passé à la place
+	Include diagnostics	Inclure les diagnostics
+	System (version, platform, GPU, displays)	Système (version, plateforme, GPU, écrans)
+	Open documents (size, mode, depth, layer count; no names)	Documents ouverts (taille, mode, profondeur, nombre de calques ; sans noms)
+	Recent notices (may name files)	Avis récents (peuvent nommer des fichiers)
+	This is everything that will be sent:	Voici tout ce qui sera envoyé :
+	Opens a new issue on GitHub in your browser; you can still edit it there.	Ouvre un nouveau ticket sur GitHub dans votre navigateur ; vous pourrez encore le modifier.
+	Open on GitHub	Ouvrir sur GitHub

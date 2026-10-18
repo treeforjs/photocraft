@@ -2488,3 +2488,14 @@ theme	Warm	Teplý
 	Place as an embedded smart object (a copy)	Umístit jako vložený inteligentní objekt (kopii)
 	Place as a linked smart object that refers to the library's file	Umístit jako propojený inteligentní objekt, který odkazuje na soubor knihovny
 	Added to the document's patterns:	Přidáno do vzorků dokumentu:
+	Title	Název
+	A short summary of the problem	Krátké shrnutí problému
+	What happened?	Co se stalo?
+	Steps to reproduce, what you expected, what happened instead	Kroky k reprodukci, co jste očekávali, co se stalo místo toho
+	Include diagnostics	Přiložit diagnostiku
+	System (version, platform, GPU, displays)	Systém (verze, platforma, GPU, displeje)
+	Open documents (size, mode, depth, layer count; no names)	Otevřené dokumenty (velikost, režim, hloubka, počet vrstev; bez názvů)
+	Recent notices (may name files)	Nedávná oznámení (mohou obsahovat názvy souborů)
+	This is everything that will be sent:	Toto je vše, co bude odesláno:
+	Opens a new issue on GitHub in your browser; you can still edit it there.	Otevře nový problém na GitHubu v prohlížeči; tam jej ještě můžete upravit.
+	Open on GitHub	Otevřít na GitHubu

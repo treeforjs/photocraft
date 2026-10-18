@@ -2884,3 +2884,14 @@ theme	Warm	Hangat
 	Place as an embedded smart object (a copy)	Tempatkan sebagai objek cerdas tersemat (salinan)
 	Place as a linked smart object that refers to the library's file	Tempatkan sebagai objek cerdas tertaut yang merujuk ke file pustaka
 	Added to the document's patterns:	Ditambahkan ke pola dokumen:
+	Title	Judul
+	A short summary of the problem	Ringkasan singkat masalah
+	What happened?	Apa yang terjadi?
+	Steps to reproduce, what you expected, what happened instead	Langkah untuk mereproduksi, apa yang Anda harapkan, apa yang terjadi sebagai gantinya
+	Include diagnostics	Sertakan diagnostik
+	System (version, platform, GPU, displays)	Sistem (versi, platform, GPU, layar)
+	Open documents (size, mode, depth, layer count; no names)	Dokumen terbuka (ukuran, mode, kedalaman, jumlah layer; tanpa nama)
+	Recent notices (may name files)	Pemberitahuan terbaru (mungkin menyebut nama file)
+	This is everything that will be sent:	Inilah semua yang akan dikirim:
+	Opens a new issue on GitHub in your browser; you can still edit it there.	Membuka issue baru di GitHub di browser Anda; Anda masih dapat mengeditnya di sana.
+	Open on GitHub	Buka di GitHub

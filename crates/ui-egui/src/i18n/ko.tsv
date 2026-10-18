@@ -3060,3 +3060,14 @@ theme	Warm	웜
 	Place as an embedded smart object (a copy)	포함된 고급 개체로 배치(사본)
 	Place as a linked smart object that refers to the library's file	라이브러리 파일을 참조하는 연결된 고급 개체로 배치
 	Added to the document's patterns:	문서 패턴에 추가됨:
+	Title	제목
+	A short summary of the problem	문제에 대한 짧은 요약
+	What happened?	무슨 일이 있었나요?
+	Steps to reproduce, what you expected, what happened instead	재현 단계, 예상한 동작, 실제로 일어난 일
+	Include diagnostics	진단 정보 포함
+	System (version, platform, GPU, displays)	시스템(버전, 플랫폼, GPU, 디스플레이)
+	Open documents (size, mode, depth, layer count; no names)	열린 문서(크기, 모드, 비트 수, 레이어 수, 이름 제외)
+	Recent notices (may name files)	최근 알림(파일 이름이 포함될 수 있음)
+	This is everything that will be sent:	전송될 내용은 이것이 전부입니다:
+	Opens a new issue on GitHub in your browser; you can still edit it there.	브라우저에서 GitHub의 새 이슈를 엽니다. 거기서 계속 편집할 수 있습니다.
+	Open on GitHub	GitHub에서 열기

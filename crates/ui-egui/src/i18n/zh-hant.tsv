@@ -2465,3 +2465,14 @@ theme	Warm	暖色
 	Place as an embedded smart object (a copy)	以內嵌的智慧型物件置入（拷貝）
 	Place as a linked smart object that refers to the library's file	以參照資料庫檔案的連結智慧型物件置入
 	Added to the document's patterns:	已加入文件的圖樣：
+	Title	標題
+	A short summary of the problem	問題的簡短摘要
+	What happened?	發生了什麼事？
+	Steps to reproduce, what you expected, what happened instead	重現步驟、預期結果、實際發生的情況
+	Include diagnostics	包含診斷資訊
+	System (version, platform, GPU, displays)	系統（版本、平台、GPU、顯示器）
+	Open documents (size, mode, depth, layer count; no names)	開啟的文件（尺寸、模式、位元深度、圖層數；不含名稱）
+	Recent notices (may name files)	最近的通知（可能包含檔案名稱）
+	This is everything that will be sent:	以下是將會傳送的全部內容：
+	Opens a new issue on GitHub in your browser; you can still edit it there.	在瀏覽器中開啟 GitHub 新議題；你仍可在那裡編輯。
+	Open on GitHub	在 GitHub 上開啟

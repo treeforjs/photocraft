@@ -2548,3 +2548,14 @@ theme	Warm	Cálido
 	Place as an embedded smart object (a copy)	Colocar como objeto inteligente incrustado (una copia)
 	Place as a linked smart object that refers to the library's file	Colocar como objeto inteligente vinculado que remite al archivo de la biblioteca
 	Added to the document's patterns:	Añadido a los motivos del documento:
+	Title	Título
+	A short summary of the problem	Un breve resumen del problema
+	What happened?	¿Qué ocurrió?
+	Steps to reproduce, what you expected, what happened instead	Pasos para reproducirlo, qué esperabas, qué ocurrió en su lugar
+	Include diagnostics	Incluir diagnóstico
+	System (version, platform, GPU, displays)	Sistema (versión, plataforma, GPU, pantallas)
+	Open documents (size, mode, depth, layer count; no names)	Documentos abiertos (tamaño, modo, profundidad, número de capas; sin nombres)
+	Recent notices (may name files)	Avisos recientes (pueden nombrar archivos)
+	This is everything that will be sent:	Esto es todo lo que se enviará:
+	Opens a new issue on GitHub in your browser; you can still edit it there.	Abre una nueva incidencia en GitHub en tu navegador; allí aún puedes editarla.
+	Open on GitHub	Abrir en GitHub
