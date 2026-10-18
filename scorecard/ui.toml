@@ -134,9 +134,9 @@ note = "Alt+wheel zooms ×1.05 a notch (wheel_nav.rs NOTCH, alt_scroll_zooms_fiv
 [[item]]
 id = "UI-217-19"
 target = "Shortcut hints rendered per platform; Reveal label per OS"
-status = "missing"
+status = "done"
 issue = 217
-note = "~33 hard-coded modifier glyph strings in ui-egui; menu_catalog.rs:341 one label"
+note = "shortcuts::pretty renders every shortcut and inline modifier hint per platform (the remaining glyphs are in tests and comments; the Liquify lasso hint now uses {key}); shortcuts::reveal_label names Reveal in Finder / Reveal in Explorer / Show in File Manager in the menus and on the document tab, translated; reveal_is_named_for_the_platform"
 
 [[item]]
 id = "UI-217-20"

@@ -89,6 +89,8 @@
 	Import	Import
 	Browse…	Procházet…
 	Reveal in Finder	Zobrazit ve Finderu
+	Reveal in Explorer	Zobrazit v Průzkumníkovi
+	Show in File Manager	Zobrazit ve správci souborů
 	File Info…	Informace o souboru…
 	Print…	Tisk…
 	Print One Copy	Vytisknout jednu kopii
@@ -2096,7 +2098,7 @@
 	GPU Backend	Backend GPU
 	Details	Podrobnosti
 	Rendering mode	Režim vykreslování
-	Freeze Lasso: drag to freeze an area, Alt-drag to thaw it (L)	Laso zmrazení: tažením zmrazíte oblast, tažením s klávesou Alt ji rozmrazíte (L)
+	Freeze Lasso: drag to freeze an area, {key}-drag to thaw it (L)	Laso zmrazení: tažením zmrazíte oblast, tažením s klávesou {key} ji rozmrazíte (L)
 	Shadow Clipping Warning (U)	Varování oříznutí stínů (U)
 	Highlight Clipping Warning (O)	Varování oříznutí světel (O)
 	Show Lab Color Readouts	Zobrazit hodnoty barev Lab
