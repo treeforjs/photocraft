@@ -143,10 +143,13 @@ jobs:
 
       - uses: dtolnay/rust-toolchain@stable
 
+      # Restores the `test` job's dependency cache (`shared-key: test` is the same cache key that
+      # job's id gives it) and never saves one of its own: the dependencies are the same, and a
+      # second multi-GB cache would push the others out of the repo's 10 GB budget.
       - uses: Swatinem/rust-cache@v2
         with:
-          save-if: ${{ github.ref == 'refs/heads/main' }}
-          cache-on-failure: true
+          shared-key: test
+          save-if: false
 
       # The same tests built with the optional craft-fonts input (crates/text/build.rs), so the
       # Japanese font tests that skip without it run here. Keep the exact `--workspace --features
