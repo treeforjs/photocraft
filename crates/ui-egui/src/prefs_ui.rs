@@ -2178,10 +2178,11 @@ mod tests {
         assert!(!prefs::is_hidden("type.fillNewTypeLayersWithPlaceholder"));
         assert!(!prefs::is_hidden("type.useEscToCommit"));
         assert!(prefs::is_hidden("type.missingGlyphProtection"));
-        // Rotate View with Trackpad is live; the other Enhanced Controls rows stay hidden.
+        // Rotate View with Trackpad and Zoom with Trackpad Pinch are live; touch gestures stay hidden.
         assert!(has_visible_fields(&values, "enhancedControls"));
         assert!(!prefs::is_hidden("enhancedControls.rotateViewWithTrackpad"));
-        assert!(prefs::is_hidden("enhancedControls.zoomWithTrackpadPinch"));
+        assert!(!prefs::is_hidden("enhancedControls.zoomWithTrackpadPinch"));
+        assert!(prefs::is_hidden("enhancedControls.touchGestures"));
         // Camera Raw Defaults shows "Open in Camera Raw" and "Apply Auto Tone" so far.
         assert!(has_visible_fields(&values, "rawDefaults"));
         assert!(!prefs::is_hidden("rawDefaults.openInCameraRaw"));
