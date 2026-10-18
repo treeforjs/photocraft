@@ -450,7 +450,7 @@ fn begin_live_stroke(app: &PhotocraftApp) -> Option<LiveStroke> {
     let st = app.session.active()?;
     let d = app.drag.as_ref()?;
     let stroke = if let Some((cmd, mut p)) = crate::retouch_ui::dab_params(app, d.tool) {
-        // The params `retouch_ui::finish_stroke` commits; Sample All Layers isn't previewed.
+        // The params `retouch_ui::finish_stroke` commits.
         p["points"] = json!(d.points);
         p["target"] = paint_target(app);
         EngineStroke::Dab(photocraft_engine::retouch_cmds::LiveDab::begin(&app.session, cmd, &p).ok()?)
