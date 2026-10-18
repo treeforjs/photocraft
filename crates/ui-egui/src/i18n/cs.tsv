@@ -2149,6 +2149,9 @@ cameraRaw	Color	Barvy
 	Content-Aware Move Tool	Nástroj přesun s ohledem na obsah
 	TIFF Options	Možnosti TIFF
 	Including layers will increase file size.	Zahrnutí vrstev zvětší velikost souboru.
+	PSD Options	Možnosti PSD
+	Maximize Compatibility	Maximalizovat kompatibilitu
+	Keeps a flattened copy of the image so other apps can read the file. Off saves smaller files faster.	Uloží sloučenou kopii obrazu, aby soubor mohly číst i jiné aplikace. Vypnuto ukládá menší soubory rychleji.
 	Discard Layers and Save a Copy	Zahodit vrstvy a uložit kopii
 	Don't show again	Příště nezobrazovat
 	Save failed: {error}	Uložení se nezdařilo: {error}

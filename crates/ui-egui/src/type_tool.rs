@@ -1126,6 +1126,24 @@ fn shown_scale(app: &PhotocraftApp) -> f32 {
     if k.is_finite() && k > 1e-3 { k } else { 1.0 }
 }
 
+/// Preferences › Units & Rulers › Type: how type sizes read and are typed. Returns how many
+/// display units one point is at the document's resolution, and the unit's suffix. Sizes stay
+/// points in the document.
+pub(crate) fn type_unit(app: &PhotocraftApp) -> (f32, &'static str) {
+    use photocraft_engine::prefs::TypeUnit;
+    let dpi = app.session.active().map(|st| st.doc.resolution_dpi).filter(|d| d.is_finite() && *d > 0.0).unwrap_or(72.0);
+    match app.session.prefs().units_and_rulers.type_units {
+        TypeUnit::Points => (1.0, "pt"),
+        TypeUnit::Pixels => (dpi / 72.0, "px"),
+        TypeUnit::Millimeters => (25.4 / 72.0, "mm"),
+    }
+}
+
+/// `range` (in points) in display units of `u` per point.
+fn scaled(range: std::ops::RangeInclusive<f32>, u: f32) -> std::ops::RangeInclusive<f32> {
+    range.start() * u..=range.end() * u
+}
+
 /// Coalesce key while a field is being scrubbed: every step of one drag shares one history step
 /// (Photoshop's single step per scrub, #124). Unique per press, so two drags are two steps.
 fn drag_key(ctx: &egui::Context) -> Option<String> {
@@ -1216,7 +1234,10 @@ pub fn options_bar(app: &mut PhotocraftApp, ui: &mut egui::Ui) {
     }
     let (r, _) = ui.allocate_exact_size(egui::vec2(18.0, 22.0), egui::Sense::hover());
     crate::icons::paint(ui, r, "type", 13.0, t.icon);
-    if crate::widgets::value_field(ui, &mut size, 1.0..=1296.0, "pt", 66.0).changed() {
+    let (u, unit) = type_unit(app);
+    let mut shown_size = size * u;
+    if crate::widgets::value_field(ui, &mut shown_size, scaled(1.0..=1296.0, u), unit, 66.0).changed() {
+        size = shown_size / u;
         app.ui.tool_options.type_size = size;
         let k = shown_scale(app);
         apply(app, ui.ctx(), json!({"size": size / k}));
@@ -1579,13 +1600,14 @@ fn type_sections(app: &mut PhotocraftApp, ui: &mut egui::Ui, character: bool, pa
         });
         row(ui, &mut |ui| {
             let k = shown_scale(app);
-            if let Some(v) = num_field(ui, "tT", "Font size", c.size_pt * k, 0.1..=1296.0, "pt", w) {
-                app.ui.tool_options.type_size = v;
-                apply(app, ui.ctx(), json!({"size": v / k}));
+            let (u, unit) = type_unit(app);
+            if let Some(v) = num_field(ui, "tT", "Font size", c.size_pt * k * u, scaled(0.1..=1296.0, u), unit, w) {
+                app.ui.tool_options.type_size = v / u;
+                apply(app, ui.ctx(), json!({"size": v / u / k}));
             }
             let lead = c.leading_pt.unwrap_or(c.size_pt * para.auto_leading.max(0.01)) * k;
-            if let Some(v) = num_field(ui, "A↕", "Leading (set to the font size × auto-leading when Auto)", lead, 0.1..=5000.0, "pt", w) {
-                apply(app, ui.ctx(), json!({"leading": v / k}));
+            if let Some(v) = num_field(ui, "A↕", "Leading (set to the font size × auto-leading when Auto)", lead * u, scaled(0.1..=5000.0, u), unit, w) {
+                apply(app, ui.ctx(), json!({"leading": v / u / k}));
             }
         });
         row(ui, &mut |ui| {
@@ -1610,8 +1632,9 @@ fn type_sections(app: &mut PhotocraftApp, ui: &mut egui::Ui, character: bool, pa
             }
         });
         row(ui, &mut |ui| {
-            if let Some(v) = num_field(ui, "Aª", "Baseline shift", c.baseline_shift_pt, -1296.0..=1296.0, "pt", w) {
-                apply(app, ui.ctx(), json!({"baselineShift": v}));
+            let (u, unit) = type_unit(app);
+            if let Some(v) = num_field(ui, "Aª", "Baseline shift", c.baseline_shift_pt * u, scaled(-1296.0..=1296.0, u), unit, w) {
+                apply(app, ui.ctx(), json!({"baselineShift": v / u}));
             }
             // Colour: label + a swatch filling the rest of the second column.
             ui.horizontal(|ui| {
@@ -1770,25 +1793,26 @@ fn type_sections(app: &mut PhotocraftApp, ui: &mut egui::Ui, character: bool, pa
             }
         });
         ui.add_space(ROW_GAP);
+        let (pu, punit) = type_unit(app);
         row(ui, &mut |ui| {
-            if let Some(v) = num_field(ui, "→|", "Indent left margin", para.start_indent_pt, -1296.0..=1296.0, "pt", w) {
-                apply(app, ui.ctx(), json!({"startIndent": v}));
+            if let Some(v) = num_field(ui, "→|", "Indent left margin", para.start_indent_pt * pu, scaled(-1296.0..=1296.0, pu), punit, w) {
+                apply(app, ui.ctx(), json!({"startIndent": v / pu}));
             }
-            if let Some(v) = num_field(ui, "|←", "Indent right margin", para.end_indent_pt, -1296.0..=1296.0, "pt", w) {
-                apply(app, ui.ctx(), json!({"endIndent": v}));
+            if let Some(v) = num_field(ui, "|←", "Indent right margin", para.end_indent_pt * pu, scaled(-1296.0..=1296.0, pu), punit, w) {
+                apply(app, ui.ctx(), json!({"endIndent": v / pu}));
             }
         });
         row(ui, &mut |ui| {
-            if let Some(v) = num_field(ui, "¶→", "Indent first line", para.first_line_indent_pt, -1296.0..=1296.0, "pt", w) {
-                apply(app, ui.ctx(), json!({"firstLineIndent": v}));
+            if let Some(v) = num_field(ui, "¶→", "Indent first line", para.first_line_indent_pt * pu, scaled(-1296.0..=1296.0, pu), punit, w) {
+                apply(app, ui.ctx(), json!({"firstLineIndent": v / pu}));
             }
         });
         row(ui, &mut |ui| {
-            if let Some(v) = num_field(ui, "↑¶", "Add space before paragraph", para.space_before_pt, 0.0..=1296.0, "pt", w) {
-                apply(app, ui.ctx(), json!({"spaceBefore": v}));
+            if let Some(v) = num_field(ui, "↑¶", "Add space before paragraph", para.space_before_pt * pu, scaled(0.0..=1296.0, pu), punit, w) {
+                apply(app, ui.ctx(), json!({"spaceBefore": v / pu}));
             }
-            if let Some(v) = num_field(ui, "¶↓", "Add space after paragraph", para.space_after_pt, 0.0..=1296.0, "pt", w) {
-                apply(app, ui.ctx(), json!({"spaceAfter": v}));
+            if let Some(v) = num_field(ui, "¶↓", "Add space after paragraph", para.space_after_pt * pu, scaled(0.0..=1296.0, pu), punit, w) {
+                apply(app, ui.ctx(), json!({"spaceAfter": v / pu}));
             }
         });
         row(ui, &mut |ui| {

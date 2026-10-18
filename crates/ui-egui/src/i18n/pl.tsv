@@ -2600,6 +2600,9 @@ cameraRaw	Roughness	Chropowatość
 	Content-Aware Move Tool	Narzędzie Przesunięcie z uwzględnieniem zawartości
 	TIFF Options	Opcje TIFF
 	Including layers will increase file size.	Dołączenie warstw zwiększy rozmiar pliku.
+	PSD Options	Opcje PSD
+	Maximize Compatibility	Maksymalna zgodność
+	Keeps a flattened copy of the image so other apps can read the file. Off saves smaller files faster.	Zapisuje spłaszczoną kopię obrazu, aby inne aplikacje mogły odczytać plik. Wyłączone zapisuje mniejsze pliki szybciej.
 	Discard Layers and Save a Copy	Odrzuć warstwy i zapisz kopię
 	Don't show again	Nie pokazuj ponownie
 	Save failed: {error}	Zapis nie powiódł się: {error}

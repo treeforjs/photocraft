@@ -1473,3 +1473,17 @@ fn font_menus_name_fonts_in_their_own_language_when_english_names_are_off() {
     set_font_names_in_english(&ctx, true);
     assert_eq!(family_label(&ctx, &family), family);
 }
+
+/// Preferences › Units & Rulers › Type: sizes read in points, pixels at the document's
+/// resolution, or millimetres; the document keeps points.
+#[test]
+fn type_units_convert_shown_sizes_at_the_document_resolution() {
+    let mut app = new_app();
+    app.run("image.imageSize", json!({"resolution": 144, "resample": false})).unwrap();
+    assert_eq!(super::type_unit(&app), (1.0, "pt"), "points by default");
+    app.run("prefs.set", json!({"path": "unitsAndRulers.typeUnits", "value": "pixels"})).unwrap();
+    assert_eq!(super::type_unit(&app), (2.0, "px"), "144 ppi: two pixels a point");
+    app.run("prefs.set", json!({"path": "unitsAndRulers.typeUnits", "value": "mm"})).unwrap();
+    let (u, unit) = super::type_unit(&app);
+    assert!((u - 25.4 / 72.0).abs() < 1e-6 && unit == "mm");
+}

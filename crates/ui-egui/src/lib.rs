@@ -131,6 +131,7 @@ pub mod press_menu;
 pub mod pressure_curve_ui;
 pub mod props_layout;
 pub mod proxy;
+pub mod psd_options_ui;
 pub mod puppet_ui;
 pub mod quick_pick;
 pub mod rasterize_prompt;
@@ -216,6 +217,9 @@ pub struct ExportSettings {
     /// Export As starts at Metadata: None, since the packet can carry the text of every type
     /// layer and one id per placed document (#647).
     pub xmp_all: bool,
+    /// PSD/PSB: write the merged composite (Maximize Compatibility). `true` by default; a save
+    /// turns it off when Preferences › File Handling says Never or the prompt's box is cleared.
+    pub maximize_compatibility: bool,
 }
 
 impl Default for ExportSettings {
@@ -228,6 +232,7 @@ impl Default for ExportSettings {
             webp_quality: None,
             tiff_layers: true,
             xmp_all: true,
+            maximize_compatibility: true,
         }
     }
 }
@@ -578,6 +583,8 @@ pub struct PhotocraftApp {
     pub(crate) file_dialog: Option<file_dialog::Pending>,
     /// A Save As to a layered TIFF parked behind the TIFF Options prompt (see `tiff_options_ui`).
     pub(crate) tiff_options: Option<tiff_options_ui::Prompt>,
+    /// A PSD/PSB save parked behind PSD Options (see `psd_options_ui`).
+    pub(crate) psd_options: Option<psd_options_ui::Prompt>,
     /// A Save As to a JPEG parked behind the Save as JPEG options (see `jpeg_options_ui`).
     pub(crate) jpeg_options: Option<jpeg_options_ui::Prompt>,
     /// Set once the user has agreed to quit, so the resulting close request goes through.
@@ -691,6 +698,7 @@ impl PhotocraftApp {
             discard: None,
             file_dialog: None,
             tiff_options: None,
+            psd_options: None,
             jpeg_options: None,
             allow_close: false,
             stylus: Default::default(),
@@ -1043,6 +1051,9 @@ impl PhotocraftApp {
         if self.jpeg_options.is_some() {
             return Err("Answer Save as JPEG before starting another save".into());
         }
+        if self.psd_options.is_some() {
+            return Err("Answer PSD Options before starting another save".into());
+        }
         // Edit Contents documents save back into their smart object.
         if path.is_none() && self.session.is_enabled("layer.smartObjects.saveContents") {
             self.run("layer.smartObjects.saveContents", serde_json::json!({}))?;
@@ -1072,7 +1083,7 @@ impl PhotocraftApp {
 
     /// A save is parked behind TIFF Options or Save as JPEG.
     pub(crate) fn save_prompt_open(&self) -> bool {
-        self.tiff_options.is_some() || self.jpeg_options.is_some()
+        self.tiff_options.is_some() || self.jpeg_options.is_some() || self.psd_options.is_some()
     }
 
     /// [`Self::save_to`] for a path the user just chose: a JPEG asks for its quality and
@@ -1093,6 +1104,11 @@ impl PhotocraftApp {
             tiff_options_ui::park(self, path.clone())?;
             return Ok(serde_json::json!({"path": path, "warnings": []}));
         }
+        // So does a PSD/PSB when Maximize Compatibility is set to Ask.
+        if psd_options_ui::wants_prompt(self, &path) {
+            psd_options_ui::park(self, path.clone())?;
+            return Ok(serde_json::json!({"path": path, "warnings": [], "pending": true}));
+        }
         match self.write_document(path.clone(), &ExportSettings::default(), false)? {
             Some((path, warnings)) => Ok(serde_json::json!({"path": path, "warnings": warnings})),
             None => Ok(serde_json::json!({"path": path, "warnings": [], "pending": true, "job": self.jobs.last_started.map(|j| j.0)})),
@@ -1105,6 +1121,9 @@ impl PhotocraftApp {
     /// `None` when the save went to a background job (#2017), which finishes it in
     /// [`jobs_ui::tick`].
     pub(crate) fn write_document(&mut self, path: String, settings: &ExportSettings, copy: bool) -> Result<Option<(String, Vec<String>)>, String> {
+        // Preferences › File Handling › Maximize Compatibility: Never drops the composite.
+        let settings =
+            &ExportSettings { maximize_compatibility: settings.maximize_compatibility && psd_options_ui::maximize_by_default(self), ..settings.clone() };
         if self.background_jobs
             && let Some(save) = self.services.save_file.clone()
         {
@@ -1162,7 +1181,8 @@ impl PhotocraftApp {
             .or_else(|| state.path.clone().filter(|p| photocraft_engine::file_cmds::saves_in_place(p)))
             .ok_or("pass `path`: a save without one writes back only to the document's own PSD, PSB or .pcraft file")?;
         let export = self.services.export.as_ref().ok_or("no exporter configured")?;
-        let (bytes, warnings) = export(&state.doc, &target, &ExportSettings::default())?;
+        let settings = ExportSettings { maximize_compatibility: psd_options_ui::maximize_by_default(self), ..Default::default() };
+        let (bytes, warnings) = export(&state.doc, &target, &settings)?;
         let write = self.services.automation_write.as_mut().ok_or("automation write authority is not configured")?;
         write(&target, &bytes)?;
         if let Some(state) = self.session.active_mut() {
@@ -1412,6 +1432,7 @@ impl eframe::App for PhotocraftApp {
         jobs_ui::dialog(self, &ctx);
         discard_ui::show(self, &ctx);
         tiff_options_ui::show(self, &ctx);
+        psd_options_ui::show(self, &ctx);
         jpeg_options_ui::show(self, &ctx);
         distort_ui::show(self, &ctx);
         camera_raw_ui::show(self, &ctx);
