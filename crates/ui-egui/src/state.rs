@@ -921,6 +921,9 @@ pub struct UiState {
     /// Selection-tool context menu opened by a plain canvas right-click.
     #[serde(default)]
     pub canvas_tool_menu: Option<crate::canvas_tool_menu::CanvasToolMenu>,
+    /// Spelling suggestions for the misspelled word right-clicked while editing type.
+    #[serde(default)]
+    pub spell_menu: Option<crate::type_spell_menu::SpellMenu>,
     /// The brush is a per-tool option (the Brush, the Eraser and every retouching tool each keep
     /// their own size, hardness, tip and dynamics, as in Photoshop): the tool whose brush the
     /// session brush holds, and the other tools' saved brushes.
@@ -1054,6 +1057,7 @@ impl Default for UiState {
             brush_picker_list: crate::brush_picker::list_state(),
             layer_menu: None,
             canvas_tool_menu: None,
+            spell_menu: None,
             brush_tool: Tool::Brush,
             tool_brushes: Vec::new(),
             clone_source: None,
