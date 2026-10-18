@@ -2872,6 +2872,7 @@ pub fn canvas_view(app: &mut PhotocraftApp, ui: &mut egui::Ui, idx: usize, rect:
         crate::analysis_ui::draw_overlay(app, &painter, &xf);
         crate::gradient_ui::draw_overlay(app, &painter, &xf);
         crate::slice_ui::draw_overlay(app, &painter, &xf);
+        crate::move_ui::draw_overlay(app, &painter, &xf, &doc, response.hover_pos());
         // Tool cursors (Photoshop-style).
         let guide_hover = response.hover_pos().filter(|_| tool == Tool::Move).and_then(|p| {
             let d = xf.to_doc(p);
@@ -3719,11 +3720,25 @@ pub fn tool_event(app: &mut PhotocraftApp, ev: ToolEvent, mods: egui::Modifiers)
                 return;
             }
             // Auto-Select (or ⌘-click while it is off) picks the layer under the pointer first.
+            // Where it picks nothing, the drag draws a box that selects the layers it meets.
             if app.ui.tool_options.move_auto_select != mods.command {
                 let target = app.ui.tool_options.move_target.clone();
                 let mode = if mods.shift { "add" } else { "replace" };
-                let _ = app.run("layer.pickAt", json!({"x": x, "y": y, "target": target, "mode": mode}));
+                let picked = app.run("layer.pickAt", json!({"x": x, "y": y, "target": target, "mode": mode}));
+                if !mods.alt && crate::move_ui::begin_box(app, &picked, x, y, mods.shift) {
+                    return;
+                }
             }
+        }
+        ToolEvent::Move { x, y, .. } if app.move_box.is_some() => {
+            if let Some(b) = app.move_box.as_mut() {
+                b.end = [x, y];
+            }
+            return;
+        }
+        ToolEvent::Up { x, y } if app.move_box.is_some() => {
+            crate::move_ui::finish_box(app, x, y);
+            return;
         }
         ToolEvent::Move { x, y, .. } => {
             if let Some(d) = app.guide_drag.as_mut().filter(|d| d.index.is_some()) {
