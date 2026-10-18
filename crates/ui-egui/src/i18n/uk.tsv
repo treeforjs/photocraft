@@ -3570,3 +3570,14 @@ theme	Warm	Тепла
 	Contour	Контур
 	Add Filter Mask	Додати маску фільтра
 	Filter mask	Маска фільтра
+	+ Color	+ Колір
+	+ Graphic	+ Графіка
+	+ Pattern	+ Візерунок
+	Add the foreground color	Додати основний колір
+	Add the selected layers	Додати вибрані шари
+	Add the pattern selected in the Patterns panel	Додати візерунок, вибраний на панелі «Візерунки»
+	Save colors, graphics and patterns here to use them in any document.	Зберігайте тут кольори, графіку та візерунки, щоб використовувати їх у будь-якому документі.
+	Place	Розмістити
+	Place as an embedded smart object (a copy)	Розмістити як вбудований смарт-об’єкт (копію)
+	Place as a linked smart object that refers to the library's file	Розмістити як пов’язаний смарт-об’єкт, що посилається на файл бібліотеки
+	Added to the document's patterns:	Додано до візерунків документа:

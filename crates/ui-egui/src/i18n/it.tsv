@@ -2537,3 +2537,16 @@ theme	Warm	Caldo
 	Contour	Profilo
 	Add Filter Mask	Aggiungi maschera filtro
 	Filter mask	Maschera filtro
+	Libraries	Librerie
+	+ Color	+ Colore
+	+ Graphic	+ Grafica
+	+ Pattern	+ Pattern
+	Add the foreground color	Aggiungi il colore di primo piano
+	Add the selected layers	Aggiungi i livelli selezionati
+	Add the pattern selected in the Patterns panel	Aggiungi il pattern selezionato nel pannello Pattern
+	Save colors, graphics and patterns here to use them in any document.	Salva qui colori, grafiche e pattern per usarli in qualsiasi documento.
+	Place	Inserisci
+	Place Linked	Inserisci collegato
+	Place as an embedded smart object (a copy)	Inserisci come oggetto avanzato incorporato (una copia)
+	Place as a linked smart object that refers to the library's file	Inserisci come oggetto avanzato collegato che rimanda al file della libreria
+	Added to the document's patterns:	Aggiunto ai pattern del documento:

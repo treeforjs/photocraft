@@ -383,8 +383,8 @@ fn closing_tabs_keeps_stable_names_across_themes_and_workspace_round_trips() {
     let mut dock = DockLayout::default();
     // In Pro the first Color group tab is Color; in Studio it is Swatches.
     dock.hide_tab(Group::Color, 0, true);
-    assert_eq!(dock.visible_tabs(Group::Color, true).iter().map(|(_, n)| *n).collect::<Vec<_>>(), vec!["Swatches", "Gradients", "Patterns"]);
-    assert_eq!(dock.visible_tabs(Group::Color, false).iter().map(|(_, n)| *n).collect::<Vec<_>>(), vec!["Swatches", "Gradients", "Patterns"]);
+    assert_eq!(dock.visible_tabs(Group::Color, true).iter().map(|(_, n)| *n).collect::<Vec<_>>(), vec!["Swatches", "Gradients", "Patterns", "Libraries"]);
+    assert_eq!(dock.visible_tabs(Group::Color, false).iter().map(|(_, n)| *n).collect::<Vec<_>>(), vec!["Swatches", "Gradients", "Patterns", "Libraries"]);
     dock.hide_tab(Group::Color, 999, true);
     assert_eq!(dock.hidden_tabs[&Group::Color], vec!["Color"]);
     let saved = serde_json::to_value(&dock).unwrap();
@@ -393,7 +393,7 @@ fn closing_tabs_keeps_stable_names_across_themes_and_workspace_round_trips() {
     // Window › Color (Studio index 1) brings back precisely that tab.
     restored.show_tab(Group::Color, 1, false);
     assert!(restored.hidden_tabs.is_empty());
-    assert_eq!(restored.visible_tabs(Group::Color, false).len(), 4);
+    assert_eq!(restored.visible_tabs(Group::Color, false).len(), 5);
 }
 
 fn right_click_tab(h: &mut Harness<'static, PhotocraftApp>, group: Group, original_index: usize) {

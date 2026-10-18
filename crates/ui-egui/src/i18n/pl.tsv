@@ -3483,3 +3483,14 @@ theme	Warm	Ciepły
 	Contour	Kontur
 	Add Filter Mask	Dodaj maskę filtra
 	Filter mask	Maska filtra
+	+ Color	+ Kolor
+	+ Graphic	+ Grafika
+	+ Pattern	+ Wzorek
+	Add the foreground color	Dodaj kolor narzędzia
+	Add the selected layers	Dodaj zaznaczone warstwy
+	Add the pattern selected in the Patterns panel	Dodaj wzorek zaznaczony w panelu Wzorki
+	Save colors, graphics and patterns here to use them in any document.	Zapisz tutaj kolory, grafiki i wzorki, aby używać ich w dowolnym dokumencie.
+	Place	Umieść
+	Place as an embedded smart object (a copy)	Umieść jako osadzony obiekt inteligentny (kopię)
+	Place as a linked smart object that refers to the library's file	Umieść jako połączony obiekt inteligentny odwołujący się do pliku biblioteki
+	Added to the document's patterns:	Dodano do wzorków dokumentu:

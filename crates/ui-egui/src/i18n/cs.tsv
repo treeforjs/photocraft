@@ -2475,3 +2475,16 @@ theme	Warm	Teplý
 	Contour	Obrys
 	Add Filter Mask	Přidat masku filtru
 	Filter mask	Maska filtru
+	Libraries	Knihovny
+	+ Color	+ Barva
+	+ Graphic	+ Grafika
+	+ Pattern	+ Vzorek
+	Add the foreground color	Přidat barvu popředí
+	Add the selected layers	Přidat vybrané vrstvy
+	Add the pattern selected in the Patterns panel	Přidat vzorek vybraný v panelu Vzorky
+	Save colors, graphics and patterns here to use them in any document.	Uložte sem barvy, grafiku a vzorky a používejte je v libovolném dokumentu.
+	Place	Umístit
+	Place Linked	Umístit propojené
+	Place as an embedded smart object (a copy)	Umístit jako vložený inteligentní objekt (kopii)
+	Place as a linked smart object that refers to the library's file	Umístit jako propojený inteligentní objekt, který odkazuje na soubor knihovny
+	Added to the document's patterns:	Přidáno do vzorků dokumentu:

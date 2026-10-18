@@ -27,7 +27,7 @@ use crate::widgets;
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum Group {
-    /// Color | Swatches | Gradients | Patterns.
+    /// Color | Swatches | Gradients | Patterns | Libraries.
     Color,
     /// Properties | Adjustments.
     Properties,
@@ -101,9 +101,9 @@ impl Group {
 
     pub fn tabs(self, pro: bool) -> &'static [&'static str] {
         match self {
-            // Photoshop Essentials: Color | Swatches | Gradients | Patterns.
-            Group::Color if pro => &["Color", "Swatches", "Gradients", "Patterns"],
-            Group::Color => &["Swatches", "Color", "Gradients", "Patterns"],
+            // Photoshop Essentials: Color | Swatches | Gradients | Patterns, plus Libraries.
+            Group::Color if pro => &["Color", "Swatches", "Gradients", "Patterns", "Libraries"],
+            Group::Color => &["Swatches", "Color", "Gradients", "Patterns", "Libraries"],
             Group::Properties => &["Properties", "Adjustments"],
             Group::Character => &["Character", "Paragraph"],
             Group::Navigator => &["Navigator", "Histogram", "Info"],

@@ -45,6 +45,8 @@ pub fn record_limit(name: &str) -> Result<u64, String> {
     match name {
         INDEX_FILE => Ok(MAX_INDEX_BYTES),
         ACTIONS_FILE => Ok(MAX_ACTIONS_BYTES),
+        photocraft_engine::library_cmds::INDEX => Ok(photocraft_engine::library_cmds::MAX_INDEX_BYTES),
+        _ if photocraft_engine::library_cmds::is_library_file(name) => Ok(photocraft_engine::library_cmds::MAX_ITEM_BYTES),
         _ if name.starts_with("tips/") && leaf.ends_with(".pctip") => Ok(MAX_TIP_BYTES),
         _ if !name.contains('/') && name.ends_with(".pcbrushes") => Ok(MAX_GROUP_BYTES),
         _ => Err("unknown preset record type".into()),
@@ -282,6 +284,8 @@ mod tests {
         assert!(record_limit("unknown.bin").is_err());
         assert_eq!(record_limit("index.json").unwrap(), MAX_INDEX_BYTES);
         assert_eq!(record_limit("tips/a.pctip").unwrap(), MAX_TIP_BYTES);
+        assert_eq!(record_limit("libraries.json").unwrap(), photocraft_engine::library_cmds::MAX_INDEX_BYTES);
+        assert_eq!(record_limit("lib-0123abcd.pcraft").unwrap(), photocraft_engine::library_cmds::MAX_ITEM_BYTES);
         let b = Bridge::default();
         b.load("index.json", b"initial".to_vec()).unwrap();
         assert!(!b.unsaved(), "hydration is not a user edit");

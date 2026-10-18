@@ -2750,3 +2750,15 @@ theme	Warm	Тёплая
 	Contour	Контур
 	Add Filter Mask	Добавить маску фильтра
 	Filter mask	Маска фильтра
+	+ Color	+ Цвет
+	+ Graphic	+ Графика
+	+ Pattern	+ Узор
+	Add the foreground color	Добавить основной цвет
+	Add the selected layers	Добавить выбранные слои
+	Add the pattern selected in the Patterns panel	Добавить узор, выбранный на панели «Узоры»
+	Save colors, graphics and patterns here to use them in any document.	Сохраняйте здесь цвета, графику и узоры, чтобы использовать их в любом документе.
+	Place	Поместить
+	Place Linked	Поместить связанный
+	Place as an embedded smart object (a copy)	Поместить как встроенный смарт-объект (копию)
+	Place as a linked smart object that refers to the library's file	Поместить как связанный смарт-объект, ссылающийся на файл библиотеки
+	Added to the document's patterns:	Добавлено в узоры документа:

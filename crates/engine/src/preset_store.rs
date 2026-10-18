@@ -93,6 +93,11 @@ pub trait PresetBackend: Send {
     fn write(&self, name: &str, bytes: &[u8]) -> Result<(), String>;
     /// Delete a file; deleting a missing file succeeds.
     fn remove(&self, name: &str) -> Result<(), String>;
+    /// Where a file lives on disk, when the store is a directory (linked library items refer to
+    /// it). `None` for stores without a file system.
+    fn file_path(&self, _name: &str) -> Option<std::path::PathBuf> {
+        None
+    }
 }
 
 /// Store file names are generated (`[A-Za-z0-9 _.-]`, optionally under `tips/`); anything else
@@ -215,6 +220,9 @@ impl PresetBackend for DirBackend {
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
             Err(e) => Err(format!("{name}: {e}")),
         }
+    }
+    fn file_path(&self, name: &str) -> Option<std::path::PathBuf> {
+        self.path(name).ok()
     }
 }
 
@@ -543,6 +551,8 @@ pub struct PresetStore {
     index: Option<IndexFile>,
     /// [`crate::actions_cmds::ActionState::rev`] last written (or loaded).
     actions_rev: u64,
+    /// The Libraries panel's files (`libraries.json`, `lib-*`).
+    libraries: crate::library_cmds::Synced,
     warnings: Vec<String>,
     /// Full tips loaded for brushes in use (behind a lock so `&Session` paths can load).
     cache: Mutex<TipCache>,
@@ -561,6 +571,8 @@ pub struct Opened {
     pub warnings: Vec<String>,
     /// Recorded actions (`actions.json`). Empty when the file is missing or unreadable.
     pub actions: Vec<crate::actions_cmds::Action>,
+    /// Window › Libraries (`libraries.json`); `None` when none was saved.
+    pub libraries: Option<crate::library_cmds::Libraries>,
 }
 
 /// Load a store (any thread; the desktop app does this in the background at start).
@@ -633,6 +645,12 @@ pub fn open(backend: Box<dyn PresetBackend>) -> Opened {
     let (tiles, regenerated) = load_tiles(backend.as_ref(), &wanted, &tip_sizes, &info, &mut warnings);
 
     let actions = load_actions(backend.as_ref(), &mut warnings);
+    let loaded = crate::library_cmds::load(backend.as_ref(), &files, &mut warnings);
+    let library_files = files.iter().filter(|(n, _)| crate::library_cmds::is_library_file(n)).map(|(n, _)| n.clone()).collect();
+    let (libraries, keep_orphans) = match loaded {
+        Some((l, failed)) => (Some(l), failed),
+        None => (None, false),
+    };
     let mut store = PresetStore {
         backend,
         synced_rev: None,
@@ -640,6 +658,12 @@ pub fn open(backend: Box<dyn PresetBackend>) -> Opened {
         tips: HashMap::new(),
         index: None,
         actions_rev: 0,
+        libraries: crate::library_cmds::Synced {
+            rev: None,
+            files: library_files,
+            keep_orphans,
+            has_index: files.iter().any(|(n, _)| n == crate::library_cmds::INDEX),
+        },
         warnings: Vec::new(),
         cache: Mutex::new(TipCache { limit: TIP_CACHE_BYTES, ..Default::default() }),
     };
@@ -688,7 +712,7 @@ pub fn open(backend: Box<dyn PresetBackend>) -> Opened {
     let hidden_builtins = index.as_ref().map(|i| i.hidden_builtins.clone()).unwrap_or_default();
     let order = index.as_ref().map(|i| i.order.clone()).unwrap_or_default();
     store.index = index;
-    Opened { store, presets, hidden_builtins, order, warnings, actions }
+    Opened { store, presets, hidden_builtins, order, warnings, actions, libraries }
 }
 
 /// `actions.json`: a missing file is an empty list. Anything else unreadable is a warning.
@@ -803,6 +827,11 @@ pub fn open_dir_async(root: std::path::PathBuf) -> std::sync::mpsc::Receiver<Ope
 
 impl PresetStore {
     /// Warnings from writes since the last call (the shell shows them in the status bar).
+    /// Where store file `name` lives on disk (directory stores only).
+    pub fn file_path(&self, name: &str) -> Option<std::path::PathBuf> {
+        self.backend.file_path(name)
+    }
+
     pub fn take_warnings(&mut self) -> Vec<String> {
         std::mem::take(&mut self.warnings)
     }
@@ -1050,7 +1079,7 @@ impl Session {
     /// built-in of the same name; presets created before the store finished loading win), hide
     /// deleted built-ins, then sync. Returns the load warnings.
     pub fn attach_preset_store(&mut self, opened: Opened) -> Vec<String> {
-        let Opened { store, presets, hidden_builtins, order, mut warnings, actions: disk } = opened;
+        let Opened { store, presets, hidden_builtins, order, mut warnings, actions: disk, libraries } = opened;
         let lib = &mut self.tools.presets;
         lib.retain(|p| !(p.builtin && hidden_builtins.iter().any(|h| h.eq_ignore_ascii_case(&p.name))));
         for p in presets {
@@ -1082,6 +1111,17 @@ impl Session {
             }
             self.actions.rev = self.actions.rev.saturating_add(1).max(1);
         }
+        // Libraries made before the store loaded are merged in; an untouched session takes the
+        // disk list as it is and does not rewrite it.
+        let adopted = self.libraries.list.is_empty();
+        let had_disk = libraries.is_some();
+        self.attach_libraries(libraries);
+        if adopted
+            && had_disk
+            && let Some(st) = self.preset_store.as_mut()
+        {
+            st.libraries.rev = Some(self.libraries.rev);
+        }
         self.brush_presets_changed();
         self.sync_preset_store();
         if let Some(st) = self.preset_store.as_mut() {
@@ -1101,6 +1141,7 @@ impl Session {
                 link_stored_tips(st, &mut self.tools.brush);
             }
             st.sync_actions(&self.actions.list, actions_rev);
+            crate::library_cmds::sync(st.backend.as_ref(), &mut st.libraries, &self.libraries, &mut st.warnings);
         }
     }
 

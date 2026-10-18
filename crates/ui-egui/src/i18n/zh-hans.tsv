@@ -2483,3 +2483,16 @@ theme	Warm	暖色
 	Contour	等高线
 	Add Filter Mask	添加滤镜蒙版
 	Filter mask	滤镜蒙版
+	Libraries	库
+	+ Color	+ 颜色
+	+ Graphic	+ 图形
+	+ Pattern	+ 图案
+	Add the foreground color	添加前景色
+	Add the selected layers	添加所选图层
+	Add the pattern selected in the Patterns panel	添加在“图案”面板中选择的图案
+	Save colors, graphics and patterns here to use them in any document.	将颜色、图形和图案保存在这里，即可在任何文档中使用。
+	Place	置入
+	Place Linked	置入链接
+	Place as an embedded smart object (a copy)	作为嵌入的智能对象置入（副本）
+	Place as a linked smart object that refers to the library's file	作为引用库文件的链接智能对象置入
+	Added to the document's patterns:	已添加到文档的图案：

@@ -1460,6 +1460,7 @@ fn dock_body(app: &mut PhotocraftApp, ui: &mut egui::Ui, group: crate::dock::Gro
     match (group, tab) {
         (Group::Color, 2) => crate::preset_panels::gradients_panel(app, ui),
         (Group::Color, 3) => crate::preset_panels::patterns_panel(app, ui),
+        (Group::Color, crate::libraries_ui::TAB) => crate::libraries_ui::panel(app, ui),
         (Group::Color, 0) if pro => color_field(app, ui),
         (Group::Color, _) if pro => crate::swatches_ui::panel(app, ui),
         (Group::Color, 0) => crate::swatches_ui::panel(app, ui),
