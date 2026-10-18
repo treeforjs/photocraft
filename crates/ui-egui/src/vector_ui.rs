@@ -504,6 +504,7 @@ pub fn draw_overlay(app: &PhotocraftApp, painter: &egui::Painter, xf: &ViewXform
                 draw_path(&sh.path, tool == Tool::PathSelection);
             }
         }
+        crate::corner_radius_ui::draw_overlay(app, painter, xf, accent);
         // A targeted vector mask shows its path with any tool (#196).
         if let Some((_, p)) = targeted_vector_mask(app) {
             draw_path(&p, tool == Tool::PathSelection);
