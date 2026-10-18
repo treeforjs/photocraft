@@ -66,6 +66,48 @@ fn camera_raw_opens_as_16_bit_with_notes() {
 }
 
 #[test]
+fn camera_raw_defaults_set_the_developed_documents_space_depth_and_resolution() {
+    use photocraft_raw::testgen::{DngSpec, mosaic, scene};
+    let (w, h) = (24, 16);
+    let dng = DngSpec::cfa(w, h, mosaic(&scene(w, h), w, [0, 1, 1, 2], 0, 65535)).build();
+    let profile = |s: &Session| photocraft_cms::Profile::parse(doc(s).icc_profile.as_deref().unwrap()).unwrap().description;
+    // Defaults: Adobe RGB, 16 bits, 300 ppi, and the note says what it was developed into.
+    let mut s = Session::new();
+    let r = open_bytes_as(&mut s, "IMG_0001.dng", &dng, None, None).unwrap();
+    assert_eq!(profile(&s), photocraft_cms::Builtin::AdobeRgbCompat.profile().description);
+    assert_eq!(doc(&s).depth, photocraft_color::SampleType::U16);
+    assert_eq!(doc(&s).resolution_dpi, 300.0);
+    assert!(r["warnings"].to_string().contains("into 16-bit Adobe RGB"), "{r}");
+    // Chosen: sRGB, 8 bits, 240 ppi.
+    s.prefs.edit(|p| {
+        p.raw_defaults.color_space = crate::prefs::RawColorSpace::Srgb;
+        p.raw_defaults.bit_depth = crate::prefs::RawDepth::Eight;
+        p.raw_defaults.resolution = 240.0;
+    });
+    let r = open_bytes_as(&mut s, "IMG_0002.dng", &dng, None, None).unwrap();
+    assert_eq!(profile(&s), photocraft_cms::Builtin::Srgb.profile().description);
+    assert_eq!(doc(&s).depth, photocraft_color::SampleType::U8);
+    assert_eq!(doc(&s).resolution_dpi, 240.0);
+    assert!(r["warnings"].to_string().contains("into 8-bit"), "{r}");
+    // ProPhoto keeps the developed pixels as they are; a hostile resolution is clamped.
+    s.prefs.edit(|p| {
+        p.raw_defaults.color_space = crate::prefs::RawColorSpace::ProPhoto;
+        p.raw_defaults.bit_depth = crate::prefs::RawDepth::Sixteen;
+        p.raw_defaults.resolution = 1e12;
+    });
+    let r = open_bytes_as(&mut s, "IMG_0003.dng", &dng, None, None).unwrap();
+    assert_eq!(doc(&s).depth, photocraft_color::SampleType::U16);
+    assert_eq!(doc(&s).resolution_dpi, 30000.0);
+    assert!(r["warnings"].to_string().contains(photocraft_io::raw::OUTPUT_SPACE), "{r}");
+    // Other files are untouched by the raw defaults.
+    let dir = tmp("raw-defaults");
+    let path = png(&dir, "a.png", 4, 4, "#ff0000");
+    open_bytes_as(&mut s, &path, &std::fs::read(&path).unwrap(), None, None).unwrap();
+    assert_eq!(doc(&s).depth, photocraft_color::SampleType::U8);
+    assert_ne!(doc(&s).resolution_dpi, 30000.0);
+}
+
+#[test]
 fn revert_reloads_as_one_undoable_step() {
     let dir = tmp("revert");
     let path = png(&dir, "a.png", 16, 12, "#ff0000");

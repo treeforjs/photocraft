@@ -110,6 +110,21 @@ fn developed_document(name: &str, format: &str, dev: photocraft_raw::Developed, 
     Ok(r)
 }
 
+/// The colour space raws are developed into.
+pub const OUTPUT_SPACE: &str = photocraft_raw::OUTPUT_SPACE;
+
+/// The end of a developed raw's import note: what it was developed into.
+pub fn developed_into() -> String {
+    format!("into 16-bit {}", photocraft_raw::OUTPUT_SPACE)
+}
+
+/// Was this import a raw developed from its sensor data (not a preview fallback)? `warnings`
+/// are the import's.
+pub fn is_developed(warnings: &[String]) -> bool {
+    let into = developed_into();
+    warnings.iter().any(|w| w.ends_with(&into))
+}
+
 /// Develops a raw file with the default settings.
 pub fn import_raw(name: &str, bytes: &[u8]) -> Result<ImportResult, IoError> {
     import_raw_with(name, bytes, &DevelopOptions { limits: limits(), ..Default::default() })

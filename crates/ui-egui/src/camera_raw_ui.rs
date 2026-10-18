@@ -308,9 +308,11 @@ fn commit_open_raw(app: &mut PhotocraftApp, params: &CameraRaw, raw: &RawOpen) -
 fn replace_raw_document(
     s: &mut photocraft_engine::Session,
     doc_id: photocraft_doc::DocId,
-    r: photocraft_io::ImportResult,
+    mut r: photocraft_io::ImportResult,
     wb: bool,
 ) -> photocraft_engine::Result<Value> {
+    // The re-developed raw gets Camera Raw Defaults' output settings like the first open did.
+    photocraft_engine::file_cmds::raw_output(s, &mut r);
     let index =
         s.documents().iter().position(|st| st.doc.id == doc_id).ok_or_else(|| photocraft_engine::EngineError::Other("the raw document was closed".into()))?;
     let path = s.documents().get(index).and_then(|st| st.path.clone());
