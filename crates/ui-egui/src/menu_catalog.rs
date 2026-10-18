@@ -284,6 +284,7 @@ pub static CATALOG: &[(&[&str], &str, Option<&str>, &str)] = &[
     (&["Layer", "Layer Style"], "Scale Effects…", None, "layer.layerStyle.scaleEffects"),
     (&["Layer", "Smart Filter"], "Disable Smart Filters", None, "layer.smartFilter.disableSmartFilters"),
     (&["Layer", "Smart Filter"], "---", None, "---"),
+    (&["Layer", "Smart Filter"], "Add Filter Mask", None, "layer.smartFilter.addFilterMask"),
     (&["Layer", "Smart Filter"], "Delete Filter Mask", None, "layer.smartFilter.deleteFilterMask"),
     (&["Layer", "Smart Filter"], "Disable Filter Mask", None, "layer.smartFilter.disableFilterMask"),
     (&["Layer", "Smart Filter"], "Blending Options…", None, "layer.smartFilter.blendingOptions"),

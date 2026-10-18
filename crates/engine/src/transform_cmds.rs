@@ -132,6 +132,16 @@ pub fn lone_target<'a>(doc: &'a Document, layer: Option<LayerId>, p: &Value) -> 
             let m = l.mask.as_ref().ok_or_else(|| EngineError::Other("layer has no mask".into()))?;
             Ok((!m.linked).then_some(&m.surface))
         }
+        // A filter mask follows its smart object's transform; it moves on its own only here.
+        Target::FilterMask => {
+            let id = layer.ok_or_else(|| EngineError::Other("no active layer".into()))?;
+            match &doc.layer(id).ok_or(EngineError::NoLayer(id))?.content {
+                photocraft_doc::LayerContent::Smart(sm) => {
+                    sm.filter_mask.as_ref().map(|m| Some(&m.surface)).ok_or_else(|| EngineError::Other("the smart object has no filter mask".into()))
+                }
+                _ => Err(EngineError::Other("not a smart object".into())),
+            }
+        }
         Target::Alpha(i) => doc
             .channels
             .get(i)
