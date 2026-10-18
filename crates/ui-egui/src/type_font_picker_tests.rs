@@ -214,3 +214,17 @@ fn a_picked_family_is_listed_under_recent_fonts_next_time() {
     assert_eq!(h.query_all_by_label("Zeta Sans").count(), 2, "once under Recent fonts, once in the full list");
     assert_eq!(app.session.prefs().dialogs.get(crate::font_recents::KEY), Some(&serde_json::json!(["Zeta Sans"])));
 }
+
+#[test]
+fn rows_follow_the_font_preview_size_preference() {
+    use photocraft_engine::prefs::FontPreview;
+    let row_height = |p: FontPreview| {
+        let mut h = harness();
+        crate::font_preview::set_preference(&h.ctx, p);
+        open(&mut h);
+        h.get_by_label("Family 01").rect().height()
+    };
+    assert!((row_height(FontPreview::Medium) - 28.0).abs() < 0.5);
+    assert!((row_height(FontPreview::Huge) - 60.0).abs() < 0.5);
+    assert!((row_height(FontPreview::Off) - 28.0).abs() < 0.5);
+}
