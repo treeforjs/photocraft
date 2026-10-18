@@ -85,9 +85,9 @@ note = "theme.rs:28 five themes"
 [[item]]
 id = "UI-217-12"
 target = "Save custom New Document presets; a real Recent category"
-status = "partial"
+status = "done"
 issue = 217
-note = "document_preset_cmds.rs and new_doc_ui.rs: named presets save/select/delete through preferences; Recent remains a static list plus Clipboard"
+note = "document_preset_cmds.rs and new_doc_ui.rs: named presets save/select/delete through preferences; Recent lists the clipboard size, then the last six sizes made (kept in Preferences), then its fixed presets (new_doc_ui.rs cards, test recent_lists_the_last_sizes_made_newest_first)"
 
 [[item]]
 id = "UI-217-13"
