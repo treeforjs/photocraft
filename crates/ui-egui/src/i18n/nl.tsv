@@ -77,6 +77,8 @@
 	Import	Importeren
 	Browse…	Bladeren…
 	Reveal in Finder	Weergeven in Finder
+	Reveal in Explorer	Weergeven in Verkenner
+	Show in File Manager	Weergeven in bestandsbeheer
 	File Info…	Bestandsinformatie…
 	Print…	Afdrukken…
 	Print One Copy	Eén exemplaar afdrukken
@@ -2138,7 +2140,7 @@
 	GPU Backend	GPU-backend
 	Details	Details
 	Rendering mode	Renderingmodus
-	Freeze Lasso: drag to freeze an area, Alt-drag to thaw it (L)	Bevriezingslasso: sleep om een gebied te bevriezen, Alt-sleep om het te ontdooien (L)
+	Freeze Lasso: drag to freeze an area, {key}-drag to thaw it (L)	Bevriezingslasso: sleep om een gebied te bevriezen, {key}-sleep om het te ontdooien (L)
 	3 x 3	3 x 3
 	4 x 4	4 x 4
 	5 x 5	5 x 5
