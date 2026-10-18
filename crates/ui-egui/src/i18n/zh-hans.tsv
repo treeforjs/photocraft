@@ -2424,3 +2424,5 @@ fontWeight	Italic	斜体
 	Slant	倾斜
 	Optical Size	光学尺寸
 	Optical size follows the font size	光学尺寸跟随字号
+	Import Image as Brush…	将图像导入为画笔…
+	New brush “{name}” from the image	从图像新建画笔“{name}”

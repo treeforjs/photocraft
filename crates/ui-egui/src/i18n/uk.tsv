@@ -3514,3 +3514,5 @@ cameraRaw	Masking	Маскування
 	Slant	Нахил
 	Optical Size	Оптичний розмір
 	Optical size follows the font size	Оптичний розмір відповідає кеглю
+	Import Image as Brush…	Імпортувати зображення як пензель…
+	New brush “{name}” from the image	Новий пензель «{name}» із зображення

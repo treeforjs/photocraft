@@ -3427,3 +3427,5 @@ cameraRaw	Roughness	Chropowatość
 	Slant	Pochylenie
 	Optical Size	Rozmiar optyczny
 	Optical size follows the font size	Rozmiar optyczny zgodny z rozmiarem czcionki
+	Import Image as Brush…	Importuj obraz jako pędzel…
+	New brush “{name}” from the image	Nowy pędzel „{name}” z obrazu
