@@ -50,9 +50,9 @@ note = "No update check in crates"
 [[item]]
 id = "DIST-220-2"
 target = "Windows ARM64 (aarch64-pc-windows-msvc) in the release matrix, signed like x64"
-status = "missing"
+status = "done"
 issue = 220
-note = "release.yml:113-114 only x86_64 and i686 msvc"
+note = "release.yml windows matrix builds arm64 (aarch64-pc-windows-msvc, cross-compiled on the x64 runner) through the same package.ps1/sign.ps1 signing and WiX steps as x64; windows-arm64.yml installs and runs it on ARM64 hardware"
 
 [[item]]
 id = "DIST-220-3"
