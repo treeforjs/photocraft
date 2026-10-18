@@ -3030,6 +3030,9 @@ theme	Warm	웜
 	How hard a pen press must be, for every tool. Double-click the graph to reset.	모든 도구에서 펜을 얼마나 세게 눌러야 하는지 정합니다. 그래프를 두 번 클릭하면 초기화됩니다.
 	Import Image as Brush…	이미지를 브러시로 가져오기…
 	New brush “{name}” from the image	이미지에서 새 브러시 “{name}”
+	No Suggestions	제안 없음
+	Add to Dictionary	사전에 추가
+	The text changed; right-click the word again.	텍스트가 변경되었습니다. 단어를 다시 마우스 오른쪽 버튼으로 클릭하세요.
 	Show rulers for new documents	새 문서에 눈금자 표시
 	Animations	애니메이션
 	Canvas pattern in dark themes	어두운 테마의 캔버스 패턴

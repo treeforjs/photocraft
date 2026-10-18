@@ -118,7 +118,7 @@ pub fn edit_active(app: &mut PhotocraftApp) -> Result<(), String> {
     Ok(())
 }
 
-fn hit_offset(app: &mut PhotocraftApp, id: LayerId, x: f64, y: f64) -> usize {
+pub(crate) fn hit_offset(app: &mut PhotocraftApp, id: LayerId, x: f64, y: f64) -> usize {
     let Some((l, aff, text)) = layout(app, id) else { return 0 };
     let (tx, ty) = to_text(&aff, x, y);
     photocraft_text::hit_char(&l, &text, tx, ty).0
@@ -297,7 +297,7 @@ fn current_text(app: &PhotocraftApp, id: LayerId) -> Option<String> {
 }
 
 /// Replace the selection with `s`.
-fn insert(app: &mut PhotocraftApp, s: &str) {
+pub(crate) fn insert(app: &mut PhotocraftApp, s: &str) {
     let Some(ed) = app.ui.text_edit.clone() else { return };
     let (a, b) = (ed.caret.min(ed.anchor), ed.caret.max(ed.anchor));
     let s = s.replace("\r\n", "\n").replace('\r', "\n");
@@ -689,6 +689,23 @@ pub fn draw_overlay(app: &mut PhotocraftApp, painter: &egui::Painter, xf: &ViewX
             if x0 < x1 {
                 let y = ln.baseline + ln.descent * 0.5;
                 painter.line_segment([scr(x0, y), scr(x1, y)], Stroke::new(1.5, t.accent));
+            }
+        }
+    }
+    // Words the dictionary doesn't know: a wavy underline (right-click one for suggestions).
+    if ed.preedit.is_none() {
+        for (ws, we) in crate::type_spell_menu::underlined(app, painter.ctx(), &text) {
+            let (a, b) = (byte_of(&text, ws), byte_of(&text, we));
+            for (li, ln) in l.lines.iter().enumerate() {
+                let (x0, x1) = l
+                    .clusters
+                    .iter()
+                    .filter(|c| c.line == li && c.range.start >= a && c.range.end <= b)
+                    .fold((f32::MAX, f32::MIN), |(lo, hi), c| (lo.min(c.x), hi.max(c.x + c.advance)));
+                if x0 < x1 {
+                    let y = ln.baseline + ln.descent * 0.6;
+                    crate::type_spell_menu::squiggle(painter, scr(x0, y), scr(x1, y), 1.5, t.danger);
+                }
             }
         }
     }
