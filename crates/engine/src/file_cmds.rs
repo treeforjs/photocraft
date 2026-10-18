@@ -685,7 +685,7 @@ fn conditional_mode_change(s: &mut Session, p: &Value) -> Result<Value> {
 }
 
 /// One `[id, params]` / `{command, params}` / `{id, params}` step of an action.
-fn parse_steps(v: &Value) -> Result<Vec<(String, Value)>> {
+pub(crate) fn parse_steps(v: &Value) -> Result<Vec<(String, Value)>> {
     let bad = |m: &str| EngineError::BadParams { cmd: "file.automate.batch".into(), msg: m.into() };
     let arr = v.as_array().ok_or_else(|| bad("\"steps\" must be an array"))?;
     arr.iter()
@@ -763,25 +763,6 @@ impl OutputClaims {
     pub fn record(&mut self, out: &str, input: &str) {
         self.0.insert(out.to_lowercase(), input.to_string());
     }
-}
-
-fn batch(_s: &mut Session, p: &Value) -> Result<Value> {
-    let cmd = "file.automate.batch";
-    let steps =
-        parse_steps(p.get("steps").or_else(|| p.get("action")).ok_or_else(|| EngineError::BadParams { cmd: cmd.into(), msg: "missing \"steps\"".into() })?)?;
-    if let Some((id, _)) = steps.iter().find(|(id, _)| crate::commands::find(id).is_none()) {
-        return Err(EngineError::BadParams { cmd: cmd.into(), msg: format!("unknown command `{id}` in the action") });
-    }
-    let inputs = batch_inputs(p, cmd)?;
-    let output = str_param(p, "output", cmd)?.to_string();
-    let format = p.get("format").and_then(Value::as_str).unwrap_or("same").to_string();
-    let r = process_files(&inputs, &output, &format, SaveOpts::from_params(p), "", &|scratch| {
-        for (id, params) in &steps {
-            scratch.execute(id, params.clone())?;
-        }
-        Ok(())
-    });
-    Ok(r)
 }
 
 fn image_processor(_s: &mut Session, p: &Value) -> Result<Value> {
@@ -1317,9 +1298,9 @@ pub fn specs() -> Vec<CommandSpec> {
             "Batch…",
             &["File", "Automate"],
             None,
-            r##"{"steps":[[commandId,params]|{"command":id,"params":{}}…] (a recorded action),"input":folder|[paths],"output":folder,"format":"same|png|jpg|psd|tiff|…"="same","quality":0..12?,"tiffLayers":bool=false} → {files, errors} (an input whose output name was already written in the run goes to errors)"##,
+            r##"{"steps":[[commandId,params]|{"command":id,"params":{}}…] (a recorded action),"input":folder|[paths]|"open" (copies of the open documents),"includeSubfolders":bool=false (results keep the subfolder),"output":folder,"format":"same|png|jpg|psd|tiff|…"="same","naming":template="{name}" (tokens {name} {NAME} {lname} {serial} {serial:N} {letter} {LETTER} {ext} {EXT} {yyyymmdd} {yymmdd} {mmddyy} {mmdd} {ddmmyy} {ddmm}; {{ and }} for braces),"startSerial":n=1,"date":"YYYY-MM-DD"=today,"stopOnError":bool=false,"errorLog":path?,"quality":0..12?,"tiffLayers":bool=false} → {files, errors, stopped?, errorLog?} (a background job with progress and Cancel; an input whose output name was already written in the run goes to errors)"##,
             native,
-            batch
+            crate::batch_cmds::batch
         ),
         spec!(
             "file.scripts.imageProcessor",
