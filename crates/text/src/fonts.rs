@@ -157,6 +157,8 @@ pub struct FontDb {
     ps_cache: HashMap<String, Option<ResolvedFont>>,
     fallbacks: Vec<String>,
     face_cache: HashMap<String, Vec<FaceInfo>>,
+    /// Family → its name in the font's own language (see [`FontDb::native_family_name`]).
+    native_names: HashMap<String, Option<String>>,
     face_aliases: HashMap<(String, usize), String>,
 }
 
@@ -176,6 +178,7 @@ impl FontDb {
             ps_cache: HashMap::new(),
             fallbacks: Vec::new(),
             face_cache: HashMap::new(),
+            native_names: HashMap::new(),
             face_aliases: HashMap::new(),
         };
         for (_, bytes) in BUNDLED {
@@ -220,6 +223,7 @@ impl FontDb {
             }
             self.ps_cache.clear();
             self.face_cache.clear();
+            self.native_names.clear();
             self.refresh_generics();
         }
     }
@@ -250,6 +254,7 @@ impl FontDb {
         names.sort_by_key(|n| (is_hidden_family(n), n.to_lowercase()));
         self.ps_cache.clear();
         self.face_cache.clear();
+        self.native_names.clear();
         self.refresh_generics();
         GENERATION.fetch_add(1, Ordering::Relaxed);
         names
@@ -354,6 +359,40 @@ impl FontDb {
             .collect();
         self.face_cache.insert(family.to_string(), faces.clone());
         faces
+    }
+
+    /// The family's name in another language its `name` table carries (Preferences › Type ›
+    /// Show Font Names in English off): "BIZ UDPゴシック" for BIZ UDPGothic. A name in the
+    /// language `prefer` (a BCP-47 prefix such as `ja`) wins; else the first non-English one.
+    /// `None` when the font only has its English name.
+    pub fn native_family_name(&mut self, family: &str, prefer: &str) -> Option<String> {
+        if let Some(n) = self.native_names.get(family) {
+            return n.clone();
+        }
+        let name = self.read_native_name(family, prefer);
+        self.native_names.insert(family.to_string(), name.clone());
+        name
+    }
+
+    fn read_native_name(&mut self, family: &str, prefer: &str) -> Option<String> {
+        let info = self.fcx.collection.family_by_name(family)?;
+        let face = info.fonts().first()?;
+        let blob = face.load(Some(&mut self.fcx.source_cache))?;
+        let font = skrifa::FontRef::from_index(blob.as_ref(), face.index()).ok()?;
+        let english = |lang: Option<&str>| lang.is_none_or(|l| l == "en" || l.starts_with("en-"));
+        let matches = |lang: &str| !prefer.is_empty() && (lang == prefer || lang.strip_prefix(prefer).is_some_and(|r| r.starts_with('-')));
+        for id in [StringId::TYPOGRAPHIC_FAMILY_NAME, StringId::FAMILY_NAME] {
+            let names: Vec<(String, String)> = font
+                .localized_strings(id)
+                .filter(|s| !english(s.language()))
+                .filter_map(|s| Some((s.language()?.to_string(), s.to_string())))
+                .filter(|(_, n)| !n.trim().is_empty() && n != family)
+                .collect();
+            if let Some((_, n)) = names.iter().find(|(l, _)| matches(l)).or(names.first()) {
+                return Some(n.clone());
+            }
+        }
+        None
     }
 
     /// Resolve a menu style to its actual metadata instead of guessing from its spelling.

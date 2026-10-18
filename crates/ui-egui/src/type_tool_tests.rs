@@ -1452,3 +1452,24 @@ fn clicking_a_path_sets_type_on_it_and_the_caret_follows_the_path() {
     assert!(t.on_path.is_none());
     assert_eq!((t.transform.m[4], t.transform.m[5]), (400.0, 200.0));
 }
+
+#[test]
+fn font_menus_name_fonts_in_their_own_language_when_english_names_are_off() {
+    use super::{families, family_label, set_font_names_in_english};
+    let ctx = egui::Context::default();
+    assert_eq!(family_label(&ctx, "Inter"), "Inter", "English names by default");
+    set_font_names_in_english(&ctx, false);
+    assert_eq!(family_label(&ctx, "Inter"), "Inter", "a font with only an English name keeps it");
+    // BIZ UDPGothic (craft-fonts) carries its Japanese name; skip when built without it.
+    let native = families().iter().find_map(|f| {
+        let label = family_label(&ctx, f);
+        (label != *f).then(|| (f.clone(), label))
+    });
+    let Some((family, label)) = native else {
+        eprintln!("skipping: no font with a non-English family name (set CRAFT_FONTS_DIR)");
+        return;
+    };
+    assert!(!label.is_ascii(), "{family}: {label}");
+    set_font_names_in_english(&ctx, true);
+    assert_eq!(family_label(&ctx, &family), family);
+}
