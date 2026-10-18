@@ -226,3 +226,102 @@ fn preference_folder_is_loaded() {
     registry::remove("test.cmds.folder");
     std::fs::remove_dir_all(&dir).ok();
 }
+
+/// Halves every sample.
+const HALVE: &str = r#"(local $i i32)
+  (block $done (loop $l
+    (br_if $done (i32.ge_u (local.get $i) (local.get $len)))
+    (f32.store (i32.add (local.get $buf) (local.get $i))
+      (f32.mul (f32.load (i32.add (local.get $buf) (local.get $i))) (f32.const 0.5)))
+    (local.set $i (i32.add (local.get $i) (i32.const 4)))
+    (br $l)))
+  (i32.const 0)"#;
+
+/// An ABI v2 plug-in (it imports `photocraft.progress`) whose filter reports progress in a loop
+/// until the host says the run is cancelled.
+fn v2_spinning_plugin(id: &str) -> Vec<u8> {
+    let manifest = format!(r#"{{"id":"{id}","name":"Test {id}","version":"1","kind":"filter"}}"#);
+    let src = format!(
+        r#"(module
+  (import "photocraft" "progress" (func $progress (param i32 i32) (result i32)))
+  (memory (export "memory") 1)
+  (data (i32.const 16) "{data}")
+  (func (export "pc_abi_version") (result i32) (i32.const 2))
+  (func (export "pc_manifest") (result i64) (i64.or (i64.shl (i64.const {len}) (i64.const 32)) (i64.const 16)))
+  (func (export "pc_alloc") (param $n i32) (result i32) (local $old i32)
+    (local.set $old (memory.grow (i32.shr_u (i32.add (local.get $n) (i32.const 65535)) (i32.const 16))))
+    (if (result i32) (i32.eq (local.get $old) (i32.const -1)) (then (i32.const 0)) (else (i32.mul (local.get $old) (i32.const 65536)))))
+  (func (export "pc_filter") (param $buf i32) (param $len i32) (param $w i32) (param $h i32)
+    (param $ch i32) (param $fmt i32) (param $pp i32) (param $pl i32) (result i32)
+    (block $done (loop $l (br_if $done (call $progress (i32.const 1) (i32.const 2))) (br $l)))
+    (i32.const 0)))"#,
+        data = manifest.replace('"', "\\\""),
+        len = manifest.len()
+    );
+    wat::parse_str(src).unwrap()
+}
+
+#[test]
+fn last_filter_repeats_a_plugin_run() {
+    let mut s = doc(32);
+    s.execute("plugin.install", json!({"data": b64(&wat_plugin("test.halve", "{}", HALVE))})).unwrap();
+    let before = pixels(&s);
+    s.execute("plugin.run", json!({"id": "test.halve"})).unwrap();
+    assert!(s.is_enabled("filter.lastFilter"));
+    assert_eq!(crate::filters::last_filter(&s).map(|(id, _)| id), Some(RUN.to_string()));
+    s.execute("filter.lastFilter", json!({})).unwrap();
+    for (a, b) in before.iter().zip(pixels(&s)) {
+        assert!((a * 0.25 - b).abs() < 1e-6, "{a} -> {b}");
+    }
+    // A built-in filter after it is what Last Filter repeats next.
+    s.execute("filter.blur.gaussianBlur", json!({"radius": 1})).unwrap();
+    assert_eq!(crate::filters::last_filter(&s).map(|(id, _)| id).as_deref(), Some("filter.blur.gaussianBlur"));
+    s.execute("filter.lastFilter", json!({})).unwrap();
+}
+
+#[test]
+fn a_background_plugin_run_can_be_cancelled_and_leaves_the_document_alone() {
+    let mut s = doc(8);
+    s.execute("plugin.install", json!({"data": b64(&v2_spinning_plugin("test.spin"))})).unwrap();
+    let before = s.active().unwrap().doc.clone();
+    let steps = s.active().unwrap().history.past_len();
+    let crate::jobs::Started::Job(id) = s.start("plugin.run", json!({"id": "test.spin"})).unwrap() else { panic!("ran inline") };
+    // The plug-in reports progress while it spins.
+    let t = std::time::Instant::now();
+    while s.jobs().first().is_none_or(|j| j.progress <= 0.0) {
+        assert!(t.elapsed() < std::time::Duration::from_secs(30), "no progress reported");
+        std::thread::sleep(std::time::Duration::from_millis(5));
+    }
+    assert!(s.cancel_job(id));
+    let events = s.poll_jobs();
+    assert!(events.iter().any(|e| e.id == id && e.outcome == crate::jobs::JobOutcome::Cancelled), "{events:?}");
+    // The worker stops (the module is told through `photocraft.progress`) and nothing arrives later.
+    s.join_cancelled_jobs();
+    assert!(s.poll_jobs().is_empty());
+    let st = s.active().unwrap();
+    assert!(std::sync::Arc::ptr_eq(&st.doc, &before));
+    assert_eq!(st.history.past_len(), steps);
+}
+
+#[test]
+fn a_background_plugin_run_finishes_as_one_undo_step() {
+    let mut s = doc(16);
+    s.execute("plugin.install", json!({"data": b64(&wat_plugin("test.halve.bg", "{}", HALVE))})).unwrap();
+    let before = pixels(&s);
+    let steps = s.active().unwrap().history.past_len();
+    let crate::jobs::Started::Job(id) = s.start("plugin.run", json!({"id": "test.halve.bg"})).unwrap() else { panic!("ran inline") };
+    let t = std::time::Instant::now();
+    let e = loop {
+        if let Some(e) = s.poll_jobs().into_iter().find(|e| e.id == id) {
+            break e;
+        }
+        assert!(t.elapsed() < std::time::Duration::from_secs(60));
+        std::thread::sleep(std::time::Duration::from_millis(2));
+    };
+    let crate::jobs::JobOutcome::Done(v) = &e.outcome else { panic!("{e:?}") };
+    assert_eq!(v["plugin"], "test.halve.bg");
+    assert_eq!(s.active().unwrap().history.past_len(), steps + 1);
+    assert_ne!(pixels(&s), before);
+    assert!(s.undo());
+    assert_eq!(pixels(&s), before);
+}

@@ -62,7 +62,7 @@ fn plugin_by_id(cmd: &str, p: &Value) -> Result<std::sync::Arc<Plugin>> {
     registry::get(id).ok_or_else(|| err(photocraft_plugins::Error::NotFound(id.into())))
 }
 
-fn run(s: &mut Session, p: &Value) -> Result<Value> {
+pub(crate) fn run(s: &mut Session, p: &Value) -> Result<Value> {
     let plugin = plugin_by_id(RUN, p)?;
     let params = plugin_params(p);
     // Bad parameters fail before anything is touched.
@@ -71,33 +71,50 @@ fn run(s: &mut Session, p: &Value) -> Result<Value> {
     let label = plugin.manifest().name.clone();
     let id = plugin.id().to_string();
     let authorize = s.authorize;
-    s.edit(&label, |doc, _| {
-        let selection = doc.selection.clone();
-        let canvas = doc.bounds();
-        if let Some(surf) = crate::channel_cmds::channel_surface_for_filter(doc, Some(layer), p)? {
-            *surf = plugin.apply(surf, canvas, selection.as_ref(), &resolved).map_err(err)?;
-            return Ok(());
-        }
-        let l = doc.layer_mut(layer).ok_or(EngineError::NoLayer(layer))?;
-        match &mut l.content {
-            LayerContent::Raster(surf) => {
-                *surf = plugin.apply(surf, canvas, selection.as_ref(), &resolved).map_err(err)?;
-                Ok(())
+    let p = p.clone();
+    let (layer_id, plugin_id, msg) = (layer.0, id.clone(), label.clone());
+    // A background job when started with `Session::start`: the plug-in runs on a worker, reports
+    // progress and stops when the job is cancelled (ABI v2 modules are told, others are stopped
+    // between instruction slices). The document is untouched until it finishes.
+    crate::jobs::edit_job(
+        s,
+        &label,
+        move |doc, _, ctx| {
+            let run = |surf: &Surface, sel: Option<&Surface>, canvas| {
+                ctx.stage(0.0, 1.0, &msg, |ctl| plugin.apply_with(surf, canvas, sel, &resolved, *ctl)).map_err(|e| match e {
+                    photocraft_plugins::Error::Cancelled => EngineError::Cancelled,
+                    e => err(e),
+                })
+            };
+            let selection = doc.selection.clone();
+            let canvas = doc.bounds();
+            if let Some(surf) = crate::channel_cmds::channel_surface_for_filter(doc, Some(layer), &p)? {
+                *surf = run(surf, selection.as_ref(), canvas)?;
+                return Ok(());
             }
-            LayerContent::Smart(_) => {
-                let sf = SmartFilter {
-                    command: RUN.into(),
-                    params: json!({"id": id, "params": resolved}),
-                    blend: photocraft_color::BlendMode::Normal,
-                    opacity: 1.0,
-                    visible: true,
-                };
-                crate::smart_cmds::add_smart_filter(doc, layer, sf, selection.as_ref(), authorize)
+            let l = doc.layer_mut(layer).ok_or(EngineError::NoLayer(layer))?;
+            match &mut l.content {
+                LayerContent::Raster(surf) => {
+                    *surf = run(surf, selection.as_ref(), canvas)?;
+                    Ok(())
+                }
+                LayerContent::Smart(_) => {
+                    let sf = SmartFilter {
+                        command: RUN.into(),
+                        params: json!({"id": id, "params": resolved}),
+                        blend: photocraft_color::BlendMode::Normal,
+                        opacity: 1.0,
+                        visible: true,
+                    };
+                    crate::smart_cmds::add_smart_filter(doc, layer, sf, selection.as_ref(), authorize)
+                }
+                other => {
+                    Err(EngineError::Other(format!("plug-in filters need a pixel layer (active layer is {} {} layer)", other.article(), other.kind_name())))
+                }
             }
-            other => Err(EngineError::Other(format!("plug-in filters need a pixel layer (active layer is {} {} layer)", other.article(), other.kind_name()))),
-        }
-    })?;
-    Ok(json!({"layer": layer.0, "plugin": id}))
+        },
+        move |()| json!({"layer": layer_id, "plugin": plugin_id}),
+    )
 }
 
 /// Smart-filter re-render of a recorded `plugin.run` (see `filters::apply_filter_to_surface`).

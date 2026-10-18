@@ -392,18 +392,20 @@ pub fn specs() -> Vec<CommandSpec> {
             },
             run: |s, _| {
                 let (id, params) = last_filter(s).ok_or_else(|| EngineError::Other("no filter applied yet".into()))?;
-                run_filter(s, &id, &params)
+                if id == crate::plugin_cmds::RUN { crate::plugin_cmds::run(s, &params) } else { run_filter(s, &id, &params) }
             },
             journal: true,
         },
     ]
 }
 
-/// The most recent filter command in the session journal, retargeted at the active layer: dialogs
+/// The most recent filter command (a built-in filter or a plug-in run) in the session journal,
+/// retargeted at the active layer: dialogs
 /// such as the Filter Gallery record the layer they ran on, and Last Filter applies to the
 /// current layer, as in Photoshop (#1270).
-fn last_filter(s: &Session) -> Option<(String, Value)> {
-    let (id, mut params) = s.journal.iter().rev().find(|(id, _)| params_for(id, &Value::Null).is_some() && id.starts_with("filter.")).cloned()?;
+pub(crate) fn last_filter(s: &Session) -> Option<(String, Value)> {
+    let is_filter = |id: &str| (params_for(id, &Value::Null).is_some() && id.starts_with("filter.")) || id == crate::plugin_cmds::RUN;
+    let (id, mut params) = s.journal.iter().rev().find(|(id, _)| is_filter(id)).cloned()?;
     if let Value::Object(m) = &mut params {
         m.remove("layer");
     }
