@@ -160,6 +160,7 @@ mod titlebar;
 pub mod tone;
 mod tool_cursor;
 pub mod tool_feedback;
+pub mod tool_memory;
 pub mod transform_tex;
 pub mod transform_tool;
 pub mod type_panels_ui;
@@ -1254,6 +1255,7 @@ impl eframe::App for PhotocraftApp {
         if self.live_tokens.poll(ctx, self.ui.theme) {
             self.checker = None;
         }
+        crate::tool_memory::persist(self, ctx);
         self.drain_control(ctx);
         self.run_pending_invoke(ctx);
         native_menu::run(self, ctx);
