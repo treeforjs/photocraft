@@ -84,6 +84,8 @@
 	Import	Importar
 	Browse…	Procurar…
 	Reveal in Finder	Mostrar no Finder
+	Reveal in Explorer	Mostrar no Explorador
+	Show in File Manager	Mostrar no gerenciador de arquivos
 	File Info…	Informações do arquivo…
 	Print…	Imprimir…
 	Print One Copy	Imprimir uma cópia
@@ -2506,7 +2508,7 @@
 	Unnamed {mode} profile	Perfil {mode} sem nome
 	Show bounding box when dragging layer	Mostrar caixa delimitadora ao arrastar a camada
 	System title bar	Barra de título do sistema
-	Freeze Lasso: drag to freeze an area, Alt-drag to thaw it (L)	Laço de congelamento: arraste para congelar uma área, Alt-arraste para descongelá-la (L)
+	Freeze Lasso: drag to freeze an area, {key}-drag to thaw it (L)	Laço de congelamento: arraste para congelar uma área, {key}-arraste para descongelá-la (L)
 	Rendering Mode	Modo de renderização
 	Automatic (recommended)	Automático (recomendado)
 	CPU / Compatibility	CPU / compatibilidade
