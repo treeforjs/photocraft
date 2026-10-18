@@ -65,7 +65,7 @@ pub const UI_COMMANDS: &[(&str, &str, &[&str], Option<&str>)] = &[
     ("window.toggle.options", "Options", &["Window"], None),
     ("window.theme.toggle", "Next Appearance Mode", &["Window"], None),
     ("window.theme.light", "Light Theme", &["Window", "Theme"], None),
-    ("window.theme.cream", "Cream Theme", &["Window", "Theme"], None),
+    ("window.theme.warm", "Warm Theme", &["Window", "Theme"], None),
     ("window.theme.dim", "Dim Theme", &["Window", "Theme"], None),
     ("window.theme.dark", "Dark Theme", &["Window", "Theme"], None),
     ("window.theme.highContrast", "High Contrast Theme", &["Window", "Theme"], None),
@@ -308,9 +308,11 @@ pub(crate) fn invoke_unguarded(app: &mut PhotocraftApp, ctx: &egui::Context, id:
             Ok(Value::Null)
         }
         // `pro` and `proMedium` are the retired Photoshop-grey themes; older scripts get Dark
-        // and Dim.
+        // and Dim. `cream` and `paper` are Warm's old names.
         "window.theme.light"
+        | "window.theme.warm"
         | "window.theme.cream"
+        | "window.theme.paper"
         | "window.theme.dim"
         | "window.theme.dark"
         | "window.theme.highContrast"
@@ -1616,17 +1618,25 @@ mod tests {
     }
 
     #[test]
-    fn cream_and_dim_theme_commands_select_their_family() {
+    fn warm_and_dim_theme_commands_select_their_family() {
         use crate::theme::ThemeKind;
         use photocraft_engine::prefs::{AppearanceMode, DarkTheme, LightTheme};
         let mut app = PhotocraftApp::new(photocraft_engine::Session::new(), crate::Services::default());
         let ctx = egui::Context::default();
+        invoke(&mut app, &ctx, "window.theme.warm", Value::Null).unwrap();
+        assert_eq!(app.ui.theme, ThemeKind::Warm);
+        assert_eq!(checked(&app, "window.theme.warm"), Some(true));
+        // The old id still selects the theme for older scripts, but is not a menu item.
+        invoke(&mut app, &ctx, "window.theme.dim", Value::Null).unwrap();
         invoke(&mut app, &ctx, "window.theme.cream", Value::Null).unwrap();
-        assert_eq!(app.ui.theme, ThemeKind::Cream);
-        assert_eq!(checked(&app, "window.theme.cream"), Some(true));
+        assert_eq!(app.ui.theme, ThemeKind::Warm);
+        invoke(&mut app, &ctx, "window.theme.dim", Value::Null).unwrap();
+        invoke(&mut app, &ctx, "window.theme.paper", Value::Null).unwrap();
+        assert_eq!(app.ui.theme, ThemeKind::Warm);
+        assert!(!menu_items(&app).iter().any(|i| i.id == "window.theme.cream" || i.id == "window.theme.paper"));
         assert_eq!(app.session.prefs().interface.appearance_mode, AppearanceMode::Light);
-        assert_eq!(app.session.prefs().interface.light_theme, LightTheme::Cream);
-        assert!(!crate::theme::Tokens::get(&ctx).dark(), "Cream draws with light tokens");
+        assert_eq!(app.session.prefs().interface.light_theme, LightTheme::Warm);
+        assert!(!crate::theme::Tokens::get(&ctx).dark(), "Warm draws with light tokens");
         invoke(&mut app, &ctx, "window.theme.dim", Value::Null).unwrap();
         assert_eq!(app.ui.theme, ThemeKind::Dim);
         assert_eq!(app.session.prefs().interface.dark_theme, DarkTheme::Dim);
@@ -1636,7 +1646,7 @@ mod tests {
         assert_eq!(app.ui.theme, ThemeKind::Dim, "the retired medium grey theme reads as Dim");
         let ids: Vec<_> = menu_items(&app).into_iter().map(|i| i.id).filter(|id| id.starts_with("window.theme.")).collect();
         let pos = |id: &str| ids.iter().position(|i| i == id).unwrap();
-        assert!(pos("window.theme.light") < pos("window.theme.cream") && pos("window.theme.cream") < pos("window.theme.dim"));
+        assert!(pos("window.theme.light") < pos("window.theme.warm") && pos("window.theme.warm") < pos("window.theme.dim"));
         assert!(pos("window.theme.dim") < pos("window.theme.dark") && pos("window.theme.dark") < pos("window.theme.highContrast"));
     }
 
