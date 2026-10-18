@@ -111,6 +111,8 @@ pub struct Stylus {
     pub feed: StylusFeed,
     /// Preferences › Tools › Use Tablet Pressure: off, a pen paints like a mouse.
     pub use_pressure: bool,
+    /// Preferences › Tools › Pressure Curve: reshapes every pen pressure (TOOL-213-11).
+    pub curve: photocraft_engine::paint::PressureCurve,
     /// The pen end last seen (`Some(true)` = eraser), for the eraser tool switch.
     end: Option<bool>,
     /// The tool to restore when the pen tip comes back after the eraser end switched tools.
@@ -142,6 +144,7 @@ impl Default for Stylus {
         Self {
             feed: StylusFeed::default(),
             use_pressure: true,
+            curve: Default::default(),
             end: None,
             tool_before_eraser: None,
             touch: None,
@@ -198,7 +201,10 @@ impl Stylus {
         if !self.use_pressure {
             return None;
         }
-        self.current.or_else(|| self.feed.get()).or(self.touch.map(|pressure| PenSample { pressure, ..Default::default() }))
+        self.current
+            .or_else(|| self.feed.get())
+            .or(self.touch.map(|pressure| PenSample { pressure, ..Default::default() }))
+            .map(|s| PenSample { pressure: self.curve.apply(s.pressure), ..s })
     }
 
     /// Choose the pen sample for move `k` of the `n` pointer moves this frame delivered: the pen
@@ -506,6 +512,20 @@ mod tests {
         let out = s.stroke_points(&pts);
         assert_eq!(out[0], vec![0.0, 0.0, 0.5, 0.0, 0.0, 0.0]);
         assert_eq!(out[2], vec![20.0, 0.0, 0.7, 30.0, 10.0, 45.0]);
+    }
+
+    /// TOOL-213-11: the global pressure curve reshapes pen and touch pressure; a mouse stays 1.
+    #[test]
+    fn the_pressure_curve_reshapes_every_sample() {
+        use photocraft_engine::paint::PressureCurve;
+        let mut s = Stylus { curve: PressureCurve::FIRM, ..Default::default() };
+        assert_eq!(s.pressure(), 1.0, "a mouse paints fully");
+        s.feed.set(Some(PenSample { pressure: 0.5, tilt_x: 20.0, ..Default::default() }));
+        assert!((s.pressure() - 0.28).abs() < 1e-5);
+        assert_eq!(s.sample().map(|p| p.tilt_x), Some(20.0), "tilt is untouched");
+        s.feed.set(None);
+        s.update(&[touch(egui::TouchPhase::Start, Some(0.5))]);
+        assert!((s.pressure() - 0.28).abs() < 1e-5, "touch pressure too");
     }
 
     #[test]

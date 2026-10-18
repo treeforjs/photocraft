@@ -2723,5 +2723,10 @@ theme	Warm	Тёплая
 	Slant	Наклон
 	Optical Size	Оптический размер
 	Optical size follows the font size	Оптический размер следует за кеглем
+	Pressure curve	Кривая нажима
+	Curve:	Кривая:
+	Firm	Сильная
+	How hard a pen press must be, for every tool. Double-click the graph to reset.	Насколько сильно нужно нажимать пером, для всех инструментов. Двойной щелчок по графику сбрасывает её.
+	Soft	Мягкая
 	Import Image as Brush…	Импортировать изображение как кисть…
 	New brush “{name}” from the image	Новая кисть «{name}» из изображения
