@@ -2465,6 +2465,9 @@ theme	Warm	暖色
 	How hard a pen press must be, for every tool. Double-click the graph to reset.	所有工具需要的笔压力度。双击图表可重置。
 	Import Image as Brush…	将图像导入为画笔…
 	New brush “{name}” from the image	从图像新建画笔“{name}”
+	Type on a Path	路径文字
+	Start	起点
+	Release from Path	从路径释放
 	Float Panel Group	浮动面板组
 	Dock Panel Group	停放面板组
 	No Suggestions	无建议

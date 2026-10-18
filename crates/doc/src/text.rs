@@ -241,6 +241,17 @@ pub enum AntiAlias {
     WindowsLcd,
 }
 
+/// Type on a path (Photoshop's type on a path): the baseline follows `path` (text space,
+/// before the layer transform), starting `start` px along it; `flip` runs the text the other
+/// way, on the other side. Laid out by `photocraft-text` (its `on_path` module).
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct TextPath {
+    pub path: crate::vector::Path,
+    pub start: f32,
+    pub flip: bool,
+}
+
 /// Warp text settings (Photoshop `warp` descriptor), applied to the glyph outlines by
 /// `photocraft-text` (see its `warp` module) and round-tripped through PSD.
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]

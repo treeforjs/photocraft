@@ -3465,6 +3465,9 @@ theme	Warm	Ciepły
 	How hard a pen press must be, for every tool. Double-click the graph to reset.	Jak mocno trzeba naciskać pióro, dla wszystkich narzędzi. Kliknij dwukrotnie wykres, aby go przywrócić.
 	Import Image as Brush…	Importuj obraz jako pędzel…
 	New brush “{name}” from the image	Nowy pędzel „{name}” z obrazu
+	Type on a Path	Tekst na ścieżce
+	Start	Początek
+	Release from Path	Odłącz od ścieżki
 	Float Panel Group	Odepnij grupę paneli
 	Dock Panel Group	Zadokuj grupę paneli
 	No Suggestions	Brak sugestii

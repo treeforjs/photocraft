@@ -2875,6 +2875,9 @@ theme	Warm	Quente
 	How hard a pen press must be, for every tool. Double-click the graph to reset.	Quanta pressão a caneta precisa fazer, em todas as ferramentas. Clique duas vezes no gráfico para redefinir.
 	Import Image as Brush…	Importar imagem como pincel…
 	New brush “{name}” from the image	Novo pincel “{name}” a partir da imagem
+	Type on a Path	Texto em um demarcador
+	Start	Início
+	Release from Path	Liberar do demarcador
 	Float Panel Group	Tornar grupo de painéis flutuante
 	Dock Panel Group	Encaixar grupo de painéis
 	No Suggestions	Nenhuma sugestão

@@ -1415,3 +1415,40 @@ fn character_panel_opentype_buttons_toggle_features() {
     assert_eq!(crate::view_cmds::checked(app, "type.openType.stylisticSet2"), Some(true));
     assert_eq!(crate::view_cmds::checked(app, "type.openType.stylisticSet1"), Some(false));
 }
+
+/// Type on a path: a click on the Work Path sets type on it from the click; clicking on the
+/// laid-out text afterwards puts the caret on the glyph under the pointer, along the path.
+#[test]
+fn clicking_a_path_sets_type_on_it_and_the_caret_follows_the_path() {
+    let mut app = new_app();
+    // A vertical path: the text runs down it.
+    app.run("path.set", json!({"path": {"subpaths": [{"closed": false, "knots": [[400, 100], [400, 800]]}]}})).unwrap();
+    super::pointer_up(&mut app, [401.0, 200.0], [401.0, 200.0]);
+    let id = app.session.active().unwrap().active_layer.unwrap();
+    let t = text_layer(&app.session.active().unwrap().doc, id).unwrap().clone();
+    let tp = t.on_path.clone().expect("type on the path");
+    assert_eq!(tp.start, 100.0, "starts where the path was clicked");
+    let ink = t.cache.as_ref().unwrap().content_bounds();
+    assert!(ink.height() > ink.width() && ink.y0 >= 190, "runs down the path: {ink:?}");
+    // Away from any path: point text as before.
+    app.ui.text_edit = None;
+    super::pointer_up(&mut app, [900.0, 300.0], [900.0, 300.0]);
+    let other = app.session.active().unwrap().active_layer.unwrap();
+    assert!(text_layer(&app.session.active().unwrap().doc, other).unwrap().on_path.is_none());
+    // The caret lands by distance along the path: a point beside the path halfway down the
+    // placeholder maps to a caret inside it, not at either end.
+    app.ui.text_edit = None;
+    let (l, _, text) = layout(&mut app, id).unwrap();
+    let n = text.chars().count();
+    let mid = l.lines[0].x0 + (l.lines[0].x1 - l.lines[0].x0) * 0.5;
+    let off = super::hit_offset(&mut app, id, 395.0, 200.0 + f64::from(mid));
+    assert!(off > 2 && off + 2 < n, "caret {off} of {n}");
+    // Hit testing finds the layer along the path, and a release from the path anchors point
+    // text at the start.
+    assert!(super::pointer_down(&mut app, 395.0, 200.0 + f64::from(mid), false));
+    assert_eq!(app.ui.text_edit.as_ref().map(|e| e.layer), Some(id.0));
+    app.run("type.edit", json!({"layer": id.0, "onPath": null})).unwrap();
+    let t = text_layer(&app.session.active().unwrap().doc, id).unwrap();
+    assert!(t.on_path.is_none());
+    assert_eq!((t.transform.m[4], t.transform.m[5]), (400.0, 200.0));
+}
