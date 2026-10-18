@@ -2480,12 +2480,9 @@ theme	Warm	Warm
 	Slant	Neigung
 	Optical Size	Optische Größe
 	Optical size follows the font size	Optische Größe folgt der Schriftgröße
-<<<<<<< HEAD
 	Pressure curve	Druckkurve
 	Curve:	Kurve:
 	Firm	Fest
 	How hard a pen press must be, for every tool. Double-click the graph to reset.	Wie fest ein Stiftdruck sein muss, für alle Werkzeuge. Doppelklick auf das Diagramm setzt sie zurück.
-=======
 	Import Image as Brush…	Bild als Pinsel importieren…
 	New brush “{name}” from the image	Neuer Pinsel „{name}“ aus dem Bild
->>>>>>> origin/main

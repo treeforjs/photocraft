@@ -295,7 +295,6 @@ fn set_brush_keeps_untouched_bitmaps_and_replaces_touched_ones() {
     eprintln!("merge_brush on a 2500 px tip: {ms:.2} ms per edit");
 }
 
-<<<<<<< HEAD
 /// TOOL-213-11: a dynamic's pressure curve and the global one are set through the commands
 /// agents use; hostile values never escape 0–1.
 #[test]
@@ -313,7 +312,8 @@ fn pressure_curves_are_set_by_commands() {
     s.execute("tools.setBrush", json!({"shapeDynamics": {"size": {"pressureCurve": [9, -9, 0.5, 1e30, 0]}}})).unwrap();
     let c = s.tools.brush.shape_dynamics.size.pressure_curve;
     assert!((0..=10).all(|k| (0.0..=1.0).contains(&c.apply(k as f32 / 10.0))));
-=======
+}
+
 /// TOOL-213-12: an image file becomes a sampled tip (dark and opaque paints), cropped to what
 /// paints and scaled down past the tip limit; bad files are errors.
 #[test]
@@ -360,7 +360,6 @@ fn define_brush_from_an_image_file() {
     assert!(s.execute("brush.defineFromImage", json!({})).is_err());
     assert_eq!(s.tools.presets.len(), n);
     let _ = std::fs::remove_dir_all(&dir);
->>>>>>> origin/main
 }
 
 #[test]
