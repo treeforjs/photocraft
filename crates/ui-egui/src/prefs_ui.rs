@@ -1319,6 +1319,15 @@ fn section_fields(ui: &mut egui::Ui, section: &str, obj: &mut Map<String, Value>
                         obj.insert(k, json!(x));
                     }
                 }
+                Value::Array(_) if path == "tools.pressureCurve" => {
+                    ui.label(RichText::new(tl!(&label)).color(t.text_dim));
+                    let mut curve: photocraft_engine::paint::PressureCurve = serde_json::from_value(v.clone()).unwrap_or_default();
+                    ui.vertical(|ui| {
+                        crate::pressure_curve_ui::editor(ui, "pref-pressure-curve", &mut curve, 112.0);
+                        ui.label(RichText::new(tl!("How hard a pen press must be, for every tool. Double-click the graph to reset.")).color(t.text_faint));
+                    });
+                    obj.insert(k, json!(curve));
+                }
                 Value::Array(items) if k == "disks" => {
                     ui.label(RichText::new(tl!("Scratch disks")).color(t.text_dim));
                     let mut items = items.clone();

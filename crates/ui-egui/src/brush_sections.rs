@@ -81,6 +81,13 @@ fn control_row(ui: &mut egui::Ui, id: &str, d: &mut Dynamic, angle: bool) {
             }
         }
     });
+    // Pen Pressure: this control's own pressure curve (TOOL-213-11), on top of the global one.
+    if d.control == Control::PenPressure {
+        ui.horizontal(|ui| {
+            dim(ui, tl!("Curve:"));
+            crate::pressure_curve_ui::graph(ui, &format!("{id}-curve"), &mut d.pressure_curve, 64.0);
+        });
+    }
     ui.add_space(2.0);
 }
 
