@@ -75,6 +75,7 @@ pub mod fill_ui;
 pub mod filter_dialog;
 #[cfg(not(target_arch = "wasm32"))]
 mod filter_preview_worker;
+mod flick_pan;
 mod font_preview;
 pub mod font_recents;
 pub mod gallery_ui;
