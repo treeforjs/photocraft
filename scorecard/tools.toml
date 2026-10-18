@@ -148,9 +148,9 @@ note = "canvas_tool_menu.rs TRANSFORM_MENU: modes, Warp, Rotate 180/90 and Flip;
 [[item]]
 id = "TOOL-214-6"
 target = "Puppet Warp mesh follows the object outline (constrained triangulation)"
-status = "missing"
+status = "done"
 issue = 214
-note = "algo/puppet.rs:136 builds a block-grid mesh"
+note = "algo/puppet.rs outline_mesh: boundary samples of the grown coverage (every corner, runs every half cell) plus an interior lattice, Bowyer-Watson Delaunay clipped to the coverage, checked to cover every covered block (grid mesh as fallback); the_mesh_follows_the_outline"
 
 [[item]]
 id = "TOOL-214-7"
