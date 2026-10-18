@@ -3425,6 +3425,10 @@ theme	Warm	ウォーム
 	Edit points to modify the curve	ポイントを編集してカーブを変更
 	Draw to modify the curve	描画してカーブを変更
 	Drag to draw the curve · Smooth softens it	ドラッグしてカーブを描画 · スムーズで滑らかにします
+	W x H x Resolution	幅 x 高さ x 解像度
+	New Crop Preset…	新規切り抜きプリセット…
+	px/in	px/inch
+	px/cm	px/cm
 	Numerals	数字
 	Stylistic Sets	スタイルセット
 	Tabular Lining	等幅ライニング数字

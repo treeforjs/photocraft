@@ -1036,24 +1036,41 @@ pub fn options_bar(app: &mut PhotocraftApp, ui: &mut egui::Ui) {
                         crate::gradient_ui::options_changed(app, &before);
                     }
                     Tool::Crop if t.pro => {
+                        // Ratios, W x H x Resolution, the saved crop presets and New Crop Preset….
+                        let presets: Vec<(String, String)> =
+                            crate::crop_size::presets(app).into_iter().map(|n| (format!("{}{n}", crate::crop_size::PRESET), n)).collect();
                         let o = &mut app.ui.tool_options;
-                        let ratios: Vec<(String, &str)> = crate::chrome_ui::CROP_RATIOS.iter().map(|(k, l)| (k.to_string(), *l)).collect();
-                        widgets::dropdown(ui, "crop-ratio", &mut o.crop_ratio, &ratios, 120.0);
-                        // Custom ratio fields (Photoshop shows the preset's numbers here).
-                        let (mut rw, mut rh) = crate::chrome_ui::crop_ratio(&o.crop_ratio, 0.0, 0.0).map_or((0.0, 0.0), |(w, h)| (w as f32, h as f32));
-                        let cw = widgets::value_field(ui, &mut rw, 0.0..=99_999.0, "", 54.0).changed();
-                        let swap = icons::button(ui, "arrow-left-right", 22.0, false, tl!("Swaps height and width")).clicked();
-                        let ch = widgets::value_field(ui, &mut rh, 0.0..=99_999.0, "", 54.0).changed();
-                        if swap {
-                            std::mem::swap(&mut rw, &mut rh);
-                        }
-                        if (cw || ch || swap) && rw > 0.0 && rh > 0.0 {
-                            o.crop_ratio = format!("{}:{}", widgets::fmt_num(rw as f64), widgets::fmt_num(rh as f64));
+                        let mut ratios: Vec<(String, &str)> = crate::chrome_ui::CROP_RATIOS.iter().map(|(k, l)| (k.to_string(), *l)).collect();
+                        ratios.extend(presets.iter().map(|(k, n)| (k.clone(), n.as_str())));
+                        ratios.push((crate::crop_size::NEW_PRESET.to_string(), "New Crop Preset…"));
+                        let before = o.crop_ratio.clone();
+                        let picked = widgets::dropdown(ui, "crop-ratio", &mut o.crop_ratio, &ratios, 140.0);
+                        if o.crop_ratio == crate::crop_size::SIZE {
+                            crate::crop_size::fields(o, ui);
+                        } else {
+                            // Custom ratio fields (Photoshop shows the preset's numbers here).
+                            let (mut rw, mut rh) = crate::chrome_ui::crop_ratio(&o.crop_ratio, 0.0, 0.0).map_or((0.0, 0.0), |(w, h)| (w as f32, h as f32));
+                            let cw = widgets::value_field(ui, &mut rw, 0.0..=99_999.0, "", 54.0).changed();
+                            let swap = icons::button(ui, "arrow-left-right", 22.0, false, tl!("Swaps height and width")).clicked();
+                            let ch = widgets::value_field(ui, &mut rh, 0.0..=99_999.0, "", 54.0).changed();
+                            if swap {
+                                std::mem::swap(&mut rw, &mut rh);
+                            }
+                            if (cw || ch || swap) && rw > 0.0 && rh > 0.0 {
+                                o.crop_ratio = format!("{}:{}", widgets::fmt_num(rw as f64), widgets::fmt_num(rh as f64));
+                            }
                         }
                         widgets::vline(ui, 22.0);
                         if widgets::secondary_button(ui, tl!("Clear"), 0.0).clicked() {
                             o.crop_ratio.clear();
+                            o.crop_width.clear();
+                            o.crop_height.clear();
+                            o.crop_resolution.clear();
                         }
+                        if picked {
+                            crate::crop_size::after_pick(app, &before);
+                        }
+                        let o = &mut app.ui.tool_options;
                         crate::crop_straighten::options_button(&mut app.crop.straighten, ui);
                         crate::crop_overlay::options_button(o, ui);
                         let pick_shield_color = crate::crop_shield::options_button(&mut o.crop_shield, ui);
