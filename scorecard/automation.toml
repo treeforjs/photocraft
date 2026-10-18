@@ -35,9 +35,9 @@ note = "actions.list/get/record/stop/play/delete in actions_cmds.rs; the panel, 
 [[item]]
 id = "AUTO-219-4"
 target = "Replay tests for crop, filters, selections and styled text on a second document"
-status = "missing"
+status = "done"
 issue = 219
-note = "One replay test (actions.rs:171: new layer, rect select, fill)"
+note = "engine/tests/action_replay.rs: crop (with and without deleting pixels), filters (incl. one aimed at a non-active layer), selections (rect, lasso add, feather, inverse, expand/contract) and styled typed text, each recorded on one document and played on a second with different layer ids, compared with the same commands run there directly (picture, layers, selection)"
 
 [[item]]
 id = "AUTO-219-5"
