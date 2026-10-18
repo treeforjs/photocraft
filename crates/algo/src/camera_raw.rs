@@ -195,6 +195,79 @@ impl Default for CameraRaw {
     }
 }
 
+/// Light › Auto: Exposure, Contrast, Highlights, Shadows, Whites and Blacks chosen from the
+/// luminance histogram of straight-RGBA `px` (transparent pixels ignored), so a dark or flat
+/// image lands near a full, mid-grey-centred range. The other settings are left as they are.
+/// Our own heuristic, solved against this module's tone formulas.
+pub fn auto_tone(p: &mut CameraRaw, px: &[[f32; 4]]) {
+    const BINS: usize = 1024;
+    const MAX_SAMPLES: usize = 262_144;
+    let step = px.len().div_ceil(MAX_SAMPLES).max(1);
+    let mut hist = vec![0u32; BINS];
+    let mut n = 0u32;
+    for q in px.iter().step_by(step) {
+        let l = luma([q[0], q[1], q[2]]);
+        if !(q[3] >= 0.5 && l.is_finite()) {
+            continue;
+        }
+        let bin = ((l.clamp(0.0, 1.0) * (BINS - 1) as f32).round() as usize).min(BINS - 1);
+        if let Some(h) = hist.get_mut(bin) {
+            *h = h.saturating_add(1);
+        }
+        n = n.saturating_add(1);
+    }
+    if n == 0 {
+        return;
+    }
+    let pct = |f: f32| -> f32 {
+        let want = (f * n as f32).ceil().max(1.0) as u32;
+        let mut seen = 0u32;
+        for (i, c) in hist.iter().enumerate() {
+            seen = seen.saturating_add(*c);
+            if seen >= want {
+                return i as f32 / (BINS - 1) as f32;
+            }
+        }
+        1.0
+    };
+    let round = |v: f32, step: f32| (v / step).round() * step + 0.0;
+    // Exposure: the median to mid grey (encoded 0.46), at most two stops either way.
+    let median = pct(0.5).max(0.005);
+    let ev = (srgb_to_linear(0.46) / srgb_to_linear(median)).log2().clamp(-2.0, 2.0);
+    let ev = if ev.abs() < 0.1 { 0.0 } else { round(ev, 0.05) };
+    let gain = 2f32.powf(ev);
+    let after = |v: f32| linear_to_srgb(srgb_to_linear(v) * gain).clamp(0.0, 1.0);
+    // Fractions and spread after the exposure change.
+    let (mut bright, mut dark, mut sum, mut sum2) = (0.0f64, 0.0f64, 0.0f64, 0.0f64);
+    for (i, c) in hist.iter().enumerate() {
+        let v = after(i as f32 / (BINS - 1) as f32);
+        let c = f64::from(*c);
+        bright += if v > 0.9 { c } else { 0.0 };
+        dark += if v < 0.1 { c } else { 0.0 };
+        sum += c * f64::from(v);
+        sum2 += c * f64::from(v) * f64::from(v);
+    }
+    let total = f64::from(n);
+    let (bright, dark) = ((bright / total) as f32, (dark / total) as f32);
+    let mean = sum / total;
+    let sd = (sum2 / total - mean * mean).max(0.0).sqrt() as f32;
+    // Whites / Blacks: the 99.5th and 0.5th percentiles towards 0.97 and 0.03 (develop's
+    // `whites / 100 * 0.25 * smoothstep(0.4, 1, l)` and `blacks / 100 * 0.15 * (1 - smoothstep(0, 0.45, l))`).
+    let hi = after(pct(0.995));
+    let w_gain = 0.25 * smoothstep(0.4, 1.0, hi);
+    let whites = if w_gain > 0.01 { ((0.97 - hi) / w_gain * 100.0).clamp(-60.0, 60.0) } else { 0.0 };
+    let lo = after(pct(0.005));
+    let b_gain = 0.15 * (1.0 - smoothstep(0.0, 0.45, lo));
+    let blacks = if b_gain > 0.01 { ((0.03 - lo) / b_gain * 100.0).clamp(-40.0, 60.0) } else { 0.0 };
+    p.exposure = ev;
+    p.whites = round(whites, 1.0);
+    p.blacks = round(blacks, 1.0);
+    // Pull bright areas in, lift dark ones, and bring the spread towards a natural 0.22.
+    p.highlights = if bright > 0.02 { round(-(bright * 400.0).min(100.0), 1.0) } else { 0.0 };
+    p.shadows = if dark > 0.05 { round((dark * 300.0).min(100.0), 1.0) } else { 0.0 };
+    p.contrast = round(((0.22 - sd) / 0.22 * 40.0).clamp(-25.0, 25.0), 1.0);
+}
+
 /// Hue band centres of the Color Mixer (degrees).
 pub const HSL_BANDS: [f32; 8] = [0.0, 30.0, 60.0, 120.0, 180.0, 240.0, 270.0, 300.0];
 
@@ -977,6 +1050,34 @@ mod tests {
 
     fn mean(px: &[[f32; 4]], c: usize) -> f32 {
         px.iter().map(|q| q[c]).sum::<f32>() / px.len() as f32
+    }
+
+    #[test]
+    fn auto_tone_brightens_dark_images_and_leaves_good_ones_alone() {
+        let (w, h) = (64, 48);
+        // A dark, flat image: everything in 0.05..0.25.
+        let dark: Vec<[f32; 4]> = img(w, h).iter().map(|q| [q[0] * 0.3, q[1] * 0.3, q[2] * 0.3, 1.0]).collect();
+        let mut p = CameraRaw::default();
+        auto_tone(&mut p, &dark);
+        assert!(p.exposure > 0.5 && p.exposure <= 2.0, "{p:?}");
+        assert!(p.contrast > 0.0, "a flat image gets contrast: {p:?}");
+        let mut out = dark.clone();
+        develop(&mut out, w, h, &p, false);
+        assert!(mean(&out, 1) > mean(&dark, 1) + 0.1, "{} -> {} {p:?}", mean(&dark, 1), mean(&out, 1));
+        assert!(out.iter().all(|q| q[..3].iter().all(|v| v.is_finite() && (0.0..=1.0).contains(v))));
+        // A full-range ramp centred on mid grey needs no exposure change.
+        let ramp: Vec<[f32; 4]> = (0..w * h).map(|i| i as f32 / (w * h - 1) as f32).map(|v| [v, v, v, 1.0]).collect();
+        let mut p = CameraRaw::default();
+        auto_tone(&mut p, &ramp);
+        assert!(p.exposure.abs() < 0.3 && p.whites.abs() <= 20.0 && p.blacks.abs() <= 20.0, "{p:?}");
+        // Nothing opaque: nothing changes. Other settings are kept.
+        let mut p = CameraRaw { vibrance: 25.0, ..Default::default() };
+        auto_tone(&mut p, &[[0.1, 0.1, 0.1, 0.0]; 16]);
+        assert_eq!(p, CameraRaw { vibrance: 25.0, ..Default::default() });
+        auto_tone(&mut p, &[[f32::NAN, 0.0, 0.0, 1.0]; 4]);
+        assert_eq!(p.exposure, 0.0);
+        auto_tone(&mut p, &dark);
+        assert_eq!(p.vibrance, 25.0);
     }
 
     #[test]
