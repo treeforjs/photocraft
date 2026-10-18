@@ -12,6 +12,7 @@
 //! - tool presets ([`tools`]): a tool plus its options (opaque JSON the shell fills in);
 //! - clone sources ([`clone_source`]): five source slots with offset, scale, rotation and flip
 //!   that `paint.cloneStamp` / `paint.healingBrush` follow;
+//! - contours ([`contours`]): Layer Style contours saved from the Contour Editor;
 //! - swatches ([`swatches`]): named colours in their own colour model (commands in
 //!   `crate::swatch_cmds`, `.aco`/`.ase` import and export).
 //!
@@ -20,6 +21,7 @@
 //! [`PresetState::to_json`] (saved under `"presets"` by [`Session::prefs_to_json`]).
 
 pub mod clone_source;
+pub mod contours;
 pub mod gradients;
 pub mod patterns;
 pub mod shapes;
@@ -87,6 +89,8 @@ pub struct PresetState {
     pub layer_defaults: BTreeMap<String, Value>,
     /// Swatches panel library.
     pub swatches: Vec<Group<swatches::Swatch>>,
+    /// Layer Style contours saved from the Contour Editor.
+    pub contours: Vec<Group<contours::ContourPreset>>,
     /// Bumped on every preset change (UIs key thumbnail caches on it).
     pub rev: u64,
 }
@@ -105,6 +109,7 @@ impl Default for PresetState {
             clone: Default::default(),
             layer_defaults: BTreeMap::new(),
             swatches: swatches::builtin(),
+            contours: contours::builtin(),
             rev: 0,
         }
     }
@@ -133,6 +138,8 @@ struct Persisted {
     #[serde(default)]
     layer_defaults: Option<BTreeMap<String, Value>>,
     swatches: Option<Vec<Group<swatches::Swatch>>>,
+    #[serde(default)]
+    contours: Option<Vec<Group<contours::ContourPreset>>>,
 }
 
 impl PresetState {
@@ -149,6 +156,7 @@ impl PresetState {
             custom_shapes: Some(s.edit_state.custom_shapes.clone()),
             layer_defaults: Some(self.layer_defaults.clone()),
             swatches: Some(self.swatches.clone()),
+            contours: Some(self.contours.clone()),
         };
         serde_json::to_value(p).unwrap_or(Value::Null)
     }
@@ -191,6 +199,10 @@ impl Session {
             // A hand-edited preferences file can't make the library unbounded.
             crate::swatch_cmds::cap_library(&mut g);
             self.presets.swatches = g;
+        }
+        if let Some(mut g) = p.contours {
+            contours::cap(&mut g);
+            self.presets.contours = g;
         }
         self.presets.rev += 1;
     }
@@ -337,6 +349,7 @@ pub fn specs() -> Vec<CommandSpec> {
     v.extend(shapes::specs());
     v.extend(tools::specs());
     v.extend(clone_source::specs());
+    v.extend(contours::specs());
     v
 }
 

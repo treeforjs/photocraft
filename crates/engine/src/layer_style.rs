@@ -82,7 +82,7 @@ pub fn effect_defaults(kind: &str) -> Value {
         }
         "patternOverlay" => json!({"blend": "Normal", "opacity": 100, "pattern": "", "angle": 0, "scale": 100, "link": true}),
         "bevelEmboss" => {
-            json!({"style": "inner", "depth": 100, "direction": "up", "size": 5, "soften": 0, "angle": 120, "useGlobalLight": true, "altitude": 30})
+            json!({"style": "inner", "depth": 100, "direction": "up", "size": 5, "soften": 0, "angle": 120, "useGlobalLight": true, "altitude": 30, "glossContour": "Linear"})
         }
         "satin" => json!({"blend": "Multiply", "color": "#000000", "opacity": 50, "angle": 19, "distance": 11, "size": 14, "invert": true}),
         _ => json!({}),
@@ -112,12 +112,10 @@ pub fn builtin_contour(name: &str) -> Option<Contour> {
     })
 }
 
-/// The param naming a contour (`"Linear"` or a preset/custom contour's name).
+/// The param form of a contour: a built-in's name, or `{"name", "points"}` for any other
+/// (see [`crate::presets::contours::contour_value`]).
 pub fn contour_param(c: &Contour) -> Value {
-    match c {
-        Contour::Linear => json!("Linear"),
-        Contour::Custom { name, .. } => json!(name),
-    }
+    crate::presets::contours::contour_json(c)
 }
 
 /// An effect of `kind` with its factory settings (before params are applied).
@@ -241,9 +239,7 @@ pub fn overlay_effect(fx: &mut Effect, p: &Value) {
         }
     }
     fn set_contour(p: &Value, c: &mut Contour) {
-        if let Some(name) = p.get("contour").and_then(Value::as_str)
-            && let Some(x) = builtin_contour(name)
-        {
+        if let Some(x) = p.get("contour").and_then(crate::presets::contours::contour_value) {
             *c = x;
         }
     }
@@ -422,19 +418,17 @@ pub fn overlay_effect(fx: &mut Effect, p: &Value) {
             if let Some(x) = b_of(p, "useGlobalLight") {
                 bv.use_global_light = x;
             }
-            if let Some(x) = p.get("glossContour").and_then(Value::as_str)
-                && let Some(c) = builtin_contour(x)
-            {
+            if let Some(c) = p.get("glossContour").and_then(crate::presets::contours::contour_value) {
                 bv.gloss_contour = c;
             }
             if let Some(x) = b_of(p, "contour") {
                 bv.contour = x.then(|| photocraft_doc::BevelContour {
-                    contour: builtin_contour(p.get("contourName").and_then(Value::as_str).unwrap_or("Linear")).unwrap_or(Contour::Linear),
+                    contour: p.get("contourName").and_then(crate::presets::contours::contour_value).unwrap_or(Contour::Linear),
                     range: (f(p, "contourRange", 50.0) / 100.0).clamp(0.01, 1.0),
                     anti_alias: false,
                 });
             } else if let Some(c) = &mut bv.contour
-                && let Some(x) = builtin_contour(p.get("contourName").and_then(Value::as_str).unwrap_or(""))
+                && let Some(x) = p.get("contourName").and_then(crate::presets::contours::contour_value)
             {
                 c.contour = x;
             }
@@ -623,22 +617,22 @@ pub fn specs() -> Vec<CommandSpec> {
         style_cmd!(
             "dropShadow",
             "Drop Shadow…",
-            r##"{"color":"#rrggbb","opacity":0..100=75,"blend":str="multiply","angle":deg=120,"useGlobalLight":bool,"distance":px=5,"spread":0..100,"size":px=5,"contour":"Linear|Cone|Cone (Inverted)|Domed|Domed (Inverted)|Diagonal (Descending)"="Linear","noise":0..100,"knocksOut":bool,"add":bool,"layer":id}"##
+            r##"{"color":"#rrggbb","opacity":0..100=75,"blend":str="multiply","angle":deg=120,"useGlobalLight":bool,"distance":px=5,"spread":0..100,"size":px=5,"contour":"Linear|Cone|Cone (Inverted)|Domed|Domed (Inverted)|Diagonal (Descending)"|{"name","points":[[in,out],…]}="Linear","noise":0..100,"knocksOut":bool,"add":bool,"layer":id}"##
         ),
         style_cmd!(
             "innerShadow",
             "Inner Shadow…",
-            r##"{"color":"#rrggbb","opacity":0..100=75,"blend":str,"angle":deg,"distance":px,"choke":0..100,"size":px,"contour":name,"noise":0..100,"add":bool}"##
+            r##"{"color":"#rrggbb","opacity":0..100=75,"blend":str,"angle":deg,"distance":px,"choke":0..100,"size":px,"contour":name|{"name","points"},"noise":0..100,"add":bool}"##
         ),
         style_cmd!(
             "outerGlow",
             "Outer Glow…",
-            r##"{"color":"#rrggbb","opacity":0..100=75,"blend":str="screen","technique":"softer|precise","spread":0..100,"size":px,"range":0..100,"contour":name,"noise":0..100,"add":bool}"##
+            r##"{"color":"#rrggbb","opacity":0..100=75,"blend":str="screen","technique":"softer|precise","spread":0..100,"size":px,"range":0..100,"contour":name|{"name","points"},"noise":0..100,"add":bool}"##
         ),
         style_cmd!(
             "innerGlow",
             "Inner Glow…",
-            r##"{"color":"#rrggbb","opacity":0..100=75,"blend":str="screen","technique":"softer|precise","source":"edge|center","choke":0..100,"size":px,"contour":name,"noise":0..100,"add":bool}"##
+            r##"{"color":"#rrggbb","opacity":0..100=75,"blend":str="screen","technique":"softer|precise","source":"edge|center","choke":0..100,"size":px,"contour":name|{"name","points"},"noise":0..100,"add":bool}"##
         ),
         style_cmd!(
             "stroke",
@@ -659,7 +653,7 @@ pub fn specs() -> Vec<CommandSpec> {
         style_cmd!(
             "bevelEmboss",
             "Bevel & Emboss…",
-            r##"{"style":"inner|outer|emboss|pillow|stroke","technique":"smooth|chiselHard|chiselSoft","contour":bool,"contourRange":1..100=50,"texture":pattern id|name?,"textureScale":1..1000=100,"textureDepth":-1000..1000=100,"textureInvert":bool,"textureLink":bool=true,"depth":1..1000=100,"direction":"up|down","size":px=5,"soften":px,"angle":deg,"altitude":deg,"add":bool}"##
+            r##"{"style":"inner|outer|emboss|pillow|stroke","technique":"smooth|chiselHard|chiselSoft","contour":bool,"contourRange":1..100=50,"texture":pattern id|name?,"textureScale":1..1000=100,"textureDepth":-1000..1000=100,"textureInvert":bool,"textureLink":bool=true,"depth":1..1000=100,"direction":"up|down","size":px=5,"soften":px,"angle":deg,"altitude":deg,"glossContour":name|{"name","points":[[in,out],…]},"contourName":name|{"name","points"},"add":bool}"##
         ),
         style_cmd!("satin", "Satin…", r##"{"color":"#rrggbb","opacity":0..100=50,"blend":str,"angle":deg,"distance":px,"size":px,"invert":bool,"add":bool}"##),
         CommandSpec {

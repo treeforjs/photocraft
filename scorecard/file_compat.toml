@@ -106,9 +106,9 @@ note = "engine presets/swatches.rs (RGB/HSB/CMYK/Lab/Gray + verbatim colour book
 [[item]]
 id = "FILE-215-15"
 target = "Layer Style contour picker, curve editor, presets, .shc import/export"
-status = "missing"
+status = "partial"
 issue = 215
-note = "doc effects.rs:57 Contour model only"
+note = "picker with curve thumbnail + Contour Editor (add/drag/remove points, Input/Output, name) in ui-egui layer_style/contour.rs; saved presets engine presets/contours.rs (contour.presets.*, persisted); effects take {name,points}. Missing: .shc import/export (no public spec)"
 
 [[item]]
 id = "FILE-215-16"
