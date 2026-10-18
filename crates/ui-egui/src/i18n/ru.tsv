@@ -2762,3 +2762,14 @@ theme	Warm	Тёплая
 	Place as an embedded smart object (a copy)	Поместить как встроенный смарт-объект (копию)
 	Place as a linked smart object that refers to the library's file	Поместить как связанный смарт-объект, ссылающийся на файл библиотеки
 	Added to the document's patterns:	Добавлено в узоры документа:
+	Title	Заголовок
+	A short summary of the problem	Краткое описание проблемы
+	What happened?	Что произошло?
+	Steps to reproduce, what you expected, what happened instead	Шаги для воспроизведения, что вы ожидали, что произошло вместо этого
+	Include diagnostics	Приложить диагностику
+	System (version, platform, GPU, displays)	Система (версия, платформа, GPU, дисплеи)
+	Open documents (size, mode, depth, layer count; no names)	Открытые документы (размер, режим, глубина, число слоёв; без имён)
+	Recent notices (may name files)	Недавние уведомления (могут содержать имена файлов)
+	This is everything that will be sent:	Это всё, что будет отправлено:
+	Opens a new issue on GitHub in your browser; you can still edit it there.	Открывает новую задачу на GitHub в браузере; там её ещё можно отредактировать.
+	Open on GitHub	Открыть на GitHub

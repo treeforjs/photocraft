@@ -57,9 +57,9 @@ note = "release.yml windows matrix builds arm64 (aarch64-pc-windows-msvc, cross-
 [[item]]
 id = "DIST-220-3"
 target = "In-app bug report with reviewable diagnostics that opens a prefilled issue"
-status = "missing"
+status = "done"
 issue = 220
-note = "No bug report dialog in crates"
+note = "ui-egui bug_report.rs: Help > Report an Issue opens a dialog (title, description, opt-out system/documents and opt-in notices sections, home folder redacted, no names or paths) that previews exactly what is sent and opens GitHub's new-issue page prefilled (URL kept under 7.5 KB); help.reportIssue with params returns the report for automation; bug_report_tests.rs"
 
 [[item]]
 id = "DIST-220-4"

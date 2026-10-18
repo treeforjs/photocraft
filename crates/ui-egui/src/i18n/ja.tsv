@@ -3495,3 +3495,14 @@ theme	Warm	ウォーム
 	Place as an embedded smart object (a copy)	埋め込みスマートオブジェクトとして配置（コピー）
 	Place as a linked smart object that refers to the library's file	ライブラリのファイルを参照するリンクスマートオブジェクトとして配置
 	Added to the document's patterns:	ドキュメントのパターンに追加しました：
+	Title	タイトル
+	A short summary of the problem	問題の短い概要
+	What happened?	何が起きましたか？
+	Steps to reproduce, what you expected, what happened instead	再現手順、期待した動作、実際に起きたこと
+	Include diagnostics	診断情報を含める
+	System (version, platform, GPU, displays)	システム（バージョン、プラットフォーム、GPU、ディスプレイ）
+	Open documents (size, mode, depth, layer count; no names)	開いているドキュメント（サイズ、モード、ビット数、レイヤー数。名前は含みません）
+	Recent notices (may name files)	最近の通知（ファイル名を含む場合があります）
+	This is everything that will be sent:	送信される内容はこれがすべてです：
+	Opens a new issue on GitHub in your browser; you can still edit it there.	ブラウザーで GitHub の新しい Issue を開きます。送信前にそこで編集できます。
+	Open on GitHub	GitHub で開く

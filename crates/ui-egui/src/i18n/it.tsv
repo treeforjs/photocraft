@@ -2550,3 +2550,14 @@ theme	Warm	Caldo
 	Place as an embedded smart object (a copy)	Inserisci come oggetto avanzato incorporato (una copia)
 	Place as a linked smart object that refers to the library's file	Inserisci come oggetto avanzato collegato che rimanda al file della libreria
 	Added to the document's patterns:	Aggiunto ai pattern del documento:
+	Title	Titolo
+	A short summary of the problem	Un breve riepilogo del problema
+	What happened?	Che cosa è successo?
+	Steps to reproduce, what you expected, what happened instead	Passaggi per riprodurlo, cosa ti aspettavi, cosa è successo invece
+	Include diagnostics	Includi diagnostica
+	System (version, platform, GPU, displays)	Sistema (versione, piattaforma, GPU, schermi)
+	Open documents (size, mode, depth, layer count; no names)	Documenti aperti (dimensioni, metodo, profondità, numero di livelli; senza nomi)
+	Recent notices (may name files)	Avvisi recenti (possono contenere nomi di file)
+	This is everything that will be sent:	Questo è tutto ciò che verrà inviato:
+	Opens a new issue on GitHub in your browser; you can still edit it there.	Apre una nuova segnalazione su GitHub nel browser; puoi ancora modificarla lì.
+	Open on GitHub	Apri su GitHub

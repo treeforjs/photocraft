@@ -3653,3 +3653,14 @@ theme	Warm	Warm
 	Place as an embedded smart object (a copy)	Plaatsen als ingesloten slim object (een kopie)
 	Place as a linked smart object that refers to the library's file	Plaatsen als gekoppeld slim object dat naar het bibliotheekbestand verwijst
 	Added to the document's patterns:	Toegevoegd aan de patronen van het document:
+	Title	Titel
+	A short summary of the problem	Een korte samenvatting van het probleem
+	What happened?	Wat is er gebeurd?
+	Steps to reproduce, what you expected, what happened instead	Stappen om het te reproduceren, wat je verwachtte, wat er in plaats daarvan gebeurde
+	Include diagnostics	Diagnostische gegevens toevoegen
+	System (version, platform, GPU, displays)	Systeem (versie, platform, GPU, beeldschermen)
+	Open documents (size, mode, depth, layer count; no names)	Geopende documenten (grootte, modus, diepte, aantal lagen; geen namen)
+	Recent notices (may name files)	Recente meldingen (kunnen bestandsnamen bevatten)
+	This is everything that will be sent:	Dit is alles wat wordt verzonden:
+	Opens a new issue on GitHub in your browser; you can still edit it there.	Opent een nieuwe issue op GitHub in je browser; je kunt die daar nog bewerken.
+	Open on GitHub	Openen op GitHub

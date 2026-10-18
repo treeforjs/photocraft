@@ -2905,3 +2905,14 @@ theme	Warm	Quente
 	Place as an embedded smart object (a copy)	Inserir como objeto inteligente incorporado (uma cópia)
 	Place as a linked smart object that refers to the library's file	Inserir como objeto inteligente vinculado que se refere ao arquivo da biblioteca
 	Added to the document's patterns:	Adicionado aos padrões do documento:
+	Title	Título
+	A short summary of the problem	Um breve resumo do problema
+	What happened?	O que aconteceu?
+	Steps to reproduce, what you expected, what happened instead	Passos para reproduzir, o que você esperava, o que aconteceu em vez disso
+	Include diagnostics	Incluir diagnóstico
+	System (version, platform, GPU, displays)	Sistema (versão, plataforma, GPU, telas)
+	Open documents (size, mode, depth, layer count; no names)	Documentos abertos (tamanho, modo, profundidade, número de camadas; sem nomes)
+	Recent notices (may name files)	Avisos recentes (podem citar arquivos)
+	This is everything that will be sent:	Isto é tudo o que será enviado:
+	Opens a new issue on GitHub in your browser; you can still edit it there.	Abre uma nova issue no GitHub no seu navegador; você ainda pode editá-la lá.
+	Open on GitHub	Abrir no GitHub

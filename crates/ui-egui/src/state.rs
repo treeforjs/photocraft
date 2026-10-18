@@ -1022,6 +1022,10 @@ pub struct UiState {
     /// The status message is an error (shown in the warning colour).
     #[serde(default)]
     pub status_error: bool,
+    /// A URL to open in the browser on the next frame (set where no egui context is at hand,
+    /// such as the bug report's OK).
+    #[serde(default)]
+    pub pending_url: Option<String>,
     /// Non-blocking notices (import/export warnings, files that couldn't open), newest last.
     #[serde(default)]
     pub notices: Vec<crate::notices::Notice>,
@@ -1100,6 +1104,7 @@ impl Default for UiState {
             next_id: 1,
             status: String::new(),
             status_error: false,
+            pending_url: None,
             notices: Vec::new(),
             gpu_fallback_notice: None,
             slow_refresh_noticed: Vec::new(),

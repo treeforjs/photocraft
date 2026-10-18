@@ -3588,3 +3588,14 @@ theme	Warm	Ζεστό
 	Place as an embedded smart object (a copy)	Τοποθέτηση ως ενσωματωμένο έξυπνο αντικείμενο (αντίγραφο)
 	Place as a linked smart object that refers to the library's file	Τοποθέτηση ως συνδεδεμένο έξυπνο αντικείμενο που παραπέμπει στο αρχείο της βιβλιοθήκης
 	Added to the document's patterns:	Προστέθηκε στα μοτίβα του εγγράφου:
+	Title	Τίτλος
+	A short summary of the problem	Μια σύντομη περίληψη του προβλήματος
+	What happened?	Τι συνέβη;
+	Steps to reproduce, what you expected, what happened instead	Βήματα αναπαραγωγής, τι περιμένατε, τι συνέβη αντί γι' αυτό
+	Include diagnostics	Συμπερίληψη διαγνωστικών
+	System (version, platform, GPU, displays)	Σύστημα (έκδοση, πλατφόρμα, GPU, οθόνες)
+	Open documents (size, mode, depth, layer count; no names)	Ανοιχτά έγγραφα (μέγεθος, λειτουργία, βάθος, αριθμός επιπέδων· χωρίς ονόματα)
+	Recent notices (may name files)	Πρόσφατες ειδοποιήσεις (μπορεί να αναφέρουν αρχεία)
+	This is everything that will be sent:	Αυτά είναι όλα όσα θα σταλούν:
+	Opens a new issue on GitHub in your browser; you can still edit it there.	Ανοίγει ένα νέο ζήτημα στο GitHub στο πρόγραμμα περιήγησης· μπορείτε ακόμη να το επεξεργαστείτε εκεί.
+	Open on GitHub	Άνοιγμα στο GitHub
