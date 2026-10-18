@@ -986,8 +986,34 @@ pub(crate) fn family_picker_in(ui: &mut egui::Ui, salt: &str, current: &mut Stri
             }
         }
         if enter && filtered.iter().any(|f| *f == current) {
+            crate::font_recents::note(ui.ctx(), current);
             ui.data_mut(|d| d.remove::<String>(search_id));
             ui.close();
+        }
+        // Recently used families first (UI-217-1), as long as they are still installed.
+        let recent: Vec<String> = crate::font_recents::list(ui.ctx()).into_iter().filter(|r| filtered.contains(&r)).collect();
+        if !recent.is_empty() {
+            ui.label(egui::RichText::new(tl!("Recent fonts")).small().weak());
+            for f in &recent {
+                let response = ui.add_sized(
+                    [330.0, 28.0],
+                    egui::Button::selectable(f == current, f.as_str())
+                        .truncate()
+                        .right_text(egui::Atom::custom(ui.id().with(("font-sample-recent", f)), egui::vec2(100.0, 24.0))),
+                );
+                if ui.is_rect_visible(response.rect) {
+                    crate::font_preview::paint(ui, f, response.rect);
+                }
+                if response.clicked() {
+                    current.clone_from(f);
+                    photocraft_text::served::request(f);
+                    crate::font_recents::note(ui.ctx(), f);
+                    changed = true;
+                    ui.data_mut(|d| d.remove::<String>(search_id));
+                    ui.close();
+                }
+            }
+            ui.separator();
         }
         for f in filtered {
             let response = ui.add_sized(
@@ -1004,6 +1030,7 @@ pub(crate) fn family_picker_in(ui: &mut egui::Ui, salt: &str, current: &mut Stri
                 *current = f.clone();
                 // A served family not fetched yet: start now, before any text needs it.
                 photocraft_text::served::request(f);
+                crate::font_recents::note(ui.ctx(), f);
                 changed = true;
                 ui.data_mut(|d| d.remove::<String>(search_id));
                 ui.close();
