@@ -50,7 +50,7 @@ fn save_brush(app: &mut PhotocraftApp, tool: Tool, brush: BrushSettings) {
 
 /// The session's own brush fields, which a tool swap never carries: the colours, the erase flag
 /// and the stroke seed (a stroke's replay seed is the command's, not the tool's).
-fn session_fields(current: &BrushSettings, brush: &BrushSettings) -> BrushSettings {
+pub(crate) fn session_fields(current: &BrushSettings, brush: &BrushSettings) -> BrushSettings {
     BrushSettings { color: current.color, background: current.background, erase: current.erase, seed: current.seed, ..brush.clone() }
 }
 
