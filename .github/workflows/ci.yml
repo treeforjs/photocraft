@@ -118,6 +118,9 @@ jobs:
       - name: Dependency layering
         run: cargo xtask layers
 
+      - name: UI edits go through commands
+        run: cargo xtask ui-commands
+
       # docs/scorecard.md must match its sources (checklists, budgets, baseline, corpus floors,
       # prefs audit). Static: it reads committed files only, no benchmarks run here.
       - name: Scorecard up to date
