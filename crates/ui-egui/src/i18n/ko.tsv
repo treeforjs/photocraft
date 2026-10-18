@@ -3031,3 +3031,6 @@ theme	Warm	웜
 	Import Image as Brush…	이미지를 브러시로 가져오기…
 	New brush “{name}” from the image	이미지에서 새 브러시 “{name}”
 	Show rulers for new documents	새 문서에 눈금자 표시
+	Animations	애니메이션
+	Canvas pattern in dark themes	어두운 테마의 캔버스 패턴
+	Canvas pattern in light themes	밝은 테마의 캔버스 패턴

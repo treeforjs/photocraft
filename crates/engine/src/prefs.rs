@@ -246,6 +246,12 @@ pub struct Interface {
     pub notification_auto_hide: bool,
     /// Seconds a notice stays on screen before it hides itself (Auto Hide Notifications).
     pub notification_duration_seconds: u32,
+    /// Interface fades and slides; off for reduced motion.
+    pub animations: bool,
+    /// The dot pattern on the canvas surround in dark themes.
+    pub canvas_pattern_in_dark_themes: bool,
+    /// The dot pattern on the canvas surround in light themes.
+    pub canvas_pattern_in_light_themes: bool,
 }
 
 impl Default for Interface {
@@ -269,6 +275,9 @@ impl Default for Interface {
             system_title_bar: false,
             notification_auto_hide: true,
             notification_duration_seconds: 6,
+            animations: true,
+            canvas_pattern_in_dark_themes: true,
+            canvas_pattern_in_light_themes: true,
         }
     }
 }

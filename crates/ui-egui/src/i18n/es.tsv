@@ -2518,3 +2518,6 @@ theme	Warm	Cálido
 	Import Image as Brush…	Importar imagen como pincel…
 	New brush “{name}” from the image	Nuevo pincel «{name}» a partir de la imagen
 	Show rulers for new documents	Mostrar reglas en documentos nuevos
+	Animations	Animaciones
+	Canvas pattern in dark themes	Patrón del lienzo en temas oscuros
+	Canvas pattern in light themes	Patrón del lienzo en temas claros

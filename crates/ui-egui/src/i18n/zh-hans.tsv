@@ -2466,3 +2466,6 @@ theme	Warm	暖色
 	Import Image as Brush…	将图像导入为画笔…
 	New brush “{name}” from the image	从图像新建画笔“{name}”
 	Show rulers for new documents	为新文档显示标尺
+	Animations	动画
+	Canvas pattern in dark themes	深色主题中的画布图案
+	Canvas pattern in light themes	浅色主题中的画布图案

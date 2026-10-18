@@ -3467,3 +3467,6 @@ theme	Warm	ウォーム
 	Import Image as Brush…	画像をブラシとして読み込み…
 	New brush “{name}” from the image	画像から新規ブラシ「{name}」
 	Show rulers for new documents	新規ドキュメントで定規を表示
+	Animations	アニメーション
+	Canvas pattern in dark themes	ダークテーマでカンバスのパターンを表示
+	Canvas pattern in light themes	ライトテーマでカンバスのパターンを表示
