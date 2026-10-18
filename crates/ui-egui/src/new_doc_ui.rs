@@ -101,6 +101,38 @@ pub fn px_value(px: f32) -> Value {
     json!(if px.is_finite() { px.round().clamp(1.0, 300_000.0) as u32 } else { 1 })
 }
 
+/// Dialog field holding the sizes of the last documents made here, newest first, as
+/// `[[width, height, ppi], …]`; Preferences keep it between sessions.
+pub const RECENT: &str = "__recent";
+
+/// How many recent sizes the Recent category offers.
+pub const RECENT_MAX: usize = 6;
+
+/// The valid sizes in a saved recent list (`[[width, height, ppi], …]`), newest first. Anything
+/// unreadable is skipped.
+pub fn recent_sizes(v: Option<&Value>) -> Vec<(u32, u32, f32)> {
+    let dim = |v: Option<&Value>| v.and_then(Value::as_u64).and_then(|v| u32::try_from(v).ok()).filter(|v| (1..=300_000).contains(v));
+    v.and_then(Value::as_array)
+        .into_iter()
+        .flatten()
+        .filter_map(|e| {
+            let a = e.as_array()?;
+            let ppi = a.get(2).and_then(Value::as_f64).filter(|p| p.is_finite() && *p > 0.0 && *p <= 100_000.0)? as f32;
+            Some((dim(a.first())?, dim(a.get(1))?, ppi))
+        })
+        .take(RECENT_MAX)
+        .collect()
+}
+
+/// `recent` with the size the fields `f` create put first: no repeats, at most [`RECENT_MAX`].
+pub fn push_recent(recent: Option<&Value>, f: &Map<String, Value>) -> Value {
+    let new = recent_sizes(Some(&json!([[f.get("width"), f.get("height"), get_f(f, "resolution", 72.0)]])));
+    let mut sizes = new.clone();
+    sizes.extend(recent_sizes(recent).into_iter().filter(|s| !new.contains(s)));
+    sizes.truncate(RECENT_MAX);
+    json!(sizes.iter().map(|(w, h, p)| json!([w, h, p])).collect::<Vec<_>>())
+}
+
 /// Name of the preset that takes the clipboard image's size.
 pub const CLIPBOARD: &str = "Clipboard";
 
@@ -165,13 +197,46 @@ pub fn swap_size(f: &mut Map<String, Value>) {
 
 /// Apply a preset to the dialog fields.
 pub fn apply_preset(f: &mut Map<String, Value>, p: &Preset) {
+    apply_size(f, p.0, (p.1, p.2, p.3));
+}
+
+/// Select the preset card `id` with its size (width px, height px, ppi).
+fn apply_size(f: &mut Map<String, Value>, id: &str, (w, h, ppi): (u32, u32, f32)) {
     f.remove("__savedPreset");
-    f.insert("width".into(), json!(p.1));
-    f.insert("height".into(), json!(p.2));
-    f.insert("resolution".into(), json!(p.3));
-    f.insert("__preset".into(), json!(p.0));
+    f.insert("width".into(), json!(w));
+    f.insert("height".into(), json!(h));
+    f.insert("resolution".into(), json!(ppi));
+    f.insert("__preset".into(), json!(id));
     // Print and photo presets are specified in inches, screen presets in pixels.
-    f.insert("__unit".into(), json!(if p.3 >= 300.0 { "in" } else { "px" }));
+    f.insert("__unit".into(), json!(if ppi >= 300.0 { "in" } else { "px" }));
+}
+
+/// A card in the preset grid.
+struct Card {
+    /// What `__preset` holds while the card is selected.
+    id: String,
+    title: String,
+    size: (u32, u32, f32),
+}
+
+/// The cards of category `cat`. Recent offers the clipboard image's size, then the sizes of the
+/// last documents made, then its fixed presets that aren't among them.
+fn cards(f: &Map<String, Value>, cat: &str) -> Vec<Card> {
+    let fixed = CATEGORIES.iter().find(|c| c.0 == cat).map_or(CATEGORIES[0].1, |c| c.1);
+    let card = |p: &Preset| Card { id: p.0.to_string(), title: tl!(p.0).to_string(), size: (p.1, p.2, p.3) };
+    if cat != CATEGORIES[0].0 {
+        return fixed.iter().map(card).collect();
+    }
+    let recent = recent_sizes(f.get(RECENT));
+    let mut out: Vec<Card> = clipboard_preset(f).iter().map(card).collect();
+    out.extend(recent.iter().map(|&(w, h, ppi)| Card { id: recent_id((w, h, ppi)), title: tl!("Custom").to_string(), size: (w, h, ppi) }));
+    out.extend(fixed.iter().filter(|p| !recent.contains(&(p.1, p.2, p.3))).map(card));
+    out
+}
+
+/// The `__preset` id of a recent size's card.
+fn recent_id((w, h, ppi): (u32, u32, f32)) -> String {
+    format!("recent {w}x{h}@{ppi}")
 }
 
 /// Fields `file.new` takes (drops the dialog's `__` UI keys).
@@ -347,9 +412,7 @@ pub fn body(app: &mut crate::PhotocraftApp, ui: &mut egui::Ui, f: &mut Map<Strin
     ui.add_space(6.0);
     widgets::hairline(ui);
     ui.add_space(8.0);
-    let presets = CATEGORIES.iter().find(|c| c.0 == cat).map_or(CATEGORIES[0].1, |c| c.1);
-    // The clipboard image's size comes first among the Recent presets.
-    let presets: Vec<Preset> = clipboard_preset(f).filter(|_| cat == CATEGORIES[0].0).into_iter().chain(presets.iter().copied()).collect();
+    let presets = cards(f, &cat);
     let chosen = get_s(f, "__preset", "");
     ui.horizontal_top(|ui| {
         // Left: preset grid.
@@ -367,7 +430,7 @@ pub fn body(app: &mut crate::PhotocraftApp, ui: &mut egui::Ui, f: &mut Map<Strin
                     ui.spacing_mut().item_spacing.x = 8.0;
                     for p in row {
                         let (r, resp) = ui.allocate_exact_size(card, Sense::click());
-                        let on = chosen == p.0;
+                        let on = chosen == p.id;
                         ui.painter().rect_filled(
                             r,
                             t.radius,
@@ -382,25 +445,26 @@ pub fn body(app: &mut crate::PhotocraftApp, ui: &mut egui::Ui, f: &mut Map<Strin
                         if on {
                             ui.painter().rect_stroke(r, t.radius, Stroke::new(1.5, t.accent), StrokeKind::Inside);
                         }
-                        page_icon(ui, Rect::from_center_size(pos2(r.center().x, r.top() + 34.0), vec2(40.0, 40.0)), p.1, p.2, &t);
-                        let title = card_title(ui.painter(), tl!(p.0), card.x - 12.0, t.text);
+                        let (w, h, ppi) = p.size;
+                        page_icon(ui, Rect::from_center_size(pos2(r.center().x, r.top() + 34.0), vec2(40.0, 40.0)), w, h, &t);
+                        let title = card_title(ui.painter(), &p.title, card.x - 12.0, t.text);
                         let elided = title.elided;
                         ui.painter().galley(pos2(r.center().x, r.top() + 70.0 - title.size().y / 2.0), title, t.text);
-                        let unit = if p.3 >= 300.0 { "in" } else { "px" };
+                        let unit = if ppi >= 300.0 { "in" } else { "px" };
                         let size = if unit == "in" {
                             format!(
                                 "{} x {} in @ {} ppi",
-                                widgets::fmt_num(to_unit(p.1 as f32, "in", p.3) as f64),
-                                widgets::fmt_num(to_unit(p.2 as f32, "in", p.3) as f64),
-                                p.3
+                                widgets::fmt_num(to_unit(w as f32, "in", ppi) as f64),
+                                widgets::fmt_num(to_unit(h as f32, "in", ppi) as f64),
+                                ppi
                             )
                         } else {
-                            format!("{} x {} px @ {} ppi", p.1, p.2, p.3)
+                            format!("{w} x {h} px @ {ppi} ppi")
                         };
                         ui.painter().text(pos2(r.center().x, r.top() + 97.0), Align2::CENTER_CENTER, size, egui::FontId::proportional(10.5), t.text_faint);
-                        let resp = if elided { resp.on_hover_text(tl!(p.0)) } else { resp };
+                        let resp = if elided { resp.on_hover_text(&p.title) } else { resp };
                         if resp.clicked() {
-                            apply_preset(f, p);
+                            apply_size(f, &p.id, p.size);
                         }
                     }
                 });
@@ -614,6 +678,53 @@ mod tests {
         let p = command_params(&f);
         assert!(p.get("__clipboard").is_none(), "file.new never sees the dialog's keys");
         assert_eq!((p["width"].as_u64(), p["height"].as_u64(), p["resolution"].as_f64()), (Some(123), Some(45), Some(72.0)));
+    }
+
+    #[test]
+    fn recent_lists_the_last_sizes_made_newest_first() {
+        let mut app = crate::PhotocraftApp::new(photocraft_engine::Session::new(), crate::Services::default());
+        let titles = |f: &Map<String, Value>| cards(f, "Recent").iter().map(|c| (c.title.clone(), c.size)).collect::<Vec<_>>();
+        // Nothing made yet: only the fixed presets.
+        let f = app.new_document_fields();
+        assert!(f.get(RECENT).is_none());
+        assert_eq!(titles(&f).len(), 2);
+        for (w, h, ppi) in [(640, 480, 72.0), (2100, 1500, 300.0), (640, 480, 72.0), (800, 600, 150.0)] {
+            let mut f = app.new_document_fields();
+            apply_size(&mut f, "test", (w, h, ppi));
+            crate::remember_new_document(&mut app, &f);
+        }
+        let f = app.new_document_fields();
+        // Newest first, the repeat moved up, and the default size made from Recent not listed twice.
+        assert_eq!(
+            titles(&f),
+            vec![
+                ("Custom".to_string(), (800, 600, 150.0)),
+                ("Custom".to_string(), (640, 480, 72.0)),
+                ("Custom".to_string(), (2100, 1500, 300.0)),
+                ("HDTV 1080p".to_string(), (1920, 1080, 72.0)),
+            ]
+        );
+        // Picking one selects it and fills in its size.
+        let mut f = f;
+        let first = cards(&f, "Recent").into_iter().next().unwrap();
+        apply_size(&mut f, &first.id, first.size);
+        assert_eq!((f["width"].as_u64(), f["height"].as_u64(), f["resolution"].as_f64()), (Some(800), Some(600), Some(150.0)));
+        assert_eq!(f["__preset"].as_str(), Some(first.id.as_str()));
+        // The list stays short.
+        for w in 1..=10 {
+            let mut f = app.new_document_fields();
+            apply_size(&mut f, "test", (w, 10, 72.0));
+            crate::remember_new_document(&mut app, &f);
+        }
+        assert_eq!(recent_sizes(app.new_document_fields().get(RECENT)).len(), RECENT_MAX);
+    }
+
+    #[test]
+    fn unreadable_recent_sizes_are_skipped() {
+        let saved = json!([[0, 10, 72], [10, 0, 72], [10, 10, -1], [10, 10, "x"], "junk", [4_000_000_000_u64, 10, 72], [10, 20, 72.0], [1, 2]]);
+        assert_eq!(recent_sizes(Some(&saved)), vec![(10, 20, 72.0)]);
+        assert!(recent_sizes(Some(&json!({"a": 1}))).is_empty());
+        assert!(recent_sizes(None).is_empty());
     }
 
     #[test]
