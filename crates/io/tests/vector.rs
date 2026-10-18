@@ -276,3 +276,28 @@ fn corpus_vector_blocks_survive_roundtrip() {
     }
     eprintln!("vector corpus: {checked} vector blocks byte-identical after round trip");
 }
+
+/// A shape's feather is written as its vector mask's feather, which Photoshop reads back; a
+/// filled shape seen through a soft vector mask opens as a fill layer behind that mask, as
+/// Photoshop's own files do, and looks the same.
+#[test]
+fn shape_feather_is_saved_as_the_vector_feather() {
+    let mut d = doc();
+    let sh = ShapeLayer {
+        path: Path::new(vec![Subpath::polygon(&[(64.0, 64.0), (192.0, 64.0), (192.0, 192.0), (64.0, 192.0)])]),
+        fill: Some(Fill::Solid(Color::rgb(0.0, 0.0, 1.0))),
+        feather: 8.0,
+        ..Default::default()
+    };
+    d.layers.push(shape_layer(sh));
+    let b = roundtrip(&d);
+    let l = b.layers.last().unwrap();
+    let vm = l.vector_mask.as_ref().expect("feathered vector mask");
+    assert_eq!(vm.feather, 8.0);
+    assert!(matches!(l.content, LayerContent::Fill(_)));
+    let (a, c) = (photocraft_compose::flatten(&d), photocraft_compose::flatten(&b));
+    for (x, y) in [(60, 128), (64, 128), (70, 128), (128, 128)] {
+        let (p, q) = (a.px[y * 256 + x], c.px[y * 256 + x]);
+        assert!(p.iter().zip(&q).all(|(u, v)| (u - v).abs() < 0.03), "({x},{y}) {p:?} vs {q:?}");
+    }
+}

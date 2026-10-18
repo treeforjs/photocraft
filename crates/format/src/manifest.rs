@@ -281,6 +281,8 @@ pub enum ContentM {
         stroke: Option<ShapeStroke>,
         #[serde(default)]
         live: Option<LiveShape>,
+        #[serde(default, skip_serializing_if = "is_zero_f32")]
+        feather: f32,
     },
     Smart {
         source: SmartSourceM,
@@ -329,6 +331,9 @@ pub struct ChannelM {
 
 fn is_zero_u32(v: &u32) -> bool {
     *v == 0
+}
+fn is_zero_f32(v: &f32) -> bool {
+    *v == 0.0
 }
 
 fn default_channel_color() -> Color {

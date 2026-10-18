@@ -302,6 +302,9 @@ pub struct ShapeLayer {
     /// Data of the PSD vector mask block (`vsms`, else `vmsk`). On export it replaces that entry
     /// in [`crate::Layer::psd_blocks`] while it still decodes to `path`.
     pub psd_raw: Option<Arc<Vec<u8>>>,
+    /// Feather radius in px of the shape's edges (Properties › Feather, 0–1000): the rendering
+    /// is softened by a Gaussian of this radius, as through a feathered vector mask.
+    pub feather: f32,
 }
 
 #[cfg(test)]
