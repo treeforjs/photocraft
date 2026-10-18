@@ -13,6 +13,29 @@ use crate::{ExportSettings, PhotocraftApp};
 
 const FORMATS: [(&str, &str); 5] = [("png", "PNG"), ("jpg", "JPG"), ("webp", "WebP"), ("tif", "TIFF"), ("tga", "TGA")];
 
+/// Where Export As keeps its last choices across restarts (`Preferences::dialogs`).
+const REMEMBERED: &str = "file.export.exportAs";
+
+/// The choices Export As remembers, each with a check that a stored value is still usable
+/// (preferences are hand-editable and may come from another version).
+/// Whether a stored value is still usable.
+type Check = fn(&Value) -> bool;
+
+const KEYS: [(&str, Check); 6] = [
+    ("format", |v| v.as_str().is_some_and(|f| FORMATS.iter().any(|(id, _)| *id == f))),
+    ("quality", |v| v.as_f64().is_some_and(|q| (1.0..=100.0).contains(&q))),
+    ("lossless", Value::is_boolean),
+    ("transparency", Value::is_boolean),
+    ("scale", |v| v.as_f64().is_some_and(|s| (1.0..=1000.0).contains(&s))),
+    ("metadata", |v| v.as_str().is_some_and(|m| m == "none" || m == "all")),
+];
+
+/// Store the dialog's choices for the next Export As (also after a restart).
+fn remember(app: &mut PhotocraftApp, f: &Map<String, Value>) {
+    let kept: Map<String, Value> = KEYS.iter().filter_map(|(k, ok)| f.get(*k).filter(|v| ok(v)).map(|v| (k.to_string(), v.clone()))).collect();
+    app.session.prefs.edit(|p| p.dialogs.insert(REMEMBERED.into(), Value::Object(kept)));
+}
+
 pub fn open(app: &mut PhotocraftApp) -> Result<u64, String> {
     let st = app.session.active().ok_or("no document")?;
     let mut f = Map::new();
@@ -24,6 +47,13 @@ pub fn open(app: &mut PhotocraftApp) -> Result<u64, String> {
     f.insert("transparency".into(), json!(true));
     f.insert("scale".into(), json!(100));
     f.insert("metadata".into(), json!("none"));
+    if let Some(Value::Object(saved)) = app.session.prefs().dialogs.get(REMEMBERED) {
+        for (k, ok) in KEYS {
+            if let Some(v) = saved.get(k).filter(|v| ok(v)) {
+                f.insert(k.into(), v.clone());
+            }
+        }
+    }
     f.insert("__w".into(), json!(st.doc.size.width));
     f.insert("__h".into(), json!(st.doc.size.height));
     Ok(app.ui.open_dialog(DialogKind::Command, f))
@@ -261,6 +291,10 @@ pub fn confirm(app: &mut PhotocraftApp, f: &Map<String, Value>) -> Result<Value,
         let (bytes, warnings) = export(&out, &path, &settings)?;
         let write = app.services.write.as_mut().ok_or("no writer configured")?;
         write(&path, &bytes)?;
+        // The dialog's choices (not Quick Export's fixed ones) are the next Export As defaults.
+        if f.contains_key("__export") {
+            remember(app, &f);
+        }
         app.ui.status = format!("Exported {path} ({})", crate::sizing::human_bytes(bytes.len() as f64));
         app.ui.status_error = false;
         crate::notices::io_warnings(app, &format!("Exported {}", crate::file_open::display_name(&path)), &warnings);
@@ -435,5 +469,59 @@ mod tests {
         assert_eq!(s.webp_quality, None);
         f.insert("format".into(), json!("png"));
         assert!(settings(&f).webp_lossless, "other formats leave the WebP default alone");
+    }
+
+    fn app() -> PhotocraftApp {
+        let mut app = PhotocraftApp::new(
+            photocraft_engine::Session::new(),
+            crate::Services {
+                export: Some(Box::new(|doc, path, _| {
+                    photocraft_io::export(doc, path, &Default::default()).map(|r| (r.bytes, r.warnings)).map_err(|e| e.to_string())
+                })),
+                write: Some(Box::new(|_, _| Ok(()))),
+                ..Default::default()
+            },
+        );
+        app.run("file.new", json!({"width": 40, "height": 30})).unwrap();
+        app
+    }
+
+    /// Export As offers the last exported choices again, after a restart too; Quick Export's
+    /// fixed settings and unusable stored values change nothing.
+    #[test]
+    fn export_as_remembers_the_last_choices() {
+        let mut app = app();
+        let id = open(&mut app).unwrap();
+        let mut f = app.ui.dialog_mut(id).unwrap().fields.clone();
+        for (k, v) in [("format", json!("jpg")), ("quality", json!(42)), ("scale", json!(50)), ("metadata", json!("all"))] {
+            f.insert(k.into(), v);
+        }
+        let (dialog, _) = crate::file_dialog::fake(vec![Some(crate::file_dialog::FileDialogAnswer::SaveTo("out.jpg".into()))]);
+        app.services.file_dialog = Some(dialog);
+        confirm(&mut app, &f).unwrap();
+        app.poll_file_dialog(&egui::Context::default(), None);
+        let prefs = app.session.prefs().clone();
+        let mut next = self::app();
+        next.session.prefs.edit(|p| *p = prefs);
+        let id = open(&mut next).unwrap();
+        let f = &next.ui.dialog_mut(id).unwrap().fields;
+        assert_eq!(
+            (f["format"].as_str(), f["quality"].as_f64(), f["scale"].as_f64(), f["metadata"].as_str()),
+            (Some("jpg"), Some(42.0), Some(50.0), Some("all"))
+        );
+        assert_eq!(f["__w"], 40, "the size is the document's own");
+        // Quick Export as PNG for a layer does not overwrite them.
+        let layer = next.session.active().unwrap().active_layer.unwrap();
+        let (dialog, _) = crate::file_dialog::fake(vec![Some(crate::file_dialog::FileDialogAnswer::SaveTo("layer.png".into()))]);
+        next.services.file_dialog = Some(dialog);
+        quick_export_layer_png(&mut next, layer).unwrap();
+        next.poll_file_dialog(&egui::Context::default(), None);
+        assert_eq!(next.session.prefs().dialogs[REMEMBERED]["format"], "jpg");
+        // Stored values that no longer make sense fall back to the defaults.
+        next.session.prefs.edit(|p| p.dialogs.insert(REMEMBERED.into(), json!({"format": "bmp", "quality": 900, "scale": "big", "transparency": false})));
+        let id = open(&mut next).unwrap();
+        let f = &next.ui.dialog_mut(id).unwrap().fields;
+        assert_eq!((f["format"].as_str(), f["scale"].as_f64(), f["transparency"].as_bool()), (Some("png"), Some(100.0), Some(false)));
+        assert_ne!(f["quality"], 900);
     }
 }

@@ -185,16 +185,7 @@ pub fn open_web(app: &mut PhotocraftApp) -> u64 {
     f.insert("__command".into(), json!(WEB_COMMAND));
     f.insert("__label".into(), json!("Save for Web (Legacy)"));
     f.insert("__view".into(), json!("2up"));
-    // Remember encoding choices, but each document starts at its own full size.
-    let last = app.session.file_menu.last_web.clone().unwrap_or_else(|| json!({"format": "jpeg", "quality": 60}));
-    if let Value::Object(m) = last {
-        for (k, v) in m {
-            if !matches!(k.as_str(), "path" | "dir" | "width" | "height" | "percent") {
-                f.insert(k, v);
-            }
-        }
-    }
-    for (k, v) in [
+    let defaults = [
         ("format", json!("jpeg")),
         ("quality", json!(60)),
         ("palette", json!("selective")),
@@ -211,7 +202,19 @@ pub fn open_web(app: &mut PhotocraftApp) -> u64 {
         ("metadata", json!("copyright")),
         ("percent", json!(100.0)),
         ("webSnap", json!(0)),
-    ] {
+    ];
+    // Remember encoding choices (this session's, else the last launch's), but each document
+    // starts at its own full size. A remembered value of the wrong type is ignored.
+    let last = app.session.file_menu.last_web.clone().or_else(|| app.session.prefs().dialogs.get(photocraft_engine::web_cmds::REMEMBERED).cloned());
+    if let Some(Value::Object(m)) = last {
+        for (k, v) in m {
+            let typed = defaults.iter().find(|(d, _)| *d == k).is_none_or(|(_, d)| std::mem::discriminant(d) == std::mem::discriminant(&v));
+            if typed && !matches!(k.as_str(), "path" | "dir" | "width" | "height" | "percent") {
+                f.insert(k, v);
+            }
+        }
+    }
+    for (k, v) in defaults {
         f.entry(k.to_string()).or_insert(v);
     }
     app.ui.open_dialog(DialogKind::Command, f)
@@ -788,6 +791,32 @@ mod tests {
         let d = app.ui.dialog_mut(r["dialog"].as_u64().unwrap()).unwrap();
         assert_eq!(d.fields["format"], "gif");
         assert!(!d.fields.contains_key("path"));
+    }
+
+    /// The last encoding choices survive a restart; values of the wrong type are ignored.
+    #[test]
+    fn save_for_web_settings_survive_a_restart() {
+        let (mut app, _) = app();
+        let path = std::env::temp_dir().join(format!("pc-webui-restart-{}.png", std::process::id())).to_string_lossy().into_owned();
+        app.run("file.export.saveForWebLegacy", json!({"path": path, "format": "png8", "colors": 32, "dither": "none", "percent": 50})).unwrap();
+        let prefs = app.session.prefs().clone();
+        let (mut next, _) = self::app();
+        next.session.prefs.edit(|p| *p = prefs);
+        let id = open_web(&mut next);
+        let f = &next.ui.dialog_mut(id).unwrap().fields;
+        assert_eq!((f["format"].as_str(), f["colors"].as_u64(), f["dither"].as_str()), (Some("png8"), Some(32), Some("none")));
+        assert_eq!(f["percent"], 100.0, "each document starts at full size");
+        assert!(!f.contains_key("path"));
+        let (mut odd, _) = self::app();
+        odd.session
+            .prefs
+            .edit(|p| p.dialogs.insert(photocraft_engine::web_cmds::REMEMBERED.into(), json!({"format": 5, "quality": "high", "matte": "#000000"})));
+        let id = open_web(&mut odd);
+        let f = &odd.ui.dialog_mut(id).unwrap().fields;
+        assert_eq!((f["format"].as_str(), f["quality"].as_u64(), f["matte"].as_str()), (Some("jpeg"), Some(60), Some("#000000")));
+        odd.session.prefs.edit(|p| p.dialogs.insert(photocraft_engine::web_cmds::REMEMBERED.into(), json!("not an object")));
+        let id = open_web(&mut odd);
+        assert_eq!(odd.ui.dialog_mut(id).unwrap().fields["format"], "jpeg");
     }
 
     #[test]

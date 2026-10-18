@@ -751,7 +751,7 @@ pub fn save_for_web_with_writer(s: &mut Session, p: &Value, write: &mut dyn FnMu
     if let Some(path) = single.filter(|_| dir.is_none() && (all.len() == 1 || p.get("slices").is_none())) {
         let o = optimize(&buf.px, bw, wdoc.bounds(), &st, icc, xmp.as_deref(), dpi, false)?;
         write(path, &o.bytes)?;
-        s.file_menu.last_web = Some(p.clone());
+        remember(s, p);
         crate::automate_cmds::fire_event(s, "export");
         return Ok(json!({"files": [path], "bytes": o.bytes.len(), "width": o.width, "height": o.height, "colors": o.colors}));
     }
@@ -840,9 +840,26 @@ pub fn save_for_web_with_writer(s: &mut Session, p: &Value, write: &mut dyn FnMu
         write(&hp, page.as_bytes())?;
         html_path = Some(hp);
     }
-    s.file_menu.last_web = Some(p.clone());
+    remember(s, p);
     crate::automate_cmds::fire_event(s, "export");
     Ok(json!({"files": files, "html": html_path, "bytes": total, "slices": chosen.len(), "width": wdoc.size.width, "height": wdoc.size.height}))
+}
+
+/// Where Save for Web keeps its last encoding choices across restarts (`Preferences::dialogs`).
+pub const REMEMBERED: &str = "file.export.saveForWebLegacy";
+
+/// After a successful export: the session's last settings, and the encoding choices (not the
+/// paths, size or slice selection, which belong to one document) for the next launch.
+fn remember(s: &mut Session, p: &Value) {
+    s.file_menu.last_web = Some(p.clone());
+    if let Value::Object(m) = p {
+        let kept: serde_json::Map<String, Value> = m
+            .iter()
+            .filter(|(k, _)| !matches!(k.as_str(), "path" | "dir" | "width" | "height" | "percent" | "slices" | "slice"))
+            .map(|(k, v)| (k.clone(), v.clone()))
+            .collect();
+        s.prefs.edit(|pr| pr.dialogs.insert(REMEMBERED.into(), Value::Object(kept)));
+    }
 }
 
 // ---------- Export Preferences / Quick Export ----------
