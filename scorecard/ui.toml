@@ -8,9 +8,9 @@ order = 4
 [[item]]
 id = "UI-217-1"
 target = "Tool options, last Export As / Save for Web / Fill settings and font recents persist"
-status = "partial"
+status = "done"
 issue = 217
-note = "Tool options, the selected tool and each painting tool's brush survive a restart (tool_memory.rs, prefs.dialogs[\"ui.tools\"]; tools_survive_a_restart; custom sampled tips are not stored). Fill (fill_ui.rs:72) and Liquify (liquify_ui.rs:64, #418) keep their settings in prefs.dialogs. Export As (export_dialog.rs REMEMBERED, export_as_remembers_the_last_choices) and Save for Web (web_cmds.rs REMEMBERED, save_for_web_settings_survive_a_restart) keep their last choices in prefs.dialogs. Still missing: font recents"
+note = "Tool options, the selected tool and each painting tool's brush survive a restart (tool_memory.rs, prefs.dialogs[\"ui.tools\"]; tools_survive_a_restart; custom sampled tips are not stored). Fill (fill_ui.rs:72) and Liquify (liquify_ui.rs:64, #418) keep their settings in prefs.dialogs. Export As (export_dialog.rs REMEMBERED, export_as_remembers_the_last_choices) and Save for Web (web_cmds.rs REMEMBERED, save_for_web_settings_survive_a_restart) keep their last choices in prefs.dialogs. Every font picker lists recently used families first and they persist (font_recents.rs, prefs.dialogs[\"ui.recentFonts\"], capped by Preferences › Type › recent fonts; a_picked_family_is_listed_under_recent_fonts_next_time)."
 
 [[item]]
 id = "UI-217-2"
