@@ -8,8 +8,9 @@ use crate::PhotocraftApp;
 pub const GITHUB: &str = "https://github.com/treeforjs/photocraft";
 pub const ISSUES: &str = "https://github.com/treeforjs/photocraft/issues";
 
-/// Help-menu link commands: (id, url). Labels live in `menus::UI_COMMANDS`.
-pub const COMMANDS: &[(&str, &str)] = &[("help.github", GITHUB), ("help.reportIssue", ISSUES)];
+/// Help-menu link commands: (id, url). Labels live in `menus::UI_COMMANDS`. Report an Issue…
+/// opens [`crate::bug_report`] instead.
+pub const COMMANDS: &[(&str, &str)] = &[("help.github", GITHUB)];
 
 pub fn url_for(id: &str) -> Option<&'static str> {
     COMMANDS.iter().find(|c| c.0 == id).map(|c| c.1)
@@ -97,10 +98,12 @@ mod tests {
     fn link_commands_open_their_urls() {
         let mut app = PhotocraftApp::new(photocraft_engine::Session::new(), Default::default());
         let ctx = egui::Context::default();
-        for (id, url) in [("help.github", "https://github.com/treeforjs/photocraft"), ("help.reportIssue", "https://github.com/treeforjs/photocraft/issues")] {
-            let r = crate::menus::invoke(&mut app, &ctx, id, serde_json::json!({})).unwrap();
-            assert_eq!(r["url"], url);
-            assert_eq!(app.ui.status, format!("Opened {url}"));
-        }
+        let url = "https://github.com/treeforjs/photocraft";
+        let r = crate::menus::invoke(&mut app, &ctx, "help.github", serde_json::json!({})).unwrap();
+        assert_eq!(r["url"], url);
+        assert_eq!(app.ui.status, format!("Opened {url}"));
+        // Report an Issue… opens the report dialog instead of a bare link.
+        let r = crate::menus::invoke(&mut app, &ctx, "help.reportIssue", serde_json::json!({})).unwrap();
+        assert!(r["dialog"].is_u64(), "{r}");
     }
 }

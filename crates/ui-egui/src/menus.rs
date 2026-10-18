@@ -151,7 +151,11 @@ pub(crate) fn invoke_unguarded(app: &mut PhotocraftApp, ctx: &egui::Context, id:
         crate::canvas::commit_crop(app);
         return Ok(json!({"committed": true}));
     }
-    // Help › website, GitHub, Report an Issue.
+    // Help › Report an Issue…: the report dialog (or, with params, the report itself).
+    if id == "help.reportIssue" {
+        return crate::bug_report::run(app, ctx, &params);
+    }
+    // Help › GitHub.
     if let Some(url) = crate::links::url_for(id) {
         return Ok(crate::links::open(app, ctx, url));
     }
@@ -574,7 +578,7 @@ pub fn is_enabled(app: &PhotocraftApp, id: &str) -> bool {
         return e;
     }
     match id {
-        "file.open" | "file.exit" | "file.clearRecent" | "help.about" | "help.systemInfo" | "edit.search" => true,
+        "file.open" | "file.exit" | "file.clearRecent" | "help.about" | "help.systemInfo" | "help.reportIssue" | "edit.search" => true,
         i if i.starts_with("file.openRecent.") => true,
         i if crate::links::url_for(i).is_some() => true,
         i if i.starts_with("window.theme.") => true,

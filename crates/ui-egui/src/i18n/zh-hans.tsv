@@ -2496,3 +2496,14 @@ theme	Warm	暖色
 	Place as an embedded smart object (a copy)	作为嵌入的智能对象置入（副本）
 	Place as a linked smart object that refers to the library's file	作为引用库文件的链接智能对象置入
 	Added to the document's patterns:	已添加到文档的图案：
+	Title	标题
+	A short summary of the problem	问题的简短概述
+	What happened?	发生了什么？
+	Steps to reproduce, what you expected, what happened instead	重现步骤、预期结果、实际发生的情况
+	Include diagnostics	包含诊断信息
+	System (version, platform, GPU, displays)	系统（版本、平台、GPU、显示器）
+	Open documents (size, mode, depth, layer count; no names)	打开的文档（尺寸、模式、位深度、图层数；不含名称）
+	Recent notices (may name files)	最近的通知（可能包含文件名）
+	This is everything that will be sent:	以下是将要发送的全部内容：
+	Opens a new issue on GitHub in your browser; you can still edit it there.	在浏览器中打开 GitHub 新议题；你仍可在那里编辑。
+	Open on GitHub	在 GitHub 上打开
