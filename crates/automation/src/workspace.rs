@@ -299,7 +299,7 @@ fn preference_uses_ambient_filesystem(path: &str) -> bool {
 
 fn command_uses_ambient_path(id: &str, params: &Value) -> bool {
     match id {
-        "brush.presets.importAbr" | "gradient.presets.importGrd" | "plugin.install" | "swatches.import" => {
+        "brush.presets.importAbr" | "brush.defineFromImage" | "gradient.presets.importGrd" | "plugin.install" | "swatches.import" => {
             // `data` wins over `path` in these commands; any `path` without it reads the filesystem.
             params.get("data").is_none() && params.get("path").is_some()
         }
@@ -831,6 +831,7 @@ mod tests {
     fn automation_rejects_ambient_path_commands_and_preferences() {
         for (id, params) in [
             ("brush.presets.importAbr", serde_json::json!({"path": "/outside/set.abr"})),
+            ("brush.defineFromImage", serde_json::json!({"path": "/outside/tip.png"})),
             ("gradient.presets.importGrd", serde_json::json!({"path": "/outside/set.grd"})),
             ("plugin.install", serde_json::json!({"path": "/outside/plugin.wasm"})),
             ("plugin.reload", serde_json::json!({"path": "/outside/plugins"})),
@@ -843,6 +844,7 @@ mod tests {
         }
         for (id, params) in [
             ("brush.presets.importAbr", serde_json::json!({"data": "QUJD"})),
+            ("brush.defineFromImage", serde_json::json!({"data": "QUJD", "fileName": "tip.png"})),
             ("gradient.presets.importGrd", serde_json::json!({"data": "QUJD"})),
             ("plugin.install", serde_json::json!({"data": "QUJD"})),
             ("swatches.import", serde_json::json!({"data": "QUJD"})),
