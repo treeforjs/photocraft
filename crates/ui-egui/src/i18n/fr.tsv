@@ -2859,3 +2859,5 @@ theme	Warm	Chaud
 	Slant	Inclinaison
 	Optical Size	Taille optique
 	Optical size follows the font size	La taille optique suit le corps
+	Import Image as Brush…	Importer une image comme forme…
+	New brush “{name}” from the image	Nouvelle forme « {name} » à partir de l’image
