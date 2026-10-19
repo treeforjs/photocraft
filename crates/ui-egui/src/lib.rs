@@ -1124,7 +1124,10 @@ impl PhotocraftApp {
         // Preferences › File Handling › Maximize Compatibility: Never drops the composite.
         let settings =
             &ExportSettings { maximize_compatibility: settings.maximize_compatibility && psd_options_ui::maximize_by_default(self), ..settings.clone() };
+        // Preferences › File Handling › Save in Background: off, the save runs inline (the
+        // window waits), as Photoshop's does.
         if self.background_jobs
+            && self.session.prefs().file_handling.save_in_background
             && let Some(save) = self.services.save_file.clone()
         {
             return jobs_ui::start_save(self, path, settings.clone(), copy, save);
