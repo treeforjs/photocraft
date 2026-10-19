@@ -2548,6 +2548,16 @@ pub fn canvas_view(app: &mut PhotocraftApp, ui: &mut egui::Ui, idx: usize, rect:
     };
 
     if under_dialog {
+        // Content-Aware Scale: its transform box is drawn on the image and takes drags there.
+        if primary && crate::ca_scale_ui::active(app).is_some() {
+            crate::ca_scale_ui::draw(app, ui.painter(), &xf);
+            if !middle && let Some(p) = crate::dialogs::free_pointer_over(&ctx, rect) {
+                let press = crate::dialogs::free_press(&ctx, rect);
+                if let Some(cursor) = crate::ca_scale_ui::pointer(app, &ctx, &xf, p, press) {
+                    ctx.set_cursor_icon(cursor);
+                }
+            }
+        }
         // With a colour dialog picker armed the image is its eyedropper, whatever the tool; Space
         // and the middle button still pan. Curves uses the same merged-composite sampler as the
         // Color Picker, never the reduced adjustment preview.

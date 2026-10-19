@@ -155,9 +155,9 @@ note = "algo/puppet.rs outline_mesh: boundary samples of the grown coverage (eve
 [[item]]
 id = "TOOL-214-7"
 target = "Content-Aware Scale through the Free Transform box with a live proxy preview"
-status = "partial"
+status = "done"
 issue = 214
-note = "edit.contentAwareScale (edit_menu_cmds.rs:899) behind a parameter dialog"
+note = "ca_scale_ui.rs: a transform box on the image under the Content-Aware Scale dialog (8 handles, drag inside to move, ⇧ corner keeps proportions) drives X/Y/Width/Height and the live proxy preview; edit.contentAwareScale x/y place the result (edit_menu_cmds.rs). Rotation/skew are not offered (Photoshop limits Content-Aware Scale to scaling too)"
 
 [[item]]
 id = "TOOL-214-8"
