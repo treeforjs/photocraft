@@ -194,6 +194,48 @@ pub fn click_command(l: &Layer, kind: MaskKind, m: egui::Modifiers) -> Option<(S
     Some((format!("{}.enabled", kind.command()), json!({"layer": l.id.0, "enabled": !enabled})))
 }
 
+/// Action ids a double-click on a mask thumbnail pushes (params: the layer id).
+pub const REFINE_MASK: &str = "ui.refineLayerMask";
+pub const SHOW_MASK_PROPERTIES: &str = "ui.showMaskProperties";
+
+/// What a double-click on mask thumbnail `kind` does: a layer mask opens in Select and Mask when
+/// Preferences › Tools › Double Click Layer Mask Launches Select and Mask is on; otherwise, and
+/// for a vector mask, the Properties panel shows the mask.
+pub fn double_click_action(app: &PhotocraftApp, l: &Layer, kind: MaskKind) -> (String, Value) {
+    let refine = kind == MaskKind::Pixel && l.mask.is_some() && app.session.prefs().tools.double_click_layer_mask_launches_select_and_mask;
+    (if refine { REFINE_MASK } else { SHOW_MASK_PROPERTIES }.into(), json!(l.id.0))
+}
+
+/// Runs a [`double_click_action`]; `None` for any other action id.
+pub fn run_double_click(app: &mut PhotocraftApp, ctx: &egui::Context, id: &str, layer: u64) -> Option<Result<(), String>> {
+    match id {
+        REFINE_MASK => Some(refine_layer_mask(app, ctx, layer)),
+        SHOW_MASK_PROPERTIES => {
+            // Shown (never toggled off, unlike Window › Properties) on its first tab.
+            app.ui.panels.properties = true;
+            app.ui.dock_tabs.properties = 0;
+            crate::dock::reveal(app, crate::dock::Group::Properties);
+            Some(Ok(()))
+        }
+        _ => None,
+    }
+}
+
+/// Select and Mask on layer `id`'s mask, as Photoshop does: the mask becomes the selection to
+/// refine and the dialog outputs to the layer mask.
+pub fn refine_layer_mask(app: &mut PhotocraftApp, ctx: &egui::Context, id: u64) -> Result<(), String> {
+    app.run("layer.select", json!({"layer": id}))?;
+    app.run("select.loadSelection", json!({"channel": "mask", "layer": id, "operation": "replace"}))?;
+    let dialog = crate::menus::invoke(app, ctx, "select.selectAndMask", json!({}))?;
+    let field = dialog
+        .get("dialog")
+        .and_then(Value::as_u64)
+        .and_then(|d| app.ui.dialog_mut(d))
+        .ok_or_else(|| "the mask hides everything, so there is no edge to refine".to_string())?;
+    field.fields.insert("output".into(), json!("layerMask"));
+    Ok(())
+}
+
 /// The `select.loadSelection` params for a ⌘-click on mask thumbnail `kind` (⌘⇧ add, ⌘⌥
 /// subtract, ⌘⇧⌥ intersect).
 pub fn load_params(l: &Layer, kind: MaskKind, m: egui::Modifiers) -> Value {

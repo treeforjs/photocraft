@@ -106,7 +106,45 @@ fn text_name_still_renames_and_mask_double_click_does_not_edit_text() {
     let at = masks.iter().find(|(kind, _)| *kind == crate::mask_thumbs_ui::MaskKind::Pixel).unwrap().1.center();
     double_click(&mut h, at);
     assert!(h.state().ui.text_edit.is_none());
-    assert!(h.state().ui.dialogs.is_empty());
+    // It refines the mask instead (Preferences › Tools, on by default).
+    let d = h.state().ui.dialogs.first().map(|d| d.fields.clone()).expect("Select and Mask");
+    assert_eq!((d["__command"].as_str(), d["output"].as_str()), (Some("select.refineEdge"), Some("layerMask")));
+}
+
+#[test]
+fn mask_double_click_follows_the_select_and_mask_preference() {
+    let mut s = session();
+    let id = s.execute("layer.new.layer", json!({})).unwrap()["layer"].as_u64().unwrap();
+    s.execute("select.all", json!({})).unwrap();
+    s.execute("layer.layerMask.revealAll", json!({})).unwrap();
+    s.execute("select.deselect", json!({})).unwrap();
+    s.edit_prefs(|p| p.tools.double_click_layer_mask_launches_select_and_mask = false);
+    let mut h = harness(s, 1.0);
+    let mask = |h: &Harness<'_, PhotocraftApp>| {
+        let masks = crate::mask_thumbs_ui::recorded(&h.ctx, id).unwrap().0;
+        masks.iter().find(|(kind, _)| *kind == crate::mask_thumbs_ui::MaskKind::Pixel).unwrap().1.center()
+    };
+    let collapsed = |h: &Harness<'_, PhotocraftApp>| h.state().ui.dock.is_collapsed(crate::dock::Group::Properties);
+    assert!(collapsed(&h));
+    // Off: Properties shows the mask, and a second double-click keeps it shown.
+    for _ in 0..2 {
+        let at = mask(&h);
+        double_click(&mut h, at);
+        assert!(h.state().ui.panels.properties && !collapsed(&h));
+        assert!(h.state().ui.dialogs.is_empty());
+        assert!(h.state().session.active().unwrap().doc.selection.is_none(), "the selection is left alone");
+    }
+    // On: the mask becomes the selection and Select and Mask opens, writing back to the mask.
+    h.state_mut().session.edit_prefs(|p| p.tools.double_click_layer_mask_launches_select_and_mask = true);
+    let at = mask(&h);
+    double_click(&mut h, at);
+    assert!(h.state().session.active().unwrap().doc.selection.is_some());
+    let dialog = h.state().ui.dialogs.first().map(|d| (d.id, d.fields.clone())).expect("Select and Mask");
+    assert_eq!(dialog.1["output"], "layerMask");
+    crate::dialogs::confirm(h.state_mut(), dialog.0).unwrap();
+    let doc = &h.state().session.active().unwrap().doc;
+    assert!(doc.layer(LayerId(id)).unwrap().mask.is_some());
+    assert!(doc.selection.is_none());
 }
 
 #[test]
