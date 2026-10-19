@@ -1367,6 +1367,7 @@ pub fn status_bar(app: &mut PhotocraftApp, ui: &mut egui::Ui) {
 
 pub fn right_dock(app: &mut PhotocraftApp, ui: &mut egui::Ui) {
     let t = Tokens::get(ui.ctx());
+    crate::dock::auto_collapse(app, ui.ctx());
     let p = app.ui.panels.clone();
     if t.pro {
         dock_panels(app, ui, &p, &t);
@@ -1379,6 +1380,7 @@ pub fn right_dock(app: &mut PhotocraftApp, ui: &mut egui::Ui) {
             |ui| {
                 let r = ui.max_rect();
                 ui.painter().line_segment([r.left_top() - vec2(6.0, 8.0), r.left_bottom() + vec2(-6.0, 8.0)], Stroke::new(1.0, t.separator));
+                crate::dock::set_rail(ui.ctx(), r.expand2(vec2(6.0, 8.0)));
                 ui.spacing_mut().item_spacing.y = 4.0;
                 use crate::dock::Group;
                 let entries: [(&str, &str, Group); 5] = [
@@ -2001,6 +2003,14 @@ fn layers(app: &mut PhotocraftApp, ui: &mut egui::Ui) {
             crate::smart_ui::target_filter_mask(app, p.as_u64().unwrap_or(0));
             continue;
         }
+        let ctx = ui.ctx().clone();
+        if let Some(r) = crate::mask_thumbs_ui::run_double_click(app, &ctx, &id, p.as_u64().unwrap_or(0)) {
+            if let Err(e) = r {
+                app.ui.status = e;
+                app.ui.status_error = true;
+            }
+            continue;
+        }
         if id == "ui.vectorMaskTarget" {
             app.ui.vector_mask_target = p.as_bool().unwrap_or(false);
             app.ui.mask_target = false;
@@ -2324,7 +2334,9 @@ fn layer_row(
     // Double-click: the name renames in place (over the row's full height, not just the glyphs:
     // #651); the Background, which can't be renamed while it's locked, becomes a normal layer; an
     // adjustment or fill thumbnail opens its settings and a Smart Object thumbnail its contents,
-    // and a type thumbnail edits its text; anywhere else on the row opens Layer Style (#350, #537).
+    // a type thumbnail edits its text, and a mask thumbnail refines the mask in Select and Mask or
+    // shows it in Properties (Preferences › Tools); anywhere else on the row opens Layer Style
+    // (#350, #537).
     // The first click already made this the active layer.
     if resp.double_clicked() {
         let pos = resp.interact_pointer_pos();
@@ -2336,7 +2348,9 @@ fn layer_row(
                 // One rename at a time: starting this one commits any other (#314).
                 actions.push(done);
             }
-        } else if pos.and_then(|p| masks.hit(p)).is_none() {
+        } else if let Some(kind) = pos.and_then(|p| masks.hit(p)) {
+            actions.push(crate::mask_thumbs_ui::double_click_action(app, l, kind));
+        } else {
             let id = match &l.content {
                 LayerContent::Adjustment(_) | LayerContent::Fill(_) if on(thumb) => "layer.layerContentOptions",
                 LayerContent::Smart(_) if on(thumb) => "layer.smartObjects.editContents",

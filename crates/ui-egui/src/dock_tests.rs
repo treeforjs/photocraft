@@ -803,3 +803,43 @@ fn every_group_floating_hides_the_column_and_the_right_edge_docks() {
     h.run_steps(2);
     assert!(last_rects(&h.ctx).iter().any(|(g, _)| *g == Group::Layers));
 }
+
+#[test]
+fn auto_collapse_iconic_panels_folds_rail_opened_groups_at_a_click_outside() {
+    let (app, _, _) = app_with_layers();
+    let mut h = harness(app, vec2(1200.0, 800.0), ThemeKind::Craft);
+    let click = |h: &mut Harness<'static, PhotocraftApp>, p: Pos2| {
+        h.hover_at(p);
+        h.run_steps(1);
+        h.drag_at(p);
+        h.run_steps(1);
+        h.drop_at(p);
+        h.run_steps(2);
+    };
+    let canvas = Pos2::new(100.0, 300.0);
+    let open = |h: &mut Harness<'static, PhotocraftApp>| {
+        h.state_mut().ui.dock.set_collapsed(Group::History, true);
+        rail_click(h.state_mut(), Group::History, true);
+        h.run_steps(2);
+        assert!(!h.state().ui.dock.is_collapsed(Group::History));
+    };
+    let collapsed = |h: &Harness<'static, PhotocraftApp>| h.state().ui.dock.is_collapsed(Group::History);
+    // Off (the default): it stays open.
+    open(&mut h);
+    click(&mut h, canvas);
+    assert!(!collapsed(&h));
+    // On: a click inside the dock keeps it, the next one on the canvas folds it back.
+    h.state_mut().session.edit_prefs(|p| p.workspace.auto_collapse_icon_panels = true);
+    open(&mut h);
+    let inside = rect_of(&h, Group::Layers).center();
+    click(&mut h, inside);
+    assert!(!collapsed(&h));
+    click(&mut h, canvas);
+    assert!(collapsed(&h));
+    assert!(h.state().ui.rail_opened.is_empty());
+    // A group expanded any other way (its tab strip, Window menu) stays open.
+    reveal(h.state_mut(), Group::History);
+    h.run_steps(2);
+    click(&mut h, canvas);
+    assert!(!collapsed(&h));
+}
