@@ -580,3 +580,44 @@ fn esc_ends_a_pen_path_and_keeps_it() {
     assert_eq!(path.subpaths[0].knots.len(), 3);
     assert_eq!(h.state().ui.selected_path.as_deref(), Some("work"));
 }
+
+#[test]
+fn two_finger_touch_zooms_pans_and_rotates_unless_touch_gestures_are_off() {
+    use egui::{Event, TouchDeviceId, TouchId, TouchPhase};
+    let touch = |h: &mut Harness<'static, PhotocraftApp>, phase: TouchPhase, a: Pos2, b: Pos2| {
+        for (id, pos) in [(0u64, a), (1, b)] {
+            h.event(Event::Touch { device_id: TouchDeviceId(7), id: TouchId(id), phase, pos, force: None });
+        }
+        h.run_steps(1);
+    };
+    for enabled in [true, false] {
+        let mut h = harness();
+        h.state_mut().session.edit_prefs(|p| p.enhanced_controls.touch_gestures = enabled);
+        let c = h.state().last_canvas_rect.center();
+        // A touch screen also reports the first finger as the pointer; egui needs one to start a gesture.
+        h.hover_at(c);
+        h.run_steps(1);
+        let (z0, c0) = (zoom(&h), h.state().ui.views[0].center);
+        // The fingers spread to twice their distance about the same centre: ×2 about it.
+        touch(&mut h, TouchPhase::Start, c - vec2(40.0, 0.0), c + vec2(40.0, 0.0));
+        touch(&mut h, TouchPhase::Move, c - vec2(80.0, 0.0), c + vec2(80.0, 0.0));
+        let z1 = zoom(&h);
+        // Both fingers slide right: the image follows them.
+        touch(&mut h, TouchPhase::Move, c + vec2(-50.0, 0.0), c + vec2(110.0, 0.0));
+        let c1 = h.state().ui.views[0].center;
+        // They turn about their centre by 90°.
+        let m = c + vec2(30.0, 0.0);
+        touch(&mut h, TouchPhase::Move, m - vec2(0.0, 80.0), m + vec2(0.0, 80.0));
+        let r1 = h.state().ui.views[0].rotation;
+        touch(&mut h, TouchPhase::End, m - vec2(0.0, 80.0), m + vec2(0.0, 80.0));
+        if enabled {
+            assert!((z1 / z0 - 2.0).abs() < 1e-3, "spreading two fingers zooms: {z0} -> {z1}");
+            assert!(c1[0] < c0[0] && (c1[1] - c0[1]).abs() < 1e-3, "sliding them pans: {c0:?} -> {c1:?}");
+            assert!((r1.abs() - 90.0).abs() < 1e-2, "turning them rotates the view: {r1}");
+        } else {
+            assert_eq!(z1, z0, "with Touch Gestures off a touch never zooms");
+            assert_eq!(h.state().ui.views[0].center, c0, "nor pans");
+            assert_eq!(r1, 0.0, "nor rotates");
+        }
+    }
+}

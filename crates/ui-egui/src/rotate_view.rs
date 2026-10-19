@@ -137,7 +137,8 @@ pub fn trackpad_delta(ctx: &egui::Context, enabled: bool) -> Option<f32> {
                 _ => None,
             })
             .sum();
-        if from_events != 0.0 { from_events } else { i.rotation_delta() }
+        // Touch-screen rotation is `wheel_nav::touch`'s (Enable Touch Gestures).
+        from_events
     });
     apply_trackpad(0.0, true, rad).filter(|_| rad != 0.0)
 }
