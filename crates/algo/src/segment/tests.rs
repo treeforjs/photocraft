@@ -591,3 +591,42 @@ fn dump_quick_scenes() {
     save("thin_line", &line);
     save("disc_scene", &disc_scene(600, 500, 300.0, 250.0, 180.0, 4).0);
 }
+
+/// The edge softening skips uniform runs, but gives exactly the per-pixel 3×3 rule everywhere:
+/// canvas edges, runs ending at the last column, single-pixel specks and 1-pixel-wide masks.
+#[test]
+fn antialias_u8_matches_the_per_pixel_rule() {
+    fn reference(mask: &mut [u8], w: usize, h: usize) {
+        let src = mask.to_vec();
+        let at = |x: i32, y: i32, v: u8| if x < 0 || y < 0 || x >= w as i32 || y >= h as i32 { v } else { src[y as usize * w + x as usize] };
+        for y in 0..h {
+            for x in 0..w {
+                let v = src[y * w + x];
+                let (mut sum, mut edge) = (0u32, false);
+                for dy in -1..=1 {
+                    for dx in -1..=1 {
+                        let n = at(x as i32 + dx, y as i32 + dy, v);
+                        edge |= n != v;
+                        sum += n as u32;
+                    }
+                }
+                if edge {
+                    let avg = sum as f32 / (9.0 * 255.0);
+                    let f = if v > 127 { 0.5 + 0.5 * avg } else { 0.5 * avg };
+                    mask[y * w + x] = (f * 255.0).round() as u8;
+                }
+            }
+        }
+    }
+    for (w, h) in [(1, 1), (1, 9), (9, 1), (2, 3), (33, 7), (64, 5), (100, 40), (97, 3)] {
+        let disc = |x: usize, y: usize| {
+            let (dx, dy) = (x as f32 - w as f32 * 0.4, y as f32 - h as f32 * 0.6);
+            dx * dx + dy * dy < (w.min(h) as f32 * 0.35).powi(2)
+        };
+        let mask: Vec<u8> = (0..w * h).map(|i| if disc(i % w, i / w) || i % 37 == 5 || i % w == w - 1 { 255 } else { 0 }).collect();
+        let (mut got, mut want) = (mask.clone(), mask);
+        antialias_u8(&mut got, w, h);
+        reference(&mut want, w, h);
+        assert_eq!(got, want, "{w}×{h}");
+    }
+}
