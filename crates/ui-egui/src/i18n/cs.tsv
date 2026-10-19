@@ -2149,6 +2149,7 @@ cameraRaw	Color	Barvy
 	Content-Aware Move Tool	Nástroj přesun s ohledem na obsah
 	TIFF Options	Možnosti TIFF
 	Including layers will increase file size.	Zahrnutí vrstev zvětší velikost souboru.
+	Artboard Tool	Nástroj kreslicí plocha
 	Image Previews	Náhledy obrazů
 	Adds a small thumbnail that file browsers can show.	Přidá malou miniaturu, kterou mohou zobrazit prohlížeče souborů.
 	Columns	Sloupce

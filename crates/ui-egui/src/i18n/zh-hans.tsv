@@ -2158,6 +2158,7 @@ cameraRaw	Blending	混合
 	Content-Aware Move Tool	内容感知移动工具
 	TIFF Options	TIFF 选项
 	Including layers will increase file size.	包含图层会增加文件大小。
+	Artboard Tool	画板工具
 	Image Previews	图像预览
 	Adds a small thumbnail that file browsers can show.	添加文件浏览器可显示的小缩览图。
 	Columns	列
