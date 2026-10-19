@@ -730,6 +730,40 @@ mod tests {
     }
 
     #[test]
+    fn sampled_colors_at_fuzziness_zero_select_the_exact_match_only() {
+        // One level off in any channel is outside Fuzziness 0, at every depth, whether the colour
+        // comes from the eyedropper, a hex colour or several samples.
+        for depth in [8, 16, 32] {
+            let mut s = Session::new();
+            s.execute("file.new", json!({"width": 80, "height": 10, "depth": depth})).unwrap();
+            let v = |c: u8| f32::from(c) / 255.0;
+            let base = [120u8, 80, 200];
+            let patches: [[u8; 3]; 8] = [base, [121, 80, 200], [120, 81, 200], [120, 80, 199], [119, 79, 201], [0, 0, 0], [255, 255, 255], [128, 128, 128]];
+            s.edit("paint", |doc, _| {
+                let bg = doc.layers[0].surface_mut().unwrap();
+                for (i, c) in patches.iter().enumerate() {
+                    let x = i as i32 * 10;
+                    bg.fill_rect(Rect::new(x, 0, x + 10, 10), &[v(c[0]), v(c[1]), v(c[2]), 1.0]);
+                }
+                Ok(())
+            })
+            .unwrap();
+            for p in [
+                json!({"points": [[5, 5]], "fuzziness": 0}),
+                json!({"color": "#7850c8", "fuzziness": 0}),
+                json!({"colors": ["#7850c8", "#7850c8"], "fuzziness": 0}),
+            ] {
+                s.execute("select.colorRange", p.clone()).unwrap();
+                assert_eq!(coverage(&s, 5, 5), 1.0, "depth {depth}, {p}: the sampled colour itself");
+                for (i, patch) in patches.iter().enumerate().skip(1) {
+                    let x = i as i32 * 10 + 5;
+                    assert_eq!(coverage(&s, x, 5), 0.0, "depth {depth}, {p}: patch {patch:?} must not be selected");
+                }
+            }
+        }
+    }
+
+    #[test]
     fn color_range_compares_in_lab_like_photoshop() {
         // Photoshop weighs hue (Lab a/b) three times as much as lightness; a per-channel RGB
         // distance can't tell a lighter shade from a redder one.
