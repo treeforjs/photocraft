@@ -2131,6 +2131,9 @@ cameraRaw	Color	カラー
 	Content-Aware Move Tool	コンテンツに応じた移動ツール
 	TIFF Options	TIFF オプション
 	Including layers will increase file size.	レイヤーを含めるとファイルサイズが大きくなります。
+	Refine Edge Brush	境界線調整ブラシ
+	Paint over hair and fur to refine them; hold Alt to erase strokes.	髪や毛並みをなぞって調整します。Alt キーを押しながらでストロークを消去します。
+	Clear Strokes	ストロークを消去
 	Onion Skin	オニオンスキン
 	Marching Ants	点線
 	On Black	黒地

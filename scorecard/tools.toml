@@ -113,9 +113,9 @@ note = "Tool::PatternStamp in the S group; paint.patternStamp stamps the Pattern
 [[item]]
 id = "TOOL-214-1"
 target = "Select and Mask workspace: view modes, Refine Edge brush, 6 outputs"
-status = "partial"
+status = "done"
 issue = 214
-note = "select_mask_ui.rs: Select and Mask dialog with a live proxy preview in all 7 view modes (Onion Skin, Marching Ants, Overlay, On Black, On White, Black & White, On Layers; opacity/transparency), all 6 Output To choices incl. new document (smartselect_cmds.rs REFINE_OUTPUTS). Missing: the Refine Edge brush and the workspace tool strip"
+note = "select_mask_ui.rs: Select and Mask dialog with a live proxy preview in all 7 view modes (opacity/transparency), the Refine Edge brush painted on the image under the dialog (⌥ erases; matting.rs refine_mask_brushed, edgeBrush param) and all 6 Output To choices (smartselect_cmds.rs REFINE_OUTPUTS). Not yet: the workspace's own Quick Selection/Brush/Lasso tools"
 
 [[item]]
 id = "TOOL-214-2"

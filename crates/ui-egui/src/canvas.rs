@@ -2589,6 +2589,23 @@ pub fn canvas_view(app: &mut PhotocraftApp, ui: &mut egui::Ui, idx: usize, rect:
             }
         } else if primary
             && !middle
+            && let Some(size) = crate::select_mask_ui::armed_brush(app)
+            && let Some(p) = crate::dialogs::free_pointer_over(&ctx, rect)
+        {
+            // Select and Mask's Refine Edge brush paints on the image itself (⌥ erases).
+            let d = xf.to_doc(p);
+            let (dx, dy) = (d[0] as f32, d[1] as f32);
+            let radius = (xf.to_screen(dx + size / 2.0, dy) - xf.to_screen(dx, dy)).length().max(1.0);
+            ui.painter().circle_stroke(p, radius + 1.0, egui::Stroke::new(1.0, egui::Color32::from_black_alpha(160)));
+            ui.painter().circle_stroke(p, radius, egui::Stroke::new(1.0, egui::Color32::WHITE));
+            ctx.set_cursor_icon(egui::CursorIcon::Crosshair);
+            if let Some(q) = crate::dialogs::free_press(&ctx, rect) {
+                let at = xf.to_doc(q);
+                let erase = ctx.input(|i| i.modifiers.alt);
+                crate::select_mask_ui::paint(app, [at[0] as f32, at[1] as f32], erase);
+            }
+        } else if primary
+            && !middle
             && let Some(p) = crate::dialogs::free_pointer_over(&ctx, rect).filter(|p| img_rect.contains(*p))
         {
             // Color Range samples colours with its eyedropper on the image itself.

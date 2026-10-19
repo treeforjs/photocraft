@@ -462,25 +462,51 @@ fn components4(mask: &[bool], w: usize, h: usize) -> (Vec<u32>, Vec<usize>) {
 /// Softens a hard 0/255 mask's edges: edge pixels blend with their 3×3 neighbourhood (the same
 /// rule as the magic wand's anti-aliasing).
 pub fn antialias_u8(mask: &mut [u8], w: usize, h: usize) {
+    if w == 0 {
+        return;
+    }
     let src = mask.to_vec();
-    let at = |x: i32, y: i32, v: u8| if x < 0 || y < 0 || x >= w as i32 || y >= h as i32 { v } else { src[y as usize * w + x as usize] };
+    let at =
+        |x: i32, y: i32, v: u8| if x < 0 || y < 0 || x >= w as i32 || y >= h as i32 { v } else { src.get(y as usize * w + x as usize).copied().unwrap_or(v) };
+    // The softened value of pixel (x, y), or `None` when its 3×3 neighbourhood is uniform.
+    let soften = |x: usize, y: usize| -> Option<u8> {
+        let v = src.get(y * w + x).copied()?;
+        let mut sum = 0u32;
+        let mut edge = false;
+        for dy in -1..=1 {
+            for dx in -1..=1 {
+                let n = at(x as i32 + dx, y as i32 + dy, v);
+                edge |= n != v;
+                sum += n as u32;
+            }
+        }
+        let avg = sum as f32 / (9.0 * 255.0);
+        let f = if v > 127 { 0.5 + 0.5 * avg } else { 0.5 * avg };
+        edge.then(|| (f * 255.0).round() as u8)
+    };
     let row = |y: usize, out: &mut [u8]| {
-        for (x, o) in out.iter_mut().enumerate() {
-            let v = src[y * w + x];
-            let mut sum = 0u32;
-            let mut edge = false;
-            for dy in -1..=1 {
-                for dx in -1..=1 {
-                    let n = at(x as i32 + dx, y as i32 + dy, v);
-                    edge |= n != v;
-                    sum += n as u32;
+        let line = |r: usize| src.get(r * w..(r + 1) * w);
+        // Inner rows skip runs of pixels whose neighbourhoods are all one value (most of a mask):
+        // checking a run of rows costs far less than nine reads per pixel.
+        let rows = if y > 0 && y + 1 < h { line(y - 1).zip(line(y)).zip(line(y + 1)) } else { None };
+        let mut x = 0;
+        while x < out.len() {
+            if let Some(((a, b), c)) = rows
+                && x > 0
+            {
+                let end = (x + RUN).min(w - 1);
+                if let (Some(a), Some(b), Some(c), Some(v)) = (a.get(x - 1..=end), b.get(x - 1..=end), c.get(x - 1..=end), b.get(x))
+                    && end > x
+                    && a.iter().chain(b).chain(c).all(|n| n == v)
+                {
+                    x = end;
+                    continue;
                 }
             }
-            if edge {
-                let avg = sum as f32 / (9.0 * 255.0);
-                let f = if v > 127 { 0.5 + 0.5 * avg } else { 0.5 * avg };
-                *o = (f * 255.0).round() as u8;
+            if let (Some(o), Some(v)) = (out.get_mut(x), soften(x, y)) {
+                *o = v;
             }
+            x += 1;
         }
     };
     #[cfg(not(target_arch = "wasm32"))]
@@ -491,6 +517,9 @@ pub fn antialias_u8(mask: &mut [u8], w: usize, h: usize) {
     #[cfg(target_arch = "wasm32")]
     mask.chunks_mut(w).enumerate().for_each(|(y, r)| row(y, r));
 }
+
+/// Pixels [`antialias_u8`] checks for a uniform neighbourhood at once.
+const RUN: usize = 32;
 
 /// Shrinks a region's box to its non-zero pixels (`None` if empty).
 pub fn trim_region(r: Region) -> Option<Region> {

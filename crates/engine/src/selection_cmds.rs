@@ -397,15 +397,16 @@ fn modify(s: &mut Session, p: &Value, op: &str) -> Result<Value> {
     if pw.checked_mul(ph).is_none_or(|n| n > MAX_MODIFY_PIXELS) {
         return Err(EngineError::BadParams { cmd: format!("select.modify.{op}"), msg: "the selection is too large to modify".into() });
     }
-    let padded = pad_mask(&m, w, h, pad, at_bounds);
-    let out = match op {
-        "expand" => sel::expand(&padded, pw, ph, r),
-        "contract" => sel::contract(&padded, pw, ph, r),
-        "border" => sel::border(&padded, pw, ph, r),
-        "smooth" => sel::smooth(&padded, pw, ph, r),
-        _ => sel::feather(&padded, pw, ph, r),
+    let run = |m: &[f32]| match op {
+        "expand" => sel::expand(m, pw, ph, r),
+        "contract" => sel::contract(m, pw, ph, r),
+        "border" => sel::border(m, pw, ph, r),
+        "smooth" => sel::smooth(m, pw, ph, r),
+        _ => sel::feather(m, pw, ph, r),
     };
-    let out = crop_mask(&out, pw, pad, w, h);
+    // Without a margin the mask is used as it is: copying a 24 MP mask in and out cost more than
+    // the modification itself.
+    let out = if pad == 0 { run(&m) } else { crop_mask(&run(&pad_mask(&m, w, h, pad, at_bounds)), pw, pad, w, h) };
     let label = match op {
         "expand" => "Expand Selection",
         "contract" => "Contract Selection",
@@ -440,13 +441,15 @@ fn pad_mask(m: &[f32], w: usize, h: usize, pad: usize, outside_empty: bool) -> V
             continue;
         }
         let y = py.saturating_sub(pad).min(h - 1);
-        for (px, v) in row.iter_mut().enumerate() {
-            let inside_x = (pad..pad + w).contains(&px);
-            if outside_empty && !inside_x {
-                continue;
-            }
-            let x = px.saturating_sub(pad).min(w - 1);
-            *v = m.get(y * w + x).copied().unwrap_or(0.0);
+        let Some(src) = m.get(y * w..(y + 1) * w) else { continue };
+        let (left, rest) = row.split_at_mut(pad.min(row.len()));
+        let (mid, right) = rest.split_at_mut(w.min(rest.len()));
+        if let Some(src) = src.get(..mid.len()) {
+            mid.copy_from_slice(src);
+        }
+        if !outside_empty && let (Some(first), Some(last)) = (src.first(), src.last()) {
+            left.fill(*first);
+            right.fill(*last);
         }
     }
     out
@@ -454,7 +457,11 @@ fn pad_mask(m: &[f32], w: usize, h: usize, pad: usize, outside_empty: bool) -> V
 
 /// The `w`×`h` centre of a mask padded by `pad_mask`.
 fn crop_mask(m: &[f32], pw: usize, pad: usize, w: usize, h: usize) -> Vec<f32> {
-    m.chunks_exact(pw).skip(pad).take(h).flat_map(|row| row.iter().skip(pad).take(w).copied()).collect()
+    let mut out = Vec::with_capacity(w.saturating_mul(h));
+    for row in m.chunks_exact(pw).skip(pad).take(h) {
+        out.extend_from_slice(row.get(pad..pad + w).unwrap_or(&[]));
+    }
+    out
 }
 
 /// Grow (contiguous) / Similar (anywhere): pixels whose colour lies within
@@ -594,6 +601,28 @@ pub fn specs() -> Vec<CommandSpec> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The padded mask repeats the edge pixels (or is empty) outside, and cropping gives the
+    /// original back, as the per-pixel definitions do.
+    #[test]
+    fn pad_and_crop_masks() {
+        let (w, h, pad) = (7, 5, 3);
+        let m: Vec<f32> = (0..w * h).map(|i| (i % 11) as f32 / 10.0).collect();
+        for outside_empty in [false, true] {
+            let p = pad_mask(&m, w, h, pad, outside_empty);
+            let pw = w + 2 * pad;
+            assert_eq!(p.len(), pw * (h + 2 * pad));
+            for py in 0..h + 2 * pad {
+                for px in 0..pw {
+                    let inside = (pad..pad + w).contains(&px) && (pad..pad + h).contains(&py);
+                    let (x, y) = (px.saturating_sub(pad).min(w - 1), py.saturating_sub(pad).min(h - 1));
+                    let want = if outside_empty && !inside { 0.0 } else { m[y * w + x] };
+                    assert_eq!(p[py * pw + px], want, "({px}, {py}) outside_empty {outside_empty}");
+                }
+            }
+            assert_eq!(crop_mask(&p, pw, pad, w, h), m);
+        }
+    }
 
     fn session() -> Session {
         let mut s = Session::new();

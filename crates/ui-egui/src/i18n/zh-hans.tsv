@@ -2158,6 +2158,9 @@ cameraRaw	Blending	混合
 	Content-Aware Move Tool	内容感知移动工具
 	TIFF Options	TIFF 选项
 	Including layers will increase file size.	包含图层会增加文件大小。
+	Refine Edge Brush	调整边缘画笔
+	Paint over hair and fur to refine them; hold Alt to erase strokes.	在头发和毛皮上涂抹以调整它们；按住 Alt 可擦除笔触。
+	Clear Strokes	清除笔触
 	Select and Mask	选择与蒙版
 	Onion Skin	洋葱皮
 	Marching Ants	行进蚂蚁

@@ -636,7 +636,12 @@ pub(crate) fn preview_document_authorized(
             }
         }
     }
-    let view = if command == crate::select_mask_ui::COMMAND { crate::select_mask_ui::take_view(&mut p) } else { None };
+    let view = if command == crate::select_mask_ui::COMMAND {
+        crate::select_mask_ui::scale_strokes(&mut p, k);
+        crate::select_mask_ui::take_view(&mut p)
+    } else {
+        None
+    };
     s.execute(command, p).ok()?;
     let mut out = s.active().map(|d| (*d.doc).clone())?;
     if let Some((view, opacity)) = view {

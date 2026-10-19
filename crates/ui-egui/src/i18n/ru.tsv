@@ -2424,6 +2424,9 @@ cameraRaw	Roughness	Неровность
 	Content-Aware Move Tool	Перемещение с учётом содержимого
 	TIFF Options	Параметры TIFF
 	Including layers will increase file size.	Включение слоёв увеличит размер файла.
+	Refine Edge Brush	Кисть уточнения краев
+	Paint over hair and fur to refine them; hold Alt to erase strokes.	Проведите по волосам и шерсти, чтобы уточнить их; удерживайте Alt, чтобы стереть мазки.
+	Clear Strokes	Очистить мазки
 	Select and Mask	Выделение и маска
 	Onion Skin	Калька
 	Marching Ants	Марширующие муравьи
