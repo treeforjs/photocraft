@@ -23,6 +23,7 @@ mod alt_grab;
 pub mod analysis_ui;
 pub mod appearance;
 pub mod artboard_ui;
+pub mod auto_show;
 pub(crate) mod blend_preview;
 mod brand;
 pub mod brush_panel;
@@ -1411,11 +1412,17 @@ impl eframe::App for PhotocraftApp {
         if chrome && self.ui.panels.status_bar {
             panels::status_bar(self, ui);
         }
-        if chrome && self.ui.panels.toolbar {
+        // Hidden panels peek back in at the window edges (Preferences › Workspace).
+        let (peek_tools, peek_dock) = if chrome { auto_show::sides(self, &ctx) } else { (false, false) };
+        if chrome && (self.ui.panels.toolbar || peek_tools) {
+            let before = ui.available_rect_before_wrap().width();
             panels::toolbar(self, ui);
+            auto_show::note_widths(&ctx, peek_tools.then(|| before - ui.available_rect_before_wrap().width()), None);
         }
-        if chrome && self.ui.panels.dock {
+        if chrome && (self.ui.panels.dock || peek_dock) {
+            let before = ui.available_rect_before_wrap().width();
             panels::right_dock(self, ui);
+            auto_show::note_widths(&ctx, None, peek_dock.then(|| before - ui.available_rect_before_wrap().width()));
         }
         let t = theme::Tokens::get(&ctx);
         let backdrop = if chrome { prefs_ui::pasteboard_color(self).unwrap_or(t.canvas) } else { egui::Color32::BLACK };

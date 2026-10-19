@@ -869,7 +869,6 @@ pub const HIDDEN_UNTIL_IMPLEMENTED: &[&str] = &[
     "general.animatedZoom",
     "general.zoomResizesWindows",
     "workspace.autoCollapseIconPanels",
-    "workspace.autoShowHiddenPanels",
     "workspace.enableFloatingDocumentWindowDocking",
     "workspace.enableNarrowOptionsBar",
     "tools.doubleClickLayerMaskLaunchesSelectAndMask",
