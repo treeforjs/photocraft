@@ -117,7 +117,7 @@ jobs:
           {
             echo "SCCACHE_GHA_ENABLED=true"
             echo "RUSTC_WRAPPER=sccache"
-            echo "SCCACHE_GHA_RW_MODE=READ_WRITE"
+            echo "SCCACHE_GHA_RW_MODE=${{ github.ref == 'refs/heads/main' && 'READ_WRITE' || 'READ_ONLY' }}"
             echo "CARGO_INCREMENTAL=0"
           } >> "$GITHUB_ENV"
 
@@ -188,7 +188,7 @@ jobs:
           {
             echo "SCCACHE_GHA_ENABLED=true"
             echo "RUSTC_WRAPPER=sccache"
-            echo "SCCACHE_GHA_RW_MODE=READ_WRITE"
+            echo "SCCACHE_GHA_RW_MODE=${{ github.ref == 'refs/heads/main' && 'READ_WRITE' || 'READ_ONLY' }}"
             echo "CARGO_INCREMENTAL=0"
           } >> "$GITHUB_ENV"
 
