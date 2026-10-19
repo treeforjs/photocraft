@@ -922,6 +922,10 @@ fn humanize(key: &str) -> String {
     if key == "gutter" {
         return "Gutter (points)".into();
     }
+    // General › updates (an object): its one visible setting is the automatic check.
+    if key == "updates" {
+        return "Check for updates automatically".into();
+    }
     if key == "notificationAutoHide" {
         return "Auto Hide Notifications".into();
     }
@@ -1338,6 +1342,19 @@ fn section_fields(ui: &mut egui::Ui, section: &str, obj: &mut Map<String, Value>
                         ui.add(egui::DragValue::new(&mut x).range(lo..=hi).speed(0.1).max_decimals(3).custom_parser(crate::widgets::parse_num));
                         obj.insert(k, json!(x));
                     }
+                }
+                // Help › Check for Updates…: only the switch is a setting; the schedule and the
+                // skipped version it keeps pass through untouched.
+                Value::Object(o) if path == "general.updates" => {
+                    ui.label("");
+                    let mut on = o.get("enabled").and_then(Value::as_bool).unwrap_or(true);
+                    ui.vertical(|ui| {
+                        crate::widgets::checkbox(ui, &mut on, tl!("Check for updates automatically"));
+                        ui.label(RichText::new(tl!("Looks for a new version once a day, a few seconds after PhotoCraft starts.")).color(t.text_dim));
+                    });
+                    let mut o = o.clone();
+                    o.insert("enabled".into(), json!(on));
+                    obj.insert(k, Value::Object(o));
                 }
                 Value::Array(_) if path == "tools.pressureCurve" => {
                     ui.label(RichText::new(tl!(&label)).color(t.text_dim));

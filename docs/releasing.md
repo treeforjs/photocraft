@@ -318,8 +318,28 @@ the run shows a `::warning::`.
 | `AZURE_TENANT_ID`, `AZURE_CLIENT_ID`, `AZURE_CLIENT_SECRET` | service principal for Azure Trusted Signing (an alternative to the `.pfx`) |
 | `AZURE_SIGNING_ENDPOINT` | e.g. `https://eus.codesigning.azure.net` |
 | `AZURE_SIGNING_ACCOUNT`, `AZURE_CERT_PROFILE` | Trusted Signing account and certificate profile names |
+| `UPDATE_SIGNING_KEY` | Ed25519 private key (PEM) that signs `SHA256SUMS.txt` for in-app updates (see below) |
 
 `GITHUB_TOKEN` creates the release. Only the final job gets `contents: write`.
+
+### In-app updates
+
+Help › Check for Updates… (and the daily background check, Preferences › General) uses
+[`craft-update`](https://github.com/treeforjs/craftworks/tree/main/crates/craft-update): it
+finds the newest release, downloads the installer matching how PhotoCraft was installed (MSI,
+AppImage, deb, rpm), verifies it against `SHA256SUMS.txt` and that list's Ed25519 signature,
+and installs it when the app quits. The one-time key setup is in craftworks'
+[`docs/updates.md`](https://github.com/treeforjs/craftworks/blob/main/docs/updates.md):
+
+- `UPDATE_SIGNING_KEY` (secret, `release` environment): the draft-release job signs
+  `SHA256SUMS.txt` into `SHA256SUMS.txt.sig` and uploads it with the other files.
+- `CRAFT_UPDATE_PUBLIC_KEY` (a *repository* variable, *Settings → Secrets and variables →
+  Actions → Variables*, not secret): the macOS, Windows and Linux build jobs embed it. It must be
+  a repository variable rather than a `release`-environment one because the Linux job runs
+  without that environment.
+
+Without the key the release still builds (with a warning) and the app still tells people about
+a new version, but it only offers the release page instead of installing.
 
 On macOS, `packaging/macos/import-cert.sh` decodes the `.p12` into a temporary keychain
 (`security create-keychain`, then `security import`, then `set-key-partition-list` so codesign

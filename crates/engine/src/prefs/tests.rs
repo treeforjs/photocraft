@@ -488,3 +488,22 @@ fn linux_only_preferences_show_only_on_linux() {
     assert!(!is_hidden("performance.gpuBackend"));
     assert!(LINUX_ONLY.iter().all(|p| choices(p).is_some()), "every Linux-only preference is a real one");
 }
+
+#[test]
+fn update_check_preference_round_trips() {
+    // Help › Check for Updates…: on by default, and its schedule and skipped version persist.
+    let mut p = Preferences::default();
+    assert!(p.general.updates.enabled);
+    assert_eq!(p.general.updates.last_checked, None);
+    p.set("general.updates.enabled", json!(false)).unwrap();
+    p.set("general.updates", json!({"enabled": false, "last_checked": 1_700_000_000u64, "skipped": "v1.2.0"})).unwrap();
+    let back: Preferences = serde_json::from_value(p.to_json()).unwrap();
+    assert_eq!(back.general.updates, craft_update::AutoCheck { enabled: false, last_checked: Some(1_700_000_000), skipped: Some("v1.2.0".into()) });
+    assert!(!back.general.updates.due(u64::MAX));
+    // Settings written before updates existed load with checks on.
+    let old: Preferences = serde_json::from_value(json!({"general": {"animatedZoom": false}})).unwrap();
+    assert_eq!(old.general.updates, craft_update::AutoCheck::default());
+    // A wrong type is refused rather than silently replacing the schedule.
+    assert!(p.set("general.updates.enabled", json!("yes")).is_err());
+    assert!(!p.general.updates.enabled);
+}
