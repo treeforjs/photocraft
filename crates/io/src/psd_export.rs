@@ -1052,9 +1052,10 @@ fn thumbnail_resource(doc: &Document) -> Option<Vec<u8>> {
     }
     let rgb: Vec<u8> = t
         .pixels
-        .chunks_exact(4)
-        .flat_map(|p| {
-            let &[r, g, b, a] = p else { return [255; 3] };
+        .as_chunks::<4>()
+        .0
+        .iter()
+        .flat_map(|&[r, g, b, a]| {
             let a = u16::from(a);
             let matte = |c: u8| ((u16::from(c) * a + 255 * (255 - a) + 127) / 255) as u8;
             [matte(r), matte(g), matte(b)]
