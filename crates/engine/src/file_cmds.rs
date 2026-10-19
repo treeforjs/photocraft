@@ -467,6 +467,24 @@ pub fn raw_output(s: &Session, r: &mut photocraft_io::ImportResult) {
         let head = w.get(..w.len().saturating_sub(into.len())).unwrap_or_default().to_string();
         *w = format!("{head}into {bits}-bit {space_name}");
     }
+    if raw.open_as_smart_object {
+        raw_as_smart_object(r);
+    }
+}
+
+/// Camera Raw Defaults › Open as Smart Object: the developed image becomes one smart object
+/// layer named after the file, so it can be transformed and filtered without losing pixels.
+/// A conversion that fails keeps the pixel layer with a note.
+fn raw_as_smart_object(r: &mut photocraft_io::ImportResult) {
+    let doc = &mut r.document;
+    let [layer] = doc.layers.as_slice() else { return };
+    match crate::smart_cmds::layer_to_smart(doc, layer) {
+        Ok(mut so) => {
+            so.name = stem(&doc.name);
+            doc.layers = vec![so];
+        }
+        Err(e) => r.warnings.push(format!("could not open the raw as a smart object: {e}")),
+    }
 }
 
 /// Camera Raw Defaults › Sharpen For as an Unsharp Mask (amount %, radius px): light for

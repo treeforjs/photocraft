@@ -744,3 +744,31 @@ fn reveal_in_finder_reveals_the_documents_saved_path() {
     assert_eq!(r["program"], json!(program));
     assert_eq!(r["args"], json!(args));
 }
+
+#[test]
+fn camera_raw_open_as_smart_object() {
+    use photocraft_raw::testgen::{DngSpec, mosaic, scene};
+    let (w, h) = (24, 16);
+    let dng = DngSpec::cfa(w, h, mosaic(&scene(w, h), w, [0, 1, 1, 2], 0, 65535)).build();
+    let mut s = Session::new();
+    open_bytes_as(&mut s, "IMG_0001.dng", &dng, None, None).unwrap();
+    let pixels = photocraft_compose::flatten(doc(&s)).px;
+    assert!(matches!(doc(&s).layers[0].content, photocraft_doc::LayerContent::Raster(_)), "off by default");
+    s.prefs.edit(|p| p.raw_defaults.open_as_smart_object = true);
+    open_bytes_as(&mut s, "IMG_0001.dng", &dng, None, None).unwrap();
+    let d = doc(&s);
+    assert_eq!(d.layers.len(), 1);
+    assert_eq!(d.layers[0].name, "IMG_0001");
+    assert!(matches!(d.layers[0].content, photocraft_doc::LayerContent::Smart(_)));
+    assert_eq!(photocraft_compose::flatten(d).px, pixels, "looks the same");
+    // Not a raw: unchanged.
+    let png = photocraft_io::export(
+        &photocraft_doc::Document::new("p", photocraft_doc::Size::new(4, 4), photocraft_color::ColorMode::Rgb, photocraft_color::SampleType::U8),
+        "p.png",
+        &Default::default(),
+    )
+    .unwrap()
+    .bytes;
+    open_bytes_as(&mut s, "p.png", &png, None, None).unwrap();
+    assert!(!matches!(doc(&s).layers.first().map(|l| &l.content), Some(photocraft_doc::LayerContent::Smart(_))));
+}

@@ -881,7 +881,6 @@ pub const HIDDEN_UNTIL_IMPLEMENTED: &[&str] = &[
     "type.missingGlyphProtection",
     "type.textEngine",
     "enhancedControls.touchGestures",
-    "rawDefaults.openAsSmartObject",
 ];
 
 /// Is the preference at `path` (`"section.key"`) hidden from the Preferences dialog?
