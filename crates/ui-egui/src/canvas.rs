@@ -40,9 +40,21 @@ fn draw_clone_preview(app: &mut PhotocraftApp, painter: &egui::Painter, xf: &Vie
     let rect = DRect::new((at[0] - radius).floor() as i32, (at[1] - radius).floor() as i32, (at[0] + radius).ceil() as i32, (at[1] + radius).ceil() as i32);
     let Some(st) = app.session.active() else { return };
     let (display, display_key) = canvas_display(app, &st.doc, output);
+    let brush = &app.session.tools.brush;
+    // A sampled or non-round tip clips the overlay to its shape; a round one to the circle mesh.
+    let tip_clip = overlay.clipped && (brush.tip.bitmap().is_some() || brush.roundness < 0.999);
+    let tip = tip_clip.then(|| crate::brush_preview::tip_sig(&brush.tip, 1.0, brush.angle, brush.roundness, (brush.flip_x, brush.flip_y)));
+    let blended = overlay.blend != "normal";
     let key = format!(
-        "{:?}:{}:{:?}:{rect:?}:{map:?}:{}:{}:{}",
-        st.doc.id, st.revision, st.active_layer, app.ui.tool_options.clone_sample, display_key, overlay.invert
+        "{:?}:{}:{:?}:{rect:?}:{map:?}:{}:{}:{}:{tip:?}:{}:{}",
+        st.doc.id,
+        st.revision,
+        st.active_layer,
+        app.ui.tool_options.clone_sample,
+        display_key,
+        overlay.invert,
+        overlay.blend,
+        if blended { overlay.opacity } else { 0.0 }
     );
     if app.clone_preview.as_ref().is_none_or(|c| c.key != key) {
         let Ok(mut buf) = photocraft_engine::retouch_cmds::clone_preview(&app.session, rect, &map, &app.ui.tool_options.clone_sample) else { return };
@@ -52,6 +64,12 @@ fn draw_clone_preview(app: &mut PhotocraftApp, painter: &egui::Painter, xf: &Vie
                     *c = 1.0 - *c;
                 }
             }
+        }
+        if blended && let Ok(base) = photocraft_engine::retouch_cmds::clone_overlay_base(&app.session, rect) {
+            photocraft_engine::presets::clone_source::blend_overlay(&mut buf, &base, &overlay.blend, overlay.opacity / 100.0);
+        }
+        if tip_clip {
+            clip_to_tip(&mut buf, brush);
         }
         let image = display_image(display.as_deref(), &buf);
         match app.clone_preview.as_mut() {
@@ -63,7 +81,8 @@ fn draw_clone_preview(app: &mut PhotocraftApp, painter: &egui::Painter, xf: &Vie
         }
     }
     let Some(cache) = &app.clone_preview else { return };
-    let tint = Color32::from_white_alpha((overlay.opacity.clamp(0.0, 100.0) * 2.55).round() as u8);
+    // Darken/Lighten/Difference bake the opacity into the blended pixels.
+    let tint = if blended { Color32::WHITE } else { Color32::from_white_alpha((overlay.opacity.clamp(0.0, 100.0) * 2.55).round() as u8) };
     // A textured triangle fan provides a circular clip, including mirrored canvas views.
     let mut mesh = egui::Mesh::with_texture(cache.texture.id());
     let vertex = |x: f64, y: f64| egui::epaint::Vertex {
@@ -71,7 +90,7 @@ fn draw_clone_preview(app: &mut PhotocraftApp, painter: &egui::Painter, xf: &Vie
         uv: pos2((x - f64::from(rect.x0)) as f32 / rect.width() as f32, (y - f64::from(rect.y0)) as f32 / rect.height() as f32),
         color: tint,
     };
-    if !overlay.clipped {
+    if !overlay.clipped || tip_clip {
         for (x, y) in [(rect.x0, rect.y0), (rect.x1, rect.y0), (rect.x1, rect.y1), (rect.x0, rect.y1)] {
             mesh.vertices.push(vertex(f64::from(x), f64::from(y)));
         }
@@ -88,6 +107,22 @@ fn draw_clone_preview(app: &mut PhotocraftApp, painter: &egui::Painter, xf: &Vie
         mesh.indices.extend_from_slice(&[0, i, i + 1]);
     }
     painter.add(egui::Shape::mesh(mesh));
+}
+
+/// Multiplies the overlay's alpha by the brush tip's shape (its angle, roundness and flips), so
+/// a sampled or elliptical tip shows the source only where it would paint.
+fn clip_to_tip(buf: &mut photocraft_compose::Buffer, brush: &photocraft_engine::paint::BrushSettings) {
+    let (w, h) = (buf.rect.width().max(1) as usize, buf.rect.height().max(1) as usize);
+    let n = w.max(h).clamp(2, 512);
+    let mask = crate::brush_preview::tip_alpha(&brush.tip, 1.0, brush.angle, brush.roundness, (brush.flip_x, brush.flip_y), n as u32);
+    let side = w.max(h);
+    // The tip spans the square around the brush centre; a clipped rect side is centred in it.
+    let (ox, oy) = ((side - w) / 2, (side - h) / 2);
+    for (i, px) in buf.px.iter_mut().enumerate() {
+        let (x, y) = (i % w + ox, i / w + oy);
+        let (mx, my) = (x.saturating_mul(n) / side, y.saturating_mul(n) / side);
+        px[3] *= mask.get(my.saturating_mul(n).saturating_add(mx)).copied().unwrap_or(0.0);
+    }
 }
 
 pub struct CanvasCache {
@@ -4779,6 +4814,47 @@ mod tests {
         });
         output.textures_delta.clear();
         assert!(output.shapes.iter().all(|s| !matches!(s.shape, egui::Shape::Mesh(_))));
+    }
+
+    #[test]
+    fn clone_overlay_blends_and_clips_to_a_custom_tip() {
+        let ctx = egui::Context::default();
+        let mut app = PhotocraftApp::new(photocraft_engine::Session::new(), Default::default());
+        app.run("file.new", json!({"width": 64, "height": 64})).unwrap();
+        app.run("cloneSource.set", json!({"source": [16,16]})).unwrap();
+        app.run("cloneSource.overlay", json!({"blend": "difference", "opacity": 50})).unwrap();
+        app.ui.tool = Tool::CloneStamp;
+        app.session.tools.brush.size = 20.0;
+        app.session.tools.brush.roundness = 0.3;
+        let xf = ViewXform { rect: Rect::from_min_size(Pos2::ZERO, vec2(100.0, 100.0)), zoom: 1.0, center: [32.0, 32.0], flip: false, rotation: 0.0 };
+        let mut output = ctx.run_ui(Default::default(), |ui| {
+            let painter = ui.ctx().layer_painter(egui::LayerId::new(egui::Order::Foreground, egui::Id::new("clone-test")));
+            draw_clone_preview(&mut app, &painter, &xf, [32.0, 32.0], None);
+        });
+        output.textures_delta.clear();
+        let mesh = output
+            .shapes
+            .iter()
+            .find_map(|s| match &s.shape {
+                egui::Shape::Mesh(m) => Some(m),
+                _ => None,
+            })
+            .unwrap();
+        // The tip's shape is in the texture's alpha, so the mesh is the square; the blend has the
+        // opacity baked in, so the tint is opaque.
+        assert_eq!(mesh.indices.len(), 6);
+        assert!(mesh.vertices.iter().all(|v| v.color == Color32::WHITE));
+
+        // A flat (30 % round) tip at 0° keeps the middle row and clears the top and bottom.
+        let rect = DRect::new(0, 0, 20, 20);
+        let mut buf = photocraft_compose::Buffer { rect, px: vec![[1.0; 4]; 400] };
+        clip_to_tip(&mut buf, &app.session.tools.brush);
+        let a = |x: usize, y: usize| buf.px[y * 20 + x][3];
+        assert!(a(10, 10) > 0.9 && a(2, 10) > 0.5, "{} {}", a(10, 10), a(2, 10));
+        assert!(a(10, 1) < 0.01 && a(10, 18) < 0.01);
+        // Hostile sizes don't index out of bounds.
+        let mut thin = photocraft_compose::Buffer { rect: DRect::new(0, 0, 1000, 1), px: vec![[1.0; 4]; 1000] };
+        clip_to_tip(&mut thin, &app.session.tools.brush);
     }
 
     #[test]

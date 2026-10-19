@@ -57,9 +57,9 @@ note = "Live preview for Clone, Healing and History Brush (canvas.rs), live dabs
 [[item]]
 id = "TOOL-213-8"
 target = "Clone Source: W/H link, drawn overlay (opacity/blend/clip/auto-hide), Alt target cursor"
-status = "partial"
+status = "done"
 issue = 213
-note = "Clone Source overlay drawn with opacity, inversion, circular clipping and auto-hide; W/H link, custom-tip clipping and overlay blend modes remain missing"
+note = "Clone Source overlay drawn with opacity, inversion, auto-hide and Normal/Darken/Lighten/Difference blending (clone_source.rs blend_overlay onto the composite), clipped to the brush circle or a sampled/elliptical tip shape (canvas.rs clip_to_tip); W/H link button (cloneSource.set link); Alt target cursor. Tests: presets/tests.rs clone_source_linked_width_and_height_move_together, clone_overlay_blend_modes_mix_the_source_onto_the_image; canvas.rs clone_overlay_blends_and_clips_to_a_custom_tip"
 
 [[item]]
 id = "TOOL-213-9"

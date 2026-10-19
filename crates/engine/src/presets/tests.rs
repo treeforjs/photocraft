@@ -599,3 +599,45 @@ fn clone_source_errors_and_overlay() {
     assert_eq!(v["width"], json!(1000.0));
     assert_eq!(v["rotation"], json!(-90.0));
 }
+
+#[test]
+fn clone_source_linked_width_and_height_move_together() {
+    let mut s = clone_doc(8);
+    s.execute("cloneSource.set", json!({"width": 150, "height": -80})).unwrap();
+    // Linking matches H to W, keeping H's flip sign.
+    let v = s.execute("cloneSource.set", json!({"link": true})).unwrap();
+    assert_eq!((v["link"].clone(), v["width"].clone(), v["height"].clone()), (json!(true), json!(150.0), json!(-150.0)));
+    let v = s.execute("cloneSource.set", json!({"width": 60})).unwrap();
+    assert_eq!((v["width"].clone(), v["height"].clone()), (json!(60.0), json!(-60.0)));
+    let v = s.execute("cloneSource.set", json!({"height": 220})).unwrap();
+    assert_eq!((v["width"].clone(), v["height"].clone()), (json!(220.0), json!(220.0)));
+    // Both given: each keeps its own; unlinked: the other stays.
+    let v = s.execute("cloneSource.set", json!({"width": 50, "height": 70})).unwrap();
+    assert_eq!((v["width"].clone(), v["height"].clone()), (json!(50.0), json!(70.0)));
+    let v = s.execute("cloneSource.set", json!({"link": false, "width": 90})).unwrap();
+    assert_eq!((v["width"].clone(), v["height"].clone()), (json!(90.0), json!(70.0)));
+    let v = s.execute("cloneSource.set", json!({"width": f64::NAN})).unwrap();
+    assert_eq!(v["width"], json!(90.0));
+}
+
+#[test]
+fn clone_overlay_blend_modes_mix_the_source_onto_the_image() {
+    use crate::presets::clone_source::blend_overlay;
+    use photocraft_compose::Buffer;
+    let rect = photocraft_geom::Rect::new(0, 0, 1, 1);
+    let base = Buffer { rect, px: vec![[0.6, 0.2, 0.5, 1.0]] };
+    let src = Buffer { rect, px: vec![[0.3, 0.7, 0.5, 1.0]] };
+    let run = |mode: &str, op: f32| {
+        let mut b = src.clone();
+        blend_overlay(&mut b, &base, mode, op);
+        b.px[0]
+    };
+    let close = |a: [f32; 4], b: [f32; 4]| a.iter().zip(b).all(|(x, y)| (x - y).abs() < 1e-5);
+    assert!(close(run("darken", 1.0), [0.3, 0.2, 0.5, 1.0]));
+    assert!(close(run("lighten", 1.0), [0.6, 0.7, 0.5, 1.0]));
+    assert!(close(run("difference", 1.0), [0.3, 0.5, 0.0, 1.0]));
+    // Half opacity lands halfway between the image and the blend.
+    assert!(close(run("difference", 0.5), [0.45, 0.35, 0.25, 1.0]));
+    assert_eq!(run("normal", 0.5), src.px[0], "Normal is drawn with its opacity by the canvas");
+    assert!(close(run("darken", f32::NAN), [0.3, 0.2, 0.5, 1.0]));
+}
