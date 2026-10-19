@@ -2403,6 +2403,8 @@ cameraRaw	Roughness	Шорсткість
 	Content-Aware Move Tool	Інструмент «Переміщення з урахуванням вмісту»
 	TIFF Options	Параметри TIFF
 	Including layers will increase file size.	Додавання шарів збільшить розмір файлу.
+	Image Previews	Мініатюри зображення
+	Adds a small thumbnail that file browsers can show.	Додає невелику мініатюру, яку можуть показувати файлові менеджери.
 	PSD Options	Параметри PSD
 	Maximize Compatibility	Максимальна сумісність
 	Keeps a flattened copy of the image so other apps can read the file. Off saves smaller files faster.	Зберігає зведену копію зображення, щоб файл могли прочитати інші застосунки. Якщо вимкнено, файли менші й зберігаються швидше.
