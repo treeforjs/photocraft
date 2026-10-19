@@ -2426,6 +2426,8 @@ cameraRaw	Roughness	Неровность
 	Including layers will increase file size.	Включение слоёв увеличит размер файла.
 	Image Previews	Миниатюры изображения
 	Adds a small thumbnail that file browsers can show.	Добавляет небольшую миниатюру, которую могут показывать файловые менеджеры.
+	Column Width (points)	Ширина колонки (пункты)
+	Gutter (points)	Средник (пункты)
 	PSD Options	Параметры PSD
 	Maximize Compatibility	Максимальная совместимость
 	Keeps a flattened copy of the image so other apps can read the file. Off saves smaller files faster.	Сохраняет сведённую копию изображения, чтобы файл могли прочитать другие приложения. Если выключено, файлы меньше и сохраняются быстрее.

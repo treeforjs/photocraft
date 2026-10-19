@@ -2133,6 +2133,8 @@ cameraRaw	Color	カラー
 	Including layers will increase file size.	レイヤーを含めるとファイルサイズが大きくなります。
 	Image Previews	画像プレビュー
 	Adds a small thumbnail that file browsers can show.	ファイルブラウザーで表示できる小さなサムネールを追加します。
+	Column Width (points)	列の幅（ポイント）
+	Gutter (points)	間隔（ポイント）
 	PSD Options	PSD オプション
 	Maximize Compatibility	互換性を優先
 	Keeps a flattened copy of the image so other apps can read the file. Off saves smaller files faster.	他のアプリでも読めるように、画像の統合コピーをファイルに含めます。オフにするとファイルが小さくなり、保存が速くなります。

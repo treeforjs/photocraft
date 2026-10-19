@@ -2602,6 +2602,8 @@ cameraRaw	Roughness	Chropowatość
 	Including layers will increase file size.	Dołączenie warstw zwiększy rozmiar pliku.
 	Image Previews	Podglądy obrazu
 	Adds a small thumbnail that file browsers can show.	Dodaje małą miniaturę, którą mogą wyświetlać przeglądarki plików.
+	Column Width (points)	Szerokość kolumny (punkty)
+	Gutter (points)	Odstęp (punkty)
 	PSD Options	Opcje PSD
 	Maximize Compatibility	Maksymalna zgodność
 	Keeps a flattened copy of the image so other apps can read the file. Off saves smaller files faster.	Zapisuje spłaszczoną kopię obrazu, aby inne aplikacje mogły odczytać plik. Wyłączone zapisuje mniejsze pliki szybciej.

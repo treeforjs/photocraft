@@ -2218,6 +2218,9 @@ cameraRaw	Amount	Quantità
 	Including layers will increase file size.	Includere i livelli aumenterà le dimensioni del file.
 	Image Previews	Anteprime immagine
 	Adds a small thumbnail that file browsers can show.	Aggiunge una piccola miniatura che i browser di file possono mostrare.
+	Columns	Colonne
+	Column Width (points)	Larghezza colonna (punti)
+	Gutter (points)	Spaziatura (punti)
 	PSD Options	Opzioni PSD
 	Maximize Compatibility	Massimizza compatibilità
 	Keeps a flattened copy of the image so other apps can read the file. Off saves smaller files faster.	Conserva una copia unita dell'immagine perché altre app possano leggere il file. Disattivato salva file più piccoli e più in fretta.

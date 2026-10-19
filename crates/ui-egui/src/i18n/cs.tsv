@@ -2151,6 +2151,9 @@ cameraRaw	Color	Barvy
 	Including layers will increase file size.	Zahrnutí vrstev zvětší velikost souboru.
 	Image Previews	Náhledy obrazů
 	Adds a small thumbnail that file browsers can show.	Přidá malou miniaturu, kterou mohou zobrazit prohlížeče souborů.
+	Columns	Sloupce
+	Column Width (points)	Šířka sloupce (body)
+	Gutter (points)	Mezera mezi sloupci (body)
 	PSD Options	Možnosti PSD
 	Maximize Compatibility	Maximalizovat kompatibilitu
 	Keeps a flattened copy of the image so other apps can read the file. Off saves smaller files faster.	Uloží sloučenou kopii obrazu, aby soubor mohly číst i jiné aplikace. Vypnuto ukládá menší soubory rychleji.

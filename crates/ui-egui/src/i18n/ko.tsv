@@ -2738,6 +2738,9 @@ cameraRaw	Color	색상
 	Including layers will increase file size.	레이어를 포함하면 파일 크기가 커집니다.
 	Image Previews	이미지 미리 보기
 	Adds a small thumbnail that file browsers can show.	파일 브라우저에 표시할 수 있는 작은 썸네일을 추가합니다.
+	Columns	열
+	Column Width (points)	열 너비(포인트)
+	Gutter (points)	간격(포인트)
 	PSD Options	PSD 옵션
 	Maximize Compatibility	호환성 최대화
 	Keeps a flattened copy of the image so other apps can read the file. Off saves smaller files faster.	다른 앱에서도 파일을 읽을 수 있도록 이미지의 병합된 사본을 저장합니다. 끄면 파일이 작아지고 더 빨리 저장됩니다.

@@ -2186,6 +2186,9 @@
 	Including layers will increase file size.	Das Einbeziehen von Ebenen vergrößert die Datei.
 	Image Previews	Bildvorschauen
 	Adds a small thumbnail that file browsers can show.	Fügt ein kleines Miniaturbild hinzu, das Dateibrowser anzeigen können.
+	Columns	Spalten
+	Column Width (points)	Spaltenbreite (Punkt)
+	Gutter (points)	Steg (Punkt)
 	PSD Options	PSD-Optionen
 	Maximize Compatibility	Kompatibilität maximieren
 	Keeps a flattened copy of the image so other apps can read the file. Off saves smaller files faster.	Speichert eine reduzierte Kopie des Bildes, damit andere Apps die Datei lesen können. Aus speichert kleinere Dateien schneller.

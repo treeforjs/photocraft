@@ -2160,6 +2160,9 @@ cameraRaw	Blending	混合
 	Including layers will increase file size.	包含图层会增加文件大小。
 	Image Previews	图像预览
 	Adds a small thumbnail that file browsers can show.	添加文件浏览器可显示的小缩览图。
+	Columns	列
+	Column Width (points)	列宽（点）
+	Gutter (points)	装订线（点）
 	PSD Options	PSD 选项
 	Maximize Compatibility	最大兼容性
 	Keeps a flattened copy of the image so other apps can read the file. Off saves smaller files faster.	保留图像的合并副本，以便其他应用可以读取该文件。关闭后文件更小、保存更快。
