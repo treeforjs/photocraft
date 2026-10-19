@@ -2216,6 +2216,8 @@ cameraRaw	Amount	Quantità
 	Drag or click polygon points · hold Alt during lasso for straight segments · {add} add · {sub} before drawing subtracts	Trascina o fai clic sui punti del poligono · tieni premuto Alt durante il lazo per segmenti dritti · {add} aggiunge · {sub} prima di disegnare sottrae
 	TIFF Options	Opzioni TIFF
 	Including layers will increase file size.	Includere i livelli aumenterà le dimensioni del file.
+	Sampling Brush	Pennello di campionamento
+	Paint where the fill may sample from (green); hold Alt to exclude areas (red).	Dipingi dove il riempimento può campionare (verde); tieni premuto Alt per escludere aree (rosso).
 	Refine Edge Brush	Pennello migliora bordo
 	Paint over hair and fur to refine them; hold Alt to erase strokes.	Dipingi su capelli e pelo per migliorarli; tieni premuto Alt per cancellare i tratti.
 	Clear Strokes	Cancella tratti

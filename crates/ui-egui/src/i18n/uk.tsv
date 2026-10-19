@@ -2403,6 +2403,8 @@ cameraRaw	Roughness	Шорсткість
 	Content-Aware Move Tool	Інструмент «Переміщення з урахуванням вмісту»
 	TIFF Options	Параметри TIFF
 	Including layers will increase file size.	Додавання шарів збільшить розмір файлу.
+	Sampling Brush	Пензель вибірки
+	Paint where the fill may sample from (green); hold Alt to exclude areas (red).	Зафарбуйте області, звідки заливка може брати зразки (зеленим); утримуйте Alt, щоб виключити області (червоним).
 	Refine Edge Brush	Пензель уточнення країв
 	Paint over hair and fur to refine them; hold Alt to erase strokes.	Проведіть по волоссю й шерсті, щоб уточнити їх; утримуйте Alt, щоб стерти мазки.
 	Clear Strokes	Очистити мазки

@@ -24,11 +24,6 @@ pub const VIEWS: [(&str, &str); 7] = [
 
 const VIEW: &str = "__view";
 const OPACITY: &str = "__viewOpacity";
-/// The Refine Edge brush is armed: drags on the image paint `edgeBrush` dabs.
-const BRUSH: &str = "__refineBrush";
-const BRUSH_SIZE: &str = "__refineBrushSize";
-/// The command parameter the brush fills.
-const STROKES: &str = "edgeBrush";
 
 /// Opens Select and Mask on the selection, previewing On Layers at the dialog's default opacity.
 pub fn open(app: &mut PhotocraftApp) -> Option<u64> {
@@ -37,6 +32,7 @@ pub fn open(app: &mut PhotocraftApp) -> Option<u64> {
     d.fields.insert("__label".into(), json!("Select and Mask"));
     d.fields.insert(VIEW.into(), json!("onLayers"));
     d.fields.insert(OPACITY.into(), json!(50.0));
+    crate::dialog_brush::attach(&mut d.fields, "edgeBrush", "Refine Edge Brush", "Paint over hair and fur to refine them; hold Alt to erase strokes.", false);
     Some(id)
 }
 
@@ -72,73 +68,6 @@ pub fn controls(ui: &mut egui::Ui, f: &mut Map<String, Value>) {
     }
     f.insert(VIEW.into(), json!(cur));
     ui.add_space(2.0);
-    let mut armed = f.get(BRUSH).and_then(Value::as_bool).unwrap_or(false);
-    crate::widgets::checkbox(ui, &mut armed, tl!("Refine Edge Brush"));
-    f.insert(BRUSH.into(), json!(armed));
-    if armed {
-        let mut size = brush_size(f);
-        crate::widgets::slider_row(ui, tl!("Size"), &mut size, 1.0..=500.0, "px", None);
-        f.insert(BRUSH_SIZE.into(), json!(size));
-        ui.label(egui::RichText::new(tl!("Paint over hair and fur to refine them; hold Alt to erase strokes.")).color(t.text_dim).small());
-    }
-    if stroke_count(f) > 0 && crate::widgets::secondary_button(ui, tl!("Clear Strokes"), 0.0).clicked() {
-        f.remove(STROKES);
-    }
-    ui.separator();
-}
-
-fn brush_size(f: &Map<String, Value>) -> f32 {
-    f.get(BRUSH_SIZE).and_then(Value::as_f64).filter(|v| v.is_finite()).map_or(40.0, |v| v.clamp(1.0, 500.0) as f32)
-}
-
-fn stroke_count(f: &Map<String, Value>) -> usize {
-    f.get(STROKES).and_then(Value::as_array).map_or(0, Vec::len)
-}
-
-/// The brush diameter in document pixels while the top dialog is Select and Mask with its Refine
-/// Edge brush armed.
-pub fn armed_brush(app: &PhotocraftApp) -> Option<f32> {
-    let d = app.ui.dialogs.last()?;
-    let ours = d.fields.get("__command").and_then(Value::as_str) == Some(COMMAND) && view_of(&d.fields).is_some();
-    (ours && d.fields.get(BRUSH).and_then(Value::as_bool) == Some(true)).then(|| brush_size(&d.fields))
-}
-
-/// One brush position on the image (document pixels) during a drag: adds a dab, or with `erase`
-/// an erasing one, unless it is too close to the previous dab to change anything.
-pub fn paint(app: &mut PhotocraftApp, at: [f32; 2], erase: bool) {
-    let Some(size) = armed_brush(app) else { return };
-    let Some(d) = app.ui.dialogs.last_mut() else { return };
-    let r = size / 2.0;
-    let entry = d.fields.entry(STROKES).or_insert_with(|| json!([]));
-    let Some(list) = entry.as_array_mut() else { return };
-    if list.len() >= photocraft_engine::smartselect_cmds::MAX_DABS {
-        return;
-    }
-    let add = !erase;
-    let close = list.last().and_then(Value::as_array).is_some_and(|l| {
-        let n = |i: usize| l.get(i).and_then(Value::as_f64).unwrap_or(f64::NAN) as f32;
-        let same = l.get(3).and_then(Value::as_bool).unwrap_or(true) == add;
-        same && (n(0) - at[0]).hypot(n(1) - at[1]) < (r * 0.25).max(0.5) && (n(2) - r).abs() < 0.01
-    });
-    if !close && at.iter().all(|v| v.is_finite()) {
-        list.push(json!([at[0], at[1], r, add]));
-    }
-}
-
-/// Proxy previews run at 1/`k` scale: scales the brush dabs to match.
-pub fn scale_strokes(params: &mut Value, k: u32) {
-    if k <= 1 {
-        return;
-    }
-    let k = f64::from(k);
-    let Some(list) = params.get_mut(STROKES).and_then(Value::as_array_mut) else { return };
-    for dab in list.iter_mut().filter_map(Value::as_array_mut) {
-        for v in dab.iter_mut().take(3) {
-            if let Some(n) = v.as_f64() {
-                *v = json!(n / k);
-            }
-        }
-    }
 }
 
 /// The preview request for the dialog's fields: the view rides along in private keys, which

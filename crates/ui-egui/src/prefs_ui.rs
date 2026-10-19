@@ -721,6 +721,14 @@ pub fn invoke(app: &mut PhotocraftApp, _ctx: &egui::Context, id: &str, params: &
                 for k in ["margin", "seed", "channel"] {
                     dm.fields.remove(k);
                 }
+                // Photoshop's Sampling Brush: paint the area the fill may copy from (⌥ removes).
+                crate::dialog_brush::attach(
+                    &mut dm.fields,
+                    "sampleBrush",
+                    "Sampling Brush",
+                    "Paint where the fill may sample from (green); hold Alt to exclude areas (red).",
+                    true,
+                );
             }
             dialog(d)
         }

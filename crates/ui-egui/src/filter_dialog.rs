@@ -405,6 +405,7 @@ pub fn body(ui: &mut egui::Ui, f: &mut Map<String, Value>) {
     if cmd == crate::select_mask_ui::COMMAND {
         crate::select_mask_ui::controls(ui, f);
     }
+    crate::dialog_brush::controls(ui, f);
     for p in parse_spec(&spec) {
         match p.kind {
             Kind::Range { min, max, default } => {
@@ -636,12 +637,8 @@ pub(crate) fn preview_document_authorized(
             }
         }
     }
-    let view = if command == crate::select_mask_ui::COMMAND {
-        crate::select_mask_ui::scale_strokes(&mut p, k);
-        crate::select_mask_ui::take_view(&mut p)
-    } else {
-        None
-    };
+    crate::dialog_brush::scale(&mut p, k);
+    let view = if command == crate::select_mask_ui::COMMAND { crate::select_mask_ui::take_view(&mut p) } else { None };
     s.execute(command, p).ok()?;
     let mut out = s.active().map(|d| (*d.doc).clone())?;
     if let Some((view, opacity)) = view {
