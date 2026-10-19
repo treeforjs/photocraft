@@ -6,6 +6,8 @@
 //!   ⌥/Alt + wheel scrolls.
 //! - A trackpad pinch zooms around the pointer (unless Preferences › Enhanced Controls › Zoom with
 //!   Trackpad Pinch is off).
+//! - Two or more fingers on a touch screen pan, zoom and rotate the view together ([`touch`]),
+//!   unless Preferences › Enhanced Controls › Enable Touch Gestures is off.
 //!
 //! [`configure`] makes egui fold ⌘/Ctrl + wheel into a sideways scroll as it does ⇧ + wheel, so
 //! only a real pinch (egui's `Event::Zoom`, or a touch screen) reaches `zoom_delta`. macOS and
@@ -21,7 +23,7 @@
 //! keeps the smoothed delta. The Alt state is taken from the wheel events and kept until the next
 //! wheel event: releasing Alt while the tail is still settling must not turn it into a pan.
 
-use egui::{Context, Event, Id, Modifiers, MouseWheelUnit, RawInput, Vec2};
+use egui::{Context, Event, Id, Modifiers, MouseWheelUnit, Pos2, RawInput, Vec2};
 
 /// Zoom factor of one wheel notch: every step is exactly ×1.05.
 pub const NOTCH: f32 = 1.05;
@@ -152,6 +154,8 @@ pub fn read(ctx: &Context, zoom_with_wheel: bool, pinch: bool) -> Option<Wheel> 
                 _ => None,
             })
             .collect();
+        // A touch-screen gesture is [`touch`]'s, so only a trackpad pinch zooms here.
+        let pinch = pinch && i.multi_touch().is_none();
         (i.smooth_scroll_delta, if pinch { i.zoom_delta() } else { 1.0 }, latest, wheel, i.content_rect().height())
     });
     let alt = match latest {
@@ -175,6 +179,34 @@ pub fn read(ctx: &Context, zoom_with_wheel: bool, pinch: bool) -> Option<Wheel> 
         },
     );
     classify(Input { scroll, raw, zoom_delta, alt, zoom_with_wheel, notch })
+}
+
+/// One frame of a touch-screen gesture with two or more fingers.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Touch {
+    /// Where the fingers are centred (points).
+    pub center: Pos2,
+    /// Multiply the zoom by this factor around `center` (1 = none).
+    pub zoom: f32,
+    /// Move the image by this many screen points.
+    pub pan: Vec2,
+    /// Rotate the view by this many degrees (same sign as `rotate_view::wrap_deg`).
+    pub rotate: f32,
+}
+
+/// This frame's touch-screen gesture, unless Preferences › Enhanced Controls › Enable Touch
+/// Gestures (`enabled`) is off. A single finger is a pointer and never a gesture.
+pub fn touch(ctx: &Context, enabled: bool) -> Option<Touch> {
+    if !enabled {
+        return None;
+    }
+    let t = ctx.input(|i| i.multi_touch())?;
+    let zoom = if t.zoom_delta.is_finite() && t.zoom_delta > 0.0 { t.zoom_delta } else { 1.0 };
+    let pan = if t.translation_delta.x.is_finite() && t.translation_delta.y.is_finite() { t.translation_delta } else { Vec2::ZERO };
+    let rotate = t.rotation_delta.to_degrees();
+    let rotate = if rotate.is_finite() { rotate } else { 0.0 };
+    let center = if t.center_pos.x.is_finite() && t.center_pos.y.is_finite() { t.center_pos } else { return None };
+    Some(Touch { center, zoom, pan, rotate })
 }
 
 #[cfg(test)]

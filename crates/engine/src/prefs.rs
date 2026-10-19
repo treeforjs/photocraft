@@ -880,7 +880,6 @@ pub const HIDDEN_UNTIL_IMPLEMENTED: &[&str] = &[
     "plugIns.allowScriptsToConnect",
     "type.missingGlyphProtection",
     "type.textEngine",
-    "enhancedControls.touchGestures",
 ];
 
 /// Is the preference at `path` (`"section.key"`) hidden from the Preferences dialog?
