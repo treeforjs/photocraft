@@ -366,6 +366,10 @@ fn main() -> eframe::Result {
             mac_window::disable_native_title_drag();
             // Long commands and file opens run as background jobs with progress and Cancel (#210).
             app.background_jobs = std::env::var_os("PHOTOCRAFT_INLINE_JOBS").is_none();
+            // In-app updates (Help › Check for Updates…, Preferences › General). Building the
+            // updater does no work: nothing for updates touches the network or the disk until
+            // the app has drawn and been up for `AutoCheck::START_DELAY_SECS` (`updates_ui::tick`).
+            app.set_updater(updater(), &cc.egui_ctx);
             // Displays and their profiles (#569): wait briefly so the first frames already use
             // the right profile; a slower reading is applied when it arrives, and the shell reads
             // again when the displays may have changed.
@@ -527,6 +531,21 @@ fn main() -> eframe::Result {
         }
     }
     result
+}
+
+/// The updater for this build: PhotoCraft's releases on GitHub, verified with the key the
+/// release workflow embeds (`CRAFT_UPDATE_PUBLIC_KEY`; without one it offers the release page
+/// instead of installing).
+fn updater() -> craft_update::Updater {
+    let app = craft_update::AppInfo {
+        id: "photocraft".into(),
+        display_name: "PhotoCraft".into(),
+        repo: "treeforjs/photocraft".into(),
+        current: env!("CARGO_PKG_VERSION").into(),
+        public_key: option_env!("CRAFT_UPDATE_PUBLIC_KEY").filter(|k| !k.is_empty()).map(Into::into),
+        prereleases: false,
+    };
+    craft_update::Updater::new(app, std::sync::Arc::new(craft_update::GitHub::new(concat!("PhotoCraft/", env!("CARGO_PKG_VERSION")))))
 }
 
 #[cfg(test)]

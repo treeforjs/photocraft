@@ -72,6 +72,9 @@ jobs:
     env:
       PHOTOCRAFT_VERSION: ${{ needs.version.outputs.version }}
       PHOTOCRAFT_BUILD_DATE: ${{ needs.version.outputs.date }}
+      # The in-app updater's public key (docs/releasing.md › In-app updates); without it the
+      # build offers the release page instead of installing updates itself.
+      CRAFT_UPDATE_PUBLIC_KEY: ${{ vars.CRAFT_UPDATE_PUBLIC_KEY }}
     steps:
       - uses: actions/checkout@v4
       - name: Check out craft-fonts (embedded fonts)
@@ -139,6 +142,9 @@ jobs:
     env:
       PHOTOCRAFT_VERSION: ${{ needs.version.outputs.version }}
       PHOTOCRAFT_BUILD_DATE: ${{ needs.version.outputs.date }}
+      # The in-app updater's public key (docs/releasing.md › In-app updates); without it the
+      # build offers the release page instead of installing updates itself.
+      CRAFT_UPDATE_PUBLIC_KEY: ${{ vars.CRAFT_UPDATE_PUBLIC_KEY }}
     steps:
       - uses: actions/checkout@v4
       - name: Check out craft-fonts (embedded fonts)
@@ -199,6 +205,9 @@ jobs:
       PHOTOCRAFT_VERSION: ${{ needs.version.outputs.version }}
       PHOTOCRAFT_BUILD_DATE: ${{ needs.version.outputs.date }}
       NFPM_VERSION: 2.47.0
+      # The in-app updater's public key (docs/releasing.md › In-app updates); without it the
+      # build offers the release page instead of installing updates itself.
+      CRAFT_UPDATE_PUBLIC_KEY: ${{ vars.CRAFT_UPDATE_PUBLIC_KEY }}
     steps:
       - uses: actions/checkout@v4
       - name: Check out craft-fonts (embedded fonts)
@@ -442,6 +451,22 @@ jobs:
         working-directory: artifacts
         run: |
           sha256sum -- * | tee SHA256SUMS.txt
+      # The in-app updater installs only what this signature vouches for (docs/releasing.md ›
+      # In-app updates). The .sig is written after the list, so the list doesn't name it.
+      - name: Sign the checksums
+        working-directory: artifacts
+        env:
+          UPDATE_SIGNING_KEY: ${{ secrets.UPDATE_SIGNING_KEY }}
+        run: |
+          if [ -n "$UPDATE_SIGNING_KEY" ]; then
+            printf '%s\n' "$UPDATE_SIGNING_KEY" > "$RUNNER_TEMP/key.pem"
+            openssl pkeyutl -sign -inkey "$RUNNER_TEMP/key.pem" -rawin -in SHA256SUMS.txt | base64 -w0 > SHA256SUMS.txt.sig
+            rm -f "$RUNNER_TEMP/key.pem"
+            test -s SHA256SUMS.txt.sig
+            if grep -q 'SHA256SUMS' SHA256SUMS.txt; then echo "::error::SHA256SUMS.txt lists itself or its signature"; exit 1; fi
+          else
+            echo "::warning::UPDATE_SIGNING_KEY is not set: this release can't be installed from inside the app"
+          fi
       - name: Create or update the draft release
         working-directory: artifacts
         run: |

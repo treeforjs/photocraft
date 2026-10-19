@@ -107,6 +107,9 @@ pub fn guard_window_close(app: &mut PhotocraftApp, ctx: &egui::Context) {
         app.jobs.close_after_saves = true;
         return;
     }
+    // Leaving is settled: a downloaded update installs now (and reopens PhotoCraft after
+    // Restart Now).
+    crate::updates_ui::on_exit(app);
     // Leaving: through the platform's own quit where there is one (see `Services::quit`), with
     // the window left open for it to close.
     if let Some(quit) = app.services.quit.as_mut() {
