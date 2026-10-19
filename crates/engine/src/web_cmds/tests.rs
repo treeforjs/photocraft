@@ -362,6 +362,13 @@ fn image_assets_are_generated_now_and_on_save() {
     let r = crate::automate_cmds::document_saved(&mut s, 0).unwrap();
     assert_eq!(r["dir"], json!(format!("{dir}/doc-assets")));
     assert!(std::path::Path::new(&format!("{dir}/doc-assets/logo.png")).is_file());
+    // Preferences › Plug-ins › Enable Generator off: the command is disabled and a save writes
+    // nothing; back on, the document's Image Assets resume.
+    s.edit_prefs(|p| p.plug_ins.generator_enabled = false);
+    assert!(s.execute("file.generate.imageAssets", json!({})).unwrap_err().to_string().contains("Enable Generator"));
+    assert!(crate::automate_cmds::document_saved(&mut s, 0).is_none());
+    s.edit_prefs(|p| p.plug_ins.generator_enabled = true);
+    assert!(crate::automate_cmds::document_saved(&mut s, 0).is_some());
     // Off: nothing on save.
     assert_eq!(s.execute("file.generate.imageAssets", json!({})).unwrap()["enabled"], false);
     assert!(crate::automate_cmds::document_saved(&mut s, 0).is_none());

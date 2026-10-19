@@ -671,6 +671,8 @@ pub struct PlugIns {
     pub additional_plugins_folder: String,
     pub show_extension_panels: bool,
     pub allow_scripts_to_connect: bool,
+    /// File › Generate › Image Assets (Photoshop's Generator) is available. Off: the command is
+    /// disabled and saving no longer writes assets.
     pub generator_enabled: bool,
 }
 
@@ -681,7 +683,7 @@ impl Default for PlugIns {
             additional_plugins_folder: String::new(),
             show_extension_panels: true,
             allow_scripts_to_connect: false,
-            generator_enabled: false,
+            generator_enabled: true,
         }
     }
 }
@@ -876,7 +878,6 @@ pub const HIDDEN_UNTIL_IMPLEMENTED: &[&str] = &[
     "scratchDisks.disks",
     "plugIns.showExtensionPanels",
     "plugIns.allowScriptsToConnect",
-    "plugIns.generatorEnabled",
     "type.missingGlyphProtection",
     "type.textEngine",
 ];

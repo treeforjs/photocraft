@@ -1215,7 +1215,7 @@ fn image_assets(s: &mut Session, p: &Value) -> Result<Value> {
 /// After a save: regenerate the document's image assets when Generate › Image Assets is on.
 pub fn on_saved(s: &Session, index: usize) -> Option<Value> {
     let d = s.documents().get(index)?;
-    if !s.file_menu.image_assets.contains(&d.doc.id) || cfg!(target_arch = "wasm32") {
+    if !s.file_menu.image_assets.contains(&d.doc.id) || !s.prefs().plug_ins.generator_enabled || cfg!(target_arch = "wasm32") {
         return None;
     }
     let dir = assets_dir(d.path.as_deref()?);
@@ -1231,6 +1231,12 @@ pub fn specs() -> Vec<CommandSpec> {
     }
     fn has_doc(s: &Session) -> std::result::Result<(), String> {
         s.active().map(|_| ()).ok_or_else(|| "no document open".into())
+    }
+    fn generator_on(s: &Session) -> std::result::Result<(), String> {
+        if !s.prefs().plug_ins.generator_enabled {
+            return Err("Generator is off (Preferences › Plug-ins › Enable Generator)".into());
+        }
+        has_doc(s)
     }
     vec![
         spec!(
@@ -1266,7 +1272,7 @@ pub fn specs() -> Vec<CommandSpec> {
             &["File", "Generate"],
             None,
             r##"{"on":bool? (default: toggle),"dir":folder? (default <document>-assets next to the file)} → {enabled, files, errors}; layers named like "foo.png", "200% foo@2x.png", "48x48 icons/a.png8", "photo.jpg80%" are exported, now and after each save"##,
-            has_doc,
+            generator_on,
             image_assets
         ),
     ]
