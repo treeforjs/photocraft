@@ -276,6 +276,24 @@ fn run_move(doc: &mut Document, sel: &Surface, plan: &Plan, p: &Value, ctx: &cra
     Ok((surf, damage))
 }
 
+/// The live preview of `paint.contentAwareMove` with params `p` while the selection is dragged: the
+/// active document with the selected content laid at the offset (nothing is recorded), and the
+/// rectangle it changed. The content-aware fills only run on release, so the preview shows where
+/// the content lands, not how its edge and old place will be blended.
+pub fn preview(s: &Session, p: &Value) -> Result<(Document, Rect)> {
+    let plan = plan(s, p)?;
+    let d = s.active().ok_or(EngineError::NoDocument)?;
+    let sel = d.doc.selection.as_ref().ok_or_else(|| bad(CMD, "select the area to move first"))?;
+    let mut doc = (*d.doc).clone();
+    let (dx, dy) = plan.offset;
+    let dst = plan.area.translate(dx, dy);
+    let mut src = read(&mut doc, &plan, p, plan.area)?;
+    src.rect = dst;
+    let moved = mask(sel, plan.area);
+    let rect = replace(&mut doc, &plan, p, &src, &moved)?;
+    Ok((doc, rect))
+}
+
 pub(super) fn content_aware_move(s: &mut Session, p: &Value) -> Result<Value> {
     let plan = plan(s, p)?;
     let label = if plan.mode == Mode::Move { "Content-Aware Move" } else { "Content-Aware Extend" };

@@ -184,6 +184,8 @@ pub fn finish_patch(app: &mut PhotocraftApp, start: [f64; 2], end: [f64; 2]) {
 /// Content-Aware Move Tool: the selection was dragged from `start` to `end`. The engine runs it as
 /// a background job (progress dialog, Esc cancels); the selection follows the content.
 pub fn finish_content_aware_move(app: &mut PhotocraftApp, start: [f64; 2], end: [f64; 2]) {
+    // The drag's placement preview ends here; the job shows its progress until the result applies.
+    crate::patch_preview::take(app);
     let off = patch_offset(app, start, end);
     if off == [0, 0] {
         patch_hint(app);

@@ -1361,3 +1361,22 @@ fn live_sample_all_layers_matches_the_commit() {
         assert!(worst <= 1e-4, "{cmd}: live and commit differ by {worst}");
     }
 }
+
+#[test]
+fn content_aware_move_preview_lays_the_content_at_the_offset_without_editing() {
+    let mut s = Session::new();
+    s.execute("file.new", json!({"width": 100, "height": 60})).unwrap();
+    s.execute("paint.pencil", json!({"points": [[68, 30], [74, 30]], "size": 6, "color": "#ff0000"})).unwrap();
+    s.execute("select.lasso", json!({"points": [[60, 20], [84, 20], [84, 40], [60, 40]]})).unwrap();
+    let rev = s.active().unwrap().revision;
+    let (doc, rect) = crate::retouch_cmds::content_aware_move_preview(&s, &json!({"offset": [-30, 0]})).unwrap();
+    let red = |d: &photocraft_doc::Document, x, y| d.layers[0].surface().unwrap().rgba(x, y)[1] < 0.5;
+    assert!(red(&doc, 41, 30) && red(&doc, 71, 30), "laid at the offset; the fills only run on release");
+    assert!(rect.contains(41, 30) && !rect.contains(71, 30), "{rect:?}");
+    assert_eq!(s.active().unwrap().revision, rev);
+    assert!(!red(&s.active().unwrap().doc, 41, 30));
+    // The command's own checks apply.
+    assert!(crate::retouch_cmds::content_aware_move_preview(&s, &json!({"offset": [0, 0]})).is_err());
+    assert!(crate::retouch_cmds::content_aware_move_preview(&s, &json!({"offset": [90, 0]})).is_err());
+    assert!(crate::retouch_cmds::content_aware_move_preview(&s, &json!({"offset": [f64::NAN, 0]})).is_err());
+}
