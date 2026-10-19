@@ -905,6 +905,13 @@ fn humanize(key: &str) -> String {
         return "Quality".into();
     }
     // The auto-hide notice settings read best with their own labels (Interface › Notification, #2022).
+    // Column Size is in points (Image Size and Canvas Size measure widths in columns).
+    if key == "columnWidth" {
+        return "Column Width (points)".into();
+    }
+    if key == "gutter" {
+        return "Gutter (points)".into();
+    }
     if key == "notificationAutoHide" {
         return "Auto Hide Notifications".into();
     }

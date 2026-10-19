@@ -2220,6 +2220,9 @@ cameraRaw	Amount	Cantidad
 	Content-Aware Move Tool	Herramienta Mover según el contenido
 	TIFF Options	Opciones de TIFF
 	Including layers will increase file size.	Incluir las capas aumentará el tamaño del archivo.
+	Columns	Columnas
+	Column Width (points)	Ancho de columna (puntos)
+	Gutter (points)	Medianil (puntos)
 	PSD Options	Opciones de PSD
 	Maximize Compatibility	Maximizar compatibilidad
 	Keeps a flattened copy of the image so other apps can read the file. Off saves smaller files faster.	Guarda una copia acoplada de la imagen para que otras apps puedan leer el archivo. Desactivado guarda archivos más pequeños y más rápido.
