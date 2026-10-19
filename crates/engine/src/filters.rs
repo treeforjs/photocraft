@@ -477,7 +477,7 @@ mod tests {
             keep_alpha(&old, &mut new);
             let r = Rect::new(0, 0, 600, 600);
             let (o, n) = (old.read_region(r), new.read_region(r));
-            for (po, pn) in o.chunks_exact(4).zip(n.chunks_exact(4)) {
+            for (po, pn) in o.as_chunks::<4>().0.iter().zip(n.as_chunks::<4>().0) {
                 assert_eq!(po[3], pn[3], "{sample:?}");
             }
             assert_eq!(new.pixel(400, 400)[..3], [1.0, 0.0, 1.0][..], "{sample:?}: colour kept, alpha 0 outside the old content");
