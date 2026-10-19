@@ -2600,6 +2600,19 @@ cameraRaw	Roughness	Chropowatość
 	Content-Aware Move Tool	Narzędzie Przesunięcie z uwzględnieniem zawartości
 	TIFF Options	Opcje TIFF
 	Including layers will increase file size.	Dołączenie warstw zwiększy rozmiar pliku.
+	Sampling Brush	Pędzel próbkowania
+	Paint where the fill may sample from (green); hold Alt to exclude areas (red).	Zamaluj obszar, z którego wypełnienie może pobierać próbki (zielony); przytrzymaj Alt, aby wykluczyć obszary (czerwony).
+	Refine Edge Brush	Pędzel udoskonalania krawędzi
+	Paint over hair and fur to refine them; hold Alt to erase strokes.	Maluj po włosach i sierści, aby je udoskonalić; przytrzymaj Alt, aby wymazać pociągnięcia.
+	Clear Strokes	Wyczyść pociągnięcia
+	Onion Skin	Skórka cebuli
+	Marching Ants	Maszerujące mrówki
+	On Black	Na czarnym
+	On White	Na białym
+	On Layers	Na warstwach
+	New Layer With Mask	Nowa warstwa z maską
+	New Document With Mask	Nowy dokument z maską
+	Artboard Tool	Narzędzie Obszar roboczy
 	Image Previews	Podglądy obrazu
 	Adds a small thumbnail that file browsers can show.	Dodaje małą miniaturę, którą mogą wyświetlać przeglądarki plików.
 	Column Width (points)	Szerokość kolumny (punkty)

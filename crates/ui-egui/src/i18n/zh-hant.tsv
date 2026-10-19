@@ -2127,6 +2127,20 @@ cameraRaw	Blending	混合
 	Content-Aware Move Tool	內容感知移動工具
 	TIFF Options	TIFF 選項
 	Including layers will increase file size.	包含圖層會增加檔案大小。
+	Sampling Brush	取樣筆刷
+	Paint where the fill may sample from (green); hold Alt to exclude areas (red).	塗抹填色可取樣的區域（綠色）；按住 Alt 可排除區域（紅色）。
+	Refine Edge Brush	調整邊緣筆刷
+	Paint over hair and fur to refine them; hold Alt to erase strokes.	在頭髮和毛皮上塗抹以調整它們；按住 Alt 可擦除筆觸。
+	Clear Strokes	清除筆觸
+	Select and Mask	選取並遮住
+	Onion Skin	洋蔥皮
+	Marching Ants	行進螞蟻
+	On Black	黑底
+	On White	白底
+	On Layers	圖層上
+	New Layer With Mask	新增含遮色片的圖層
+	New Document With Mask	新增含遮色片的文件
+	Artboard Tool	工作區域工具
 	Image Previews	影像預覽
 	Adds a small thumbnail that file browsers can show.	加入檔案瀏覽器可顯示的小縮圖。
 	Columns	欄

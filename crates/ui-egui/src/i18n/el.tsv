@@ -1054,6 +1054,19 @@
 	Hold Alt while drawing for straight segments	Κρατήστε πατημένο το Alt κατά τη σχεδίαση για ευθύγραμμα τμήματα
 	TIFF Options	Επιλογές TIFF
 	Including layers will increase file size.	Η συμπερίληψη επιπέδων θα αυξήσει το μέγεθος του αρχείου.
+	Sampling Brush	Πινέλο δειγματοληψίας
+	Paint where the fill may sample from (green); hold Alt to exclude areas (red).	Βάψτε από πού μπορεί να πάρει δείγματα η γέμιση (πράσινο)· κρατήστε Alt για εξαίρεση περιοχών (κόκκινο).
+	Refine Edge Brush	Πινέλο βελτίωσης άκρων
+	Paint over hair and fur to refine them; hold Alt to erase strokes.	Βάψτε πάνω σε μαλλιά και τρίχωμα για βελτίωση· κρατήστε Alt για διαγραφή πινελιών.
+	Clear Strokes	Απαλοιφή πινελιών
+	Onion Skin	Φλούδα κρεμμυδιού
+	Marching Ants	Διακεκομμένο περίγραμμα
+	On Black	Σε μαύρο
+	On White	Σε λευκό
+	On Layers	Σε επίπεδα
+	New Layer With Mask	Νέο επίπεδο με μάσκα
+	New Document With Mask	Νέο έγγραφο με μάσκα
+	Artboard Tool	Εργαλείο πίνακα σχεδίασης
 	Image Previews	Προεπισκοπήσεις εικόνας
 	Adds a small thumbnail that file browsers can show.	Προσθέτει μια μικρή μικρογραφία που μπορούν να εμφανίσουν οι περιηγητές αρχείων.
 	Column Width (points)	Πλάτος στήλης (στιγμές)

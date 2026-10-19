@@ -116,10 +116,12 @@ pub enum Tool {
     CustomShape,
     Slice,
     SliceSelect,
+    /// Draws, moves and resizes artboards (Move group, V; see `artboard_ui`).
+    Artboard,
 }
 
 impl Tool {
-    pub const ALL: [Tool; 52] = [
+    pub const ALL: [Tool; 53] = [
         Tool::Move,
         Tool::RectMarquee,
         Tool::EllipseMarquee,
@@ -172,6 +174,7 @@ impl Tool {
         Tool::CustomShape,
         Tool::Slice,
         Tool::SliceSelect,
+        Tool::Artboard,
     ];
 
     pub fn label(self) -> &'static str {
@@ -196,6 +199,7 @@ impl Tool {
             Tool::Crop => "Crop Tool",
             Tool::Slice => "Slice Tool",
             Tool::SliceSelect => "Slice Select Tool",
+            Tool::Artboard => "Artboard Tool",
             Tool::Gradient => "Gradient Tool",
             Tool::PaintBucket => "Paint Bucket Tool",
             Tool::Type => "Horizontal Type Tool",
@@ -259,7 +263,7 @@ impl Tool {
     /// Photoshop default single-key shortcut (`'\0'` = none, e.g. the Blur group).
     pub fn key(self) -> char {
         match self {
-            Tool::Move => 'V',
+            Tool::Move | Tool::Artboard => 'V',
             Tool::RectMarquee | Tool::EllipseMarquee => 'M',
             Tool::Brush | Tool::Pencil | Tool::MixerBrush => 'B',
             Tool::Eraser | Tool::BackgroundEraser | Tool::MagicEraser => 'E',
@@ -962,6 +966,9 @@ pub struct UiState {
     /// Slice and Slice Select tools (see `slice_ui`).
     #[serde(default)]
     pub slices: crate::slice_ui::SliceUi,
+    /// Artboard tool (see `artboard_tool`).
+    #[serde(default)]
+    pub artboards: crate::artboard_tool::ArtboardUi,
     /// Modifier Keys panel, custom pixel aspect ratios, workspace dialogs (see `workspace_ui`).
     #[serde(default)]
     pub shell: crate::workspace_ui::ShellUi,
@@ -1079,6 +1086,7 @@ impl Default for UiState {
             analysis: Default::default(),
             timeline: Default::default(),
             slices: Default::default(),
+            artboards: Default::default(),
             shell: Default::default(),
             layer_filter: Vec::new(),
             pen: None,
@@ -1165,7 +1173,9 @@ mod tests {
         assert!(!Tool::RedEye.is_brushlike());
         assert_eq!(Tool::from_name("patternStamp"), Some(Tool::PatternStamp));
         assert_eq!(Tool::from_name("Pattern Stamp Tool"), Some(Tool::PatternStamp));
-        assert_eq!(Tool::ALL.len(), 52);
+        assert_eq!(Tool::ALL.len(), 53);
+        assert_eq!(Tool::from_name("Artboard Tool"), Some(Tool::Artboard));
+        assert_eq!(Tool::Artboard.key(), 'V');
         assert_eq!(Tool::from_name("RotateView"), Some(Tool::RotateView));
         assert_eq!(Tool::from_name("Rotate View Tool"), Some(Tool::RotateView));
         assert_eq!(Tool::RotateView.key(), 'R');

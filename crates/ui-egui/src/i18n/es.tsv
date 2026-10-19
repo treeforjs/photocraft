@@ -2220,6 +2220,20 @@ cameraRaw	Amount	Cantidad
 	Content-Aware Move Tool	Herramienta Mover según el contenido
 	TIFF Options	Opciones de TIFF
 	Including layers will increase file size.	Incluir las capas aumentará el tamaño del archivo.
+	Sampling Brush	Pincel de muestreo
+	Paint where the fill may sample from (green); hold Alt to exclude areas (red).	Pinte de dónde puede tomar muestras el relleno (verde); mantenga Alt para excluir zonas (rojo).
+	Refine Edge Brush	Pincel para perfeccionar bordes
+	Paint over hair and fur to refine them; hold Alt to erase strokes.	Pinte sobre el pelo y el pelaje para perfeccionarlos; mantenga Alt para borrar trazos.
+	Clear Strokes	Borrar trazos
+	Select and Mask	Selección y máscara
+	Onion Skin	Papel cebolla
+	Marching Ants	Hormigas en marcha
+	On Black	Sobre negro
+	On White	Sobre blanco
+	On Layers	Sobre capas
+	New Layer With Mask	Nueva capa con máscara
+	New Document With Mask	Nuevo documento con máscara
+	Artboard Tool	Herramienta Lienzo
 	Image Previews	Previsualizaciones de imagen
 	Adds a small thumbnail that file browsers can show.	Añade una pequeña miniatura que los exploradores de archivos pueden mostrar.
 	Columns	Columnas

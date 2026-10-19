@@ -116,6 +116,36 @@ fn content_aware_fill_huge_area_neither_panics_nor_wraps() {
     }
 }
 
+#[test]
+fn the_sampling_brush_decides_where_the_fill_comes_from() {
+    // Red left half, green right half, a hole well inside the green.
+    let halves = || {
+        let mut s = session(8);
+        s.edit("halves", |doc, active| {
+            let surf = doc.layer_mut(active.unwrap()).unwrap().surface_mut().unwrap();
+            surf.fill_rect(Rect::new(0, 0, 32, 48), &[1.0, 0.0, 0.0, 1.0]);
+            surf.fill_rect(Rect::new(32, 0, 64, 48), &[0.0, 1.0, 0.0, 1.0]);
+            Ok(())
+        })
+        .unwrap();
+        s.execute("select.rect", json!({"x": 44, "y": 18, "width": 8, "height": 10})).unwrap();
+        s
+    };
+    let red = |s: &Session| {
+        let surf = active(s).surface().unwrap().clone();
+        (44..52).flat_map(|x| (18..28).map(move |y| (x, y))).filter(|&(x, y)| surf.pixel(x, y)[0] > 0.5).count()
+    };
+    let mut s = halves();
+    s.execute("edit.contentAwareFill", json!({"colorAdaptation": "none"})).unwrap();
+    assert_eq!(red(&s), 0, "sampling around the hole fills green");
+    // Brushed out everywhere, then painted back on the red half: the hole fills red (the window
+    // grows to reach the dab). Junk entries are skipped.
+    let mut s = halves();
+    let brush = json!([[48, 24, 200, false], [12, 24, 10, true], "junk", [1, 2], [f64::MAX, 1, 1]]);
+    s.execute("edit.contentAwareFill", json!({"colorAdaptation": "none", "sampleBrush": brush})).unwrap();
+    assert_eq!(red(&s), 80, "only the painted red area was sampled");
+}
+
 /// `blob_session` with the canvas declared as `size` and a sparse selection of `rects`, as a
 /// loaded `.pcraft` can hold (#963). Nothing here allocates more than a few tiles.
 fn huge_selection(size: (u32, u32), rects: &[Rect]) -> Session {
@@ -280,6 +310,23 @@ fn content_aware_scale_params() {
     assert_eq!(r["to"], json!([48, 16]));
     assert!(s.execute("edit.contentAwareScale", json!({"width": 0})).is_err());
     assert!(s.execute("edit.contentAwareScale", json!({"protect": "no such channel"})).is_err());
+}
+
+#[test]
+fn content_aware_scale_lands_where_the_box_was_moved() {
+    let mut s = session(8);
+    s.execute("layer.new.layer", json!({})).unwrap();
+    s.edit("paint", |doc, active| {
+        doc.layer_mut(active.unwrap()).unwrap().surface_mut().unwrap().fill_rect(Rect::new(0, 0, 32, 32), &[0.8, 0.6, 0.5, 1.0]);
+        Ok(())
+    })
+    .unwrap();
+    let r = s.execute("edit.contentAwareScale", json!({"x": 10, "y": 6, "width": 20, "height": 32})).unwrap();
+    assert_eq!(r["bounds"], json!([10, 6, 20, 32]));
+    assert_eq!(active(&s).surface().unwrap().content_bounds(), Rect::new(10, 6, 30, 38));
+    for bad in [json!({"x": f64::MAX}), json!({"y": -1e9}), json!({"x": "left"})] {
+        assert!(s.execute("edit.contentAwareScale", bad).is_err());
+    }
 }
 
 #[test]

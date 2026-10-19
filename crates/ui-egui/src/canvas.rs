@@ -1186,6 +1186,7 @@ fn ensure_filter_preview(app: &mut PhotocraftApp, idx: usize, ctx: &egui::Contex
     // Worker sessions do not inherit channel selection; bind the actual target before dispatch.
     let params = photocraft_engine::channel_cmds::inject_target(&app.session, &cmd, params);
     let (cmd, params) = crate::smart_ui::confirm_command(&d.fields, cmd, params);
+    let params = if cmd == crate::select_mask_ui::COMMAND { crate::select_mask_ui::preview_params(&d.fields, params) } else { params };
     let st = app.session.documents().get(idx)?;
     let k = crate::smart_adjust_preview::factor(
         &st.doc,
@@ -2547,6 +2548,19 @@ pub fn canvas_view(app: &mut PhotocraftApp, ui: &mut egui::Ui, idx: usize, rect:
     };
 
     if under_dialog {
+        if primary {
+            crate::dialog_brush::draw(app, ui.painter(), &xf);
+        }
+        // Content-Aware Scale: its transform box is drawn on the image and takes drags there.
+        if primary && crate::ca_scale_ui::active(app).is_some() {
+            crate::ca_scale_ui::draw(app, ui.painter(), &xf);
+            if !middle && let Some(p) = crate::dialogs::free_pointer_over(&ctx, rect) {
+                let press = crate::dialogs::free_press(&ctx, rect);
+                if let Some(cursor) = crate::ca_scale_ui::pointer(app, &ctx, &xf, p, press) {
+                    ctx.set_cursor_icon(cursor);
+                }
+            }
+        }
         // With a colour dialog picker armed the image is its eyedropper, whatever the tool; Space
         // and the middle button still pan. Curves uses the same merged-composite sampler as the
         // Color Picker, never the reduced adjustment preview.
@@ -2576,6 +2590,14 @@ pub fn canvas_view(app: &mut PhotocraftApp, ui: &mut egui::Ui, idx: usize, rect:
                     crate::color_picker_ui::sample_at(app, d[0], d[1]);
                 }
             }
+        } else if primary
+            && !middle
+            && crate::dialog_brush::armed(app).is_some()
+            && let Some(p) = crate::dialogs::free_pointer_over(&ctx, rect)
+        {
+            // A dialog's brush (Refine Edge, Sampling) paints on the image itself (⌥ erases).
+            let press = crate::dialogs::free_press(&ctx, rect);
+            crate::dialog_brush::pointer(app, &ctx, &xf, ui.painter(), p, press);
         } else if primary
             && !middle
             && let Some(p) = crate::dialogs::free_pointer_over(&ctx, rect).filter(|p| img_rect.contains(*p))
@@ -2914,6 +2936,7 @@ pub fn canvas_view(app: &mut PhotocraftApp, ui: &mut egui::Ui, idx: usize, rect:
         crate::analysis_ui::draw_overlay(app, &painter, &xf);
         crate::gradient_ui::draw_overlay(app, &painter, &xf);
         crate::slice_ui::draw_overlay(app, &painter, &xf);
+        crate::artboard_tool::draw_overlay(app, &painter, &xf);
         crate::move_ui::draw_overlay(app, &painter, &xf, &doc, response.hover_pos());
         // Tool cursors (Photoshop-style).
         let guide_hover = response.hover_pos().filter(|_| tool == Tool::Move).and_then(|p| {
@@ -3721,6 +3744,10 @@ pub fn tool_event(app: &mut PhotocraftApp, ev: ToolEvent, mods: egui::Modifiers)
     }
     // Slice and Slice Select tools.
     if crate::slice_ui::pointer(app, ev, mods) {
+        return;
+    }
+    // Artboard tool: draw, move, copy and resize boards.
+    if crate::artboard_tool::pointer(app, ev, mods) {
         return;
     }
     // Crop tool: draw, move and resize the frame.

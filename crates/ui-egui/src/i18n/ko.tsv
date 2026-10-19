@@ -2736,6 +2736,19 @@ cameraRaw	Color	색상
 	Content-Aware Move Tool	내용 인식 이동 도구
 	TIFF Options	TIFF 옵션
 	Including layers will increase file size.	레이어를 포함하면 파일 크기가 커집니다.
+	Sampling Brush	샘플링 브러시
+	Paint where the fill may sample from (green); hold Alt to exclude areas (red).	채우기가 샘플링할 영역을 칠합니다(녹색). Alt 키를 누르면 영역을 제외합니다(빨간색).
+	Refine Edge Brush	가장자리 다듬기 브러시
+	Paint over hair and fur to refine them; hold Alt to erase strokes.	머리카락과 털 위를 칠해 다듬습니다. Alt 키를 누르면 획을 지웁니다.
+	Clear Strokes	획 지우기
+	Onion Skin	어니언 스킨
+	Marching Ants	개미들의 행진
+	On Black	검정 바탕
+	On White	흰색 바탕
+	On Layers	레이어 위
+	New Layer With Mask	새 레이어(마스크 포함)
+	New Document With Mask	새 문서(마스크 포함)
+	Artboard Tool	아트보드 도구
 	Image Previews	이미지 미리 보기
 	Adds a small thumbnail that file browsers can show.	파일 브라우저에 표시할 수 있는 작은 썸네일을 추가합니다.
 	Columns	열

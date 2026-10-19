@@ -181,6 +181,39 @@ pub(crate) fn place_copy(doc: &mut Document, id: LayerId) -> Result<()> {
     Ok(())
 }
 
+/// Where a `w` × `h` artboard goes beside board `of` (Artboard tool + buttons): [`GAP`] away on
+/// `side` (`right`, `left`, `below`, `above`), sliding further that way past any board in the
+/// way. `None` when that leaves the canvas's coordinate range (left of or above the origin, or
+/// past `i32::MAX`).
+pub fn slot_beside(doc: &Document, of: Rect, w: i64, h: i64, side: &str) -> Option<[i64; 2]> {
+    let boards: Vec<[i64; 4]> = doc.artboards().iter().map(|b| b.2.rect).map(|r| [r.x0, r.y0, r.x1, r.y1].map(i64::from)).collect();
+    let [x0, y0, x1, y1] = [of.x0, of.y0, of.x1, of.y1].map(i64::from);
+    let gap = i64::from(GAP);
+    let (mut x, mut y) = match side {
+        "right" => (x1.saturating_add(gap), y0),
+        "left" => (x0.saturating_sub(gap).saturating_sub(w), y0),
+        "below" => (x0, y1.saturating_add(gap)),
+        "above" => (x0, y0.saturating_sub(gap).saturating_sub(h)),
+        _ => return None,
+    };
+    // Each round clears every board in the way, so one round per board settles it.
+    for _ in 0..=boards.len() {
+        let hits = boards.iter().filter(|b| b[0] < x.saturating_add(w) && b[2] > x && b[1] < y.saturating_add(h) && b[3] > y);
+        let next = match side {
+            "right" => hits.map(|b| b[2].saturating_add(gap)).max().map(|v| (v, y)),
+            "left" => hits.map(|b| b[0].saturating_sub(gap).saturating_sub(w)).min().map(|v| (v, y)),
+            "below" => hits.map(|b| b[3].saturating_add(gap)).max().map(|v| (x, v)),
+            _ => hits.map(|b| b[1].saturating_sub(gap).saturating_sub(h)).min().map(|v| (x, v)),
+        };
+        match next {
+            Some(p) => (x, y) = p,
+            None => break,
+        }
+    }
+    let max = i64::from(i32::MAX);
+    (x >= 0 && y >= 0 && x.checked_add(w).is_some_and(|v| v <= max) && y.checked_add(h).is_some_and(|v| v <= max)).then_some([x, y])
+}
+
 /// Grow the canvas (right/bottom) so every artboard fits.
 pub(crate) fn fit_canvas(doc: &mut Document) {
     let (mut w, mut h) = (doc.size.width as i64, doc.size.height as i64);
@@ -225,7 +258,19 @@ fn new_artboard(s: &mut Session, p: &Value) -> Result<Value> {
     // With no room right of the rightmost board, ask for a position rather than pick another
     // spot that may overlap a board; an explicit `x` (or `rect`) still works.
     let explicit_x = p.get("rect").is_some() || p.get("x").is_some_and(|v| !v.is_null());
-    if let Some(edge) = right.filter(|_| !explicit_x && base[0] > i64::from(i32::MAX)) {
+    // Beside another board (the Artboard tool's + buttons): its size and background, a gap away.
+    let beside = match p.get("beside").and_then(Value::as_u64).map(LayerId) {
+        Some(of) => {
+            let a = d.doc.layer(of).and_then(Layer::artboard).cloned().ok_or_else(|| bad(cmd, "\"beside\" is not an artboard"))?;
+            let side = p.get("side").and_then(Value::as_str).unwrap_or("right");
+            let (w, h) = (i64::from(a.rect.width()), i64::from(a.rect.height()));
+            let [x, y] = slot_beside(&d.doc, a.rect, w, h, side).ok_or_else(|| bad(cmd, format!("no room for a new artboard {side} of this one")))?;
+            Some(([x, y, w, h], a.background))
+        }
+        None => None,
+    };
+    let base = beside.map_or(base, |b| b.0);
+    if let Some(edge) = right.filter(|_| beside.is_none() && !explicit_x && base[0] > i64::from(i32::MAX)) {
         return Err(bad(cmd, format!("no room for a new artboard right of the rightmost one (its right edge is x = {edge}); pass \"x\" to place it")));
     }
     // A preset decides the size (dialogs send the canvas size alongside it).
@@ -234,7 +279,7 @@ fn new_artboard(s: &mut Session, p: &Value) -> Result<Value> {
     } else {
         rect_param(&json!({"x": p.get("x"), "y": p.get("y")}), base, cmd)?
     };
-    let background = background_param(p, cmd)?.unwrap_or_default();
+    let background = background_param(p, cmd)?.or(beside.map(|b| b.1)).unwrap_or_default();
     let name = p.get("name").and_then(Value::as_str).filter(|n| !n.is_empty()).map(str::to_string);
     let id = s.edit("New Artboard", |doc, active| {
         let mut g = Layer::group(name.unwrap_or_else(|| next_artboard_name(doc)), vec![]);
@@ -527,7 +572,7 @@ pub fn specs() -> Vec<CommandSpec> {
             "layer.new.artboard",
             "Artboard…",
             &["Layer", "New"],
-            r##"{"rect":[x,y,w,h]? | "x","y","width","height"? (default: canvas size, right of the last board),"preset":"iPhone 14|Web 1920|A4|…"?,"name":str?,"background":"white|black|transparent|custom"="white","color":[r,g,b]|"#rrggbb"? (custom)} → {layer, rect}"##,
+            r##"{"rect":[x,y,w,h]? | "x","y","width","height"? (default: canvas size, right of the last board),"beside":id? (an artboard: its size and background, a gap away),"side":"right|left|below|above"="right" (with beside),"preset":"iPhone 14|Web 1920|A4|…"?,"name":str?,"background":"white|black|transparent|custom"="white","color":[r,g,b]|"#rrggbb"? (custom)} → {layer, rect}"##,
             has_doc,
             new_artboard
         ),

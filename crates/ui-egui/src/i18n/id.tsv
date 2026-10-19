@@ -2563,6 +2563,20 @@ cameraRaw	Blending	Pembauran
 	Content-Aware Move Tool	Alat Content-Aware Move
 	TIFF Options	Opsi TIFF
 	Including layers will increase file size.	Menyertakan layer akan memperbesar ukuran file.
+	Sampling Brush	Kuas Sampel
+	Paint where the fill may sample from (green); hold Alt to exclude areas (red).	Lukis area sumber sampel isian (hijau); tahan Alt untuk mengecualikan area (merah).
+	Refine Edge Brush	Kuas Perbaiki Tepi
+	Paint over hair and fur to refine them; hold Alt to erase strokes.	Lukis di atas rambut dan bulu untuk memperbaikinya; tahan Alt untuk menghapus goresan.
+	Clear Strokes	Hapus Goresan
+	Select and Mask	Seleksi dan Mask
+	Onion Skin	Kulit Bawang
+	Marching Ants	Semut Berbaris
+	On Black	Di Atas Hitam
+	On White	Di Atas Putih
+	On Layers	Di Atas Layer
+	New Layer With Mask	Layer Baru dengan Mask
+	New Document With Mask	Dokumen Baru dengan Mask
+	Artboard Tool	Alat Artboard
 	Image Previews	Pratinjau Gambar
 	Adds a small thumbnail that file browsers can show.	Menambahkan gambar mini kecil yang dapat ditampilkan oleh peramban file.
 	Column Width (points)	Lebar Kolom (poin)
