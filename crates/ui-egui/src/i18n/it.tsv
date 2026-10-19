@@ -2216,6 +2216,9 @@ cameraRaw	Amount	Quantità
 	Drag or click polygon points · hold Alt during lasso for straight segments · {add} add · {sub} before drawing subtracts	Trascina o fai clic sui punti del poligono · tieni premuto Alt durante il lazo per segmenti dritti · {add} aggiunge · {sub} prima di disegnare sottrae
 	TIFF Options	Opzioni TIFF
 	Including layers will increase file size.	Includere i livelli aumenterà le dimensioni del file.
+	Columns	Colonne
+	Column Width (points)	Larghezza colonna (punti)
+	Gutter (points)	Spaziatura (punti)
 	PSD Options	Opzioni PSD
 	Maximize Compatibility	Massimizza compatibilità
 	Keeps a flattened copy of the image so other apps can read the file. Off saves smaller files faster.	Conserva una copia unita dell'immagine perché altre app possano leggere il file. Disattivato salva file più piccoli e più in fretta.
