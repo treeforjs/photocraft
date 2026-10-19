@@ -1158,6 +1158,11 @@ fn apply_box_blur(
     let bands: Vec<Rect> = (area.x0..area.x1).step_by(band as usize).map(|x| Rect::new(x, area.y0, x.saturating_add(band).min(area.x1), area.y1)).collect();
     for (i, b) in bands.iter().enumerate() {
         let strips = blur::box_blur(src, &read, *b, n, fmt.alpha, boxes, ctl)?;
+        // Writing a band's results back takes a while on a large image: a cancel that arrives
+        // meanwhile takes effect before it and after each tile column.
+        if ctl.cancelled() {
+            return None;
+        }
         // Each strip lies in one tile column: the columns' tiles are written in parallel.
         let mut columns: Vec<(Surface, Vec<blur::Strip>)> = Vec::new();
         for (t, data) in strips {
@@ -1173,6 +1178,9 @@ fn apply_box_blur(
             s.put_tiles(out.take_tiles(r));
         }
         let write = |(s, v): &mut (Surface, Vec<blur::Strip>)| {
+            if ctl.cancelled() {
+                return;
+            }
             for (t, data) in v.iter_mut() {
                 if let Some(sel) = selection {
                     mix_selection(data, *t, sel, &Image::read(surface, *t));
@@ -1187,6 +1195,9 @@ fn apply_box_blur(
         }
         #[cfg(target_arch = "wasm32")]
         columns.iter_mut().for_each(write);
+        if ctl.cancelled() {
+            return None;
+        }
         for (s, _) in columns {
             out.put_tiles(s.tiles().map(|(c, t)| (*c, t.clone())));
         }
