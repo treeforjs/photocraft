@@ -523,3 +523,30 @@ fn a_cancelled_save_still_counts_until_its_worker_returns() {
     step_until(&mut h, |a| !a.saving());
     assert!(!h.state().jobs.close_after_saves, "the held close is repeated once the worker returns");
 }
+
+#[test]
+fn save_in_background_off_saves_inline() {
+    let mut h = app_harness();
+    let gates = Gates::open();
+    h.state_mut().services.save_file = Some(gates.save(None));
+    let written = Arc::new(std::sync::Mutex::new(Vec::<String>::new()));
+    let w = written.clone();
+    h.state_mut().services.export = Some(Box::new(|_, _, _| Ok((vec![1, 2, 3], Vec::new()))));
+    h.state_mut().services.write = Some(Box::new(move |path, _| {
+        w.lock().unwrap().push(path.to_string());
+        Ok(())
+    }));
+    h.state_mut().session.edit_prefs(|p| p.file_handling.save_in_background = false);
+    let saved = h.state_mut().write_document("/tmp/photocraft-test/inline.psd".into(), &crate::ExportSettings::default(), true).unwrap();
+    assert_eq!(saved.map(|(p, _)| p).as_deref(), Some("/tmp/photocraft-test/inline.psd"), "written before returning");
+    assert!(!h.state().saving(), "no background job");
+    assert_eq!(written.lock().unwrap().as_slice(), ["/tmp/photocraft-test/inline.psd"]);
+    assert!(gates.written().is_empty(), "the background saver was not used");
+
+    // On (the default): the save goes to a background job.
+    h.state_mut().session.edit_prefs(|p| p.file_handling.save_in_background = true);
+    assert_eq!(h.state_mut().write_document("/tmp/photocraft-test/bg.psd".into(), &crate::ExportSettings::default(), true), Ok(None));
+    assert!(h.state().saving());
+    step_until(&mut h, |a| !a.saving());
+    assert_eq!(gates.written(), ["/tmp/photocraft-test/bg.psd"]);
+}
