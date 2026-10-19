@@ -2216,6 +2216,7 @@ cameraRaw	Amount	Quantità
 	Drag or click polygon points · hold Alt during lasso for straight segments · {add} add · {sub} before drawing subtracts	Trascina o fai clic sui punti del poligono · tieni premuto Alt durante il lazo per segmenti dritti · {add} aggiunge · {sub} prima di disegnare sottrae
 	TIFF Options	Opzioni TIFF
 	Including layers will increase file size.	Includere i livelli aumenterà le dimensioni del file.
+	Artboard Tool	Strumento Tavola da disegno
 	Image Previews	Anteprime immagine
 	Adds a small thumbnail that file browsers can show.	Aggiunge una piccola miniatura che i browser di file possono mostrare.
 	Columns	Colonne

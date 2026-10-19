@@ -2220,6 +2220,7 @@ cameraRaw	Amount	Cantidad
 	Content-Aware Move Tool	Herramienta Mover según el contenido
 	TIFF Options	Opciones de TIFF
 	Including layers will increase file size.	Incluir las capas aumentará el tamaño del archivo.
+	Artboard Tool	Herramienta Lienzo
 	Image Previews	Previsualizaciones de imagen
 	Adds a small thumbnail that file browsers can show.	Añade una pequeña miniatura que los exploradores de archivos pueden mostrar.
 	Columns	Columnas
