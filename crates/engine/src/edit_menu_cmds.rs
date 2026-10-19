@@ -1045,6 +1045,13 @@ pub fn custom_shapes(s: &Session) -> &[CustomShape] {
     &s.edit_state.custom_shapes
 }
 
+/// Preferences › Performance › Effect cache: the budget of the layer-effect maps the CPU and the
+/// GPU compositor keep (Edit › Purge › All empties them).
+pub fn sync_effect_cache(s: &Session) {
+    let mb = s.prefs().performance.effect_cache_mb as usize;
+    photocraft_compose::set_effect_cache_budget(mb.saturating_mul(1 << 20));
+}
+
 #[cfg(test)]
 #[path = "edit_menu_cmds/tests.rs"]
 mod tests;

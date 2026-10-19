@@ -1789,3 +1789,25 @@ fn the_focused_view_stays_resident_after_a_full_refresh() {
         assert!(worst_diff(&cpu.px, &out).0 <= TOL);
     }
 }
+
+#[test]
+fn the_effect_cache_preference_caps_gpu_effect_maps() {
+    let _gamma = TEXT_GAMMA.lock().unwrap_or_else(|e| e.into_inner());
+    let Some(g) = gpu() else { return };
+    let d = big_doc();
+    let mut comp = Compositor::try_new_with_format(&g.device, wgpu::TextureFormat::Rgba32Float).unwrap();
+    photocraft_gpu::render_to_vec(&mut comp, &g.device, &g.queue, &d, d.bounds()).unwrap();
+    let full = comp.fx_cache_bytes();
+    assert!(full > 1 << 20, "the effect layers cache their maps: {full}");
+    // Preferences › Performance › Effect cache at its 1 MB floor: rendering only the type layer's
+    // corner evicts the big layer's maps, which that frame doesn't draw.
+    photocraft_compose::set_effect_cache_budget(0);
+    let corner = Rect::new(850, 60, 1000, 240);
+    let out = photocraft_gpu::render_to_vec(&mut comp, &g.device, &g.queue, &d, corner);
+    let capped = comp.fx_cache_bytes();
+    photocraft_compose::set_effect_cache_budget(photocraft_compose::DEFAULT_FX_CACHE_BUDGET);
+    let out = out.unwrap();
+    assert!(capped < full, "a lower preference evicts effect maps: {capped} of {full}");
+    let cpu = photocraft_compose::render(&d, corner);
+    assert!(worst_diff(&cpu.px, &out).0 <= TOL, "and the render is unchanged");
+}

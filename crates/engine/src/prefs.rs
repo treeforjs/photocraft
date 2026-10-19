@@ -455,7 +455,8 @@ pub struct Performance {
     pub low_resolution_previews: bool,
     /// Linux display server (applies at next launch; see [`LinuxDisplayServer`]).
     pub linux_display_server: LinuxDisplayServer,
-    /// Memory budget of the layer-effect cache, in MB.
+    /// Memory budget of the layer-effect cache, in MB: caps the effect maps both the CPU and the
+    /// GPU compositor keep between frames (the GPU's is also at most a quarter of its budget).
     pub effect_cache_mb: u32,
     pub legacy_compositing: bool,
 }
@@ -485,7 +486,7 @@ impl Default for Performance {
             gpu_backend: GpuBackend::Auto,
             low_resolution_previews: true,
             linux_display_server: LinuxDisplayServer::Auto,
-            effect_cache_mb: 768,
+            effect_cache_mb: 1536,
             legacy_compositing: false,
         }
     }
@@ -873,7 +874,6 @@ pub const HIDDEN_UNTIL_IMPLEMENTED: &[&str] = &[
     "workspace.enableFloatingDocumentWindowDocking",
     "workspace.enableNarrowOptionsBar",
     "performance.cacheLevels",
-    "performance.effectCacheMb",
     "performance.legacyCompositing",
     "scratchDisks.disks",
     "plugIns.showExtensionPanels",
@@ -1288,13 +1288,12 @@ impl Session {
     pub fn apply_prefs(&mut self) {
         let n = self.prefs().performance.history_states.max(1) as usize;
         let bytes = self.prefs().performance.history_budget_bytes();
-        let budget = self.prefs().performance.effect_cache_mb as usize;
         for st in &mut self.docs {
             st.history.max_states = n;
             st.history.max_bytes = bytes;
             st.history.trim(&st.doc);
         }
-        photocraft_compose::set_effect_cache_budget(budget << 20);
+        crate::edit_menu_cmds::sync_effect_cache(self);
         crate::plugin_cmds::sync_prefs(self);
     }
 
