@@ -983,6 +983,9 @@ pub struct UiState {
     /// Right-dock group order, heights and collapsed groups (see `dock`).
     #[serde(default)]
     pub dock: crate::dock::DockLayout,
+    /// Dock groups expanded from their rail icon, for Auto-Collapse Iconic Panels (`dock`).
+    #[serde(skip)]
+    pub rail_opened: Vec<crate::dock::Group>,
     /// Which chip the Color panel edits.
     #[serde(default)]
     pub color_panel: ColorPanelState,
@@ -1090,6 +1093,7 @@ impl Default for UiState {
             palette_open: false,
             dock_tabs: DockTabs::default(),
             dock: Default::default(),
+            rail_opened: Vec::new(),
             color_panel: Default::default(),
             brush_section: 0,
             brush_tab: 0,
