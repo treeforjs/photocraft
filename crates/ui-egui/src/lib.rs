@@ -60,6 +60,7 @@ pub mod crop_ui;
 pub mod curve_pencil;
 pub mod delete_layer_prompt;
 pub mod dialog_blend_ui;
+pub mod dialog_brush;
 pub mod dialogs;
 pub mod direct_select;
 pub mod discard_ui;

@@ -2131,6 +2131,8 @@ cameraRaw	Color	カラー
 	Content-Aware Move Tool	コンテンツに応じた移動ツール
 	TIFF Options	TIFF オプション
 	Including layers will increase file size.	レイヤーを含めるとファイルサイズが大きくなります。
+	Sampling Brush	サンプリングブラシ
+	Paint where the fill may sample from (green); hold Alt to exclude areas (red).	塗りつぶしのサンプリング元を塗ります（緑）。Alt キーを押しながらで除外します（赤）。
 	Refine Edge Brush	境界線調整ブラシ
 	Paint over hair and fur to refine them; hold Alt to erase strokes.	髪や毛並みをなぞって調整します。Alt キーを押しながらでストロークを消去します。
 	Clear Strokes	ストロークを消去

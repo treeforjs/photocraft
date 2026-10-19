@@ -2563,6 +2563,8 @@ cameraRaw	Blending	Pembauran
 	Content-Aware Move Tool	Alat Content-Aware Move
 	TIFF Options	Opsi TIFF
 	Including layers will increase file size.	Menyertakan layer akan memperbesar ukuran file.
+	Sampling Brush	Kuas Sampel
+	Paint where the fill may sample from (green); hold Alt to exclude areas (red).	Lukis area sumber sampel isian (hijau); tahan Alt untuk mengecualikan area (merah).
 	Refine Edge Brush	Kuas Perbaiki Tepi
 	Paint over hair and fur to refine them; hold Alt to erase strokes.	Lukis di atas rambut dan bulu untuk memperbaikinya; tahan Alt untuk menghapus goresan.
 	Clear Strokes	Hapus Goresan

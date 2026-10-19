@@ -152,10 +152,10 @@ fn refine_params(p: &Value) -> RefineParams {
 /// Most Refine Edge brush dabs one command reads (a long session of strokes stays well under).
 pub const MAX_DABS: usize = 50_000;
 
-/// `edgeBrush`: `[[x, y, radius, add?], …]` in document pixels; `add` defaults to true and a
-/// false entry erases earlier strokes. Malformed entries are skipped.
-fn edge_brush(p: &Value) -> Vec<matting::Dab> {
-    let Some(list) = p.get("edgeBrush").and_then(Value::as_array) else { return Vec::new() };
+/// Brush dabs from param `key`: `[[x, y, radius, add?], …]` in document pixels; `add` defaults
+/// to true and a false entry erases. Malformed entries are skipped, at most [`MAX_DABS`] read.
+pub(crate) fn brush_dabs(p: &Value, key: &str) -> Vec<matting::Dab> {
+    let Some(list) = p.get(key).and_then(Value::as_array) else { return Vec::new() };
     list.iter()
         .take(MAX_DABS)
         .filter_map(|d| {
@@ -177,7 +177,7 @@ pub const REFINE_OUTPUTS: [&str; 6] = ["selection", "layerMask", "newLayer", "ne
 /// outputs leave the source document untouched.
 fn refine_edge(s: &mut Session, p: &Value) -> Result<Value> {
     let params = refine_params(p);
-    let dabs = edge_brush(p);
+    let dabs = brush_dabs(p, "edgeBrush");
     let decontaminate = b(p, "decontaminate", false);
     let amount = f(p, "amount", 100.0).clamp(0.0, 100.0);
     let mut output = p.get("output").and_then(Value::as_str).unwrap_or("selection").to_string();

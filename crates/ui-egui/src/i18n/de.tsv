@@ -2184,6 +2184,8 @@
 	Content-Aware Move Tool	Inhaltsbasiert-verschieben-Werkzeug
 	TIFF Options	TIFF-Optionen
 	Including layers will increase file size.	Das Einbeziehen von Ebenen vergrößert die Datei.
+	Sampling Brush	Aufnahmepinsel
+	Paint where the fill may sample from (green); hold Alt to exclude areas (red).	Bereiche malen, aus denen die Füllung Pixel aufnehmen darf (grün); mit Alt Bereiche ausschließen (rot).
 	Refine Edge Brush	Kante-verbessern-Pinsel
 	Paint over hair and fur to refine them; hold Alt to erase strokes.	Über Haare und Fell malen, um sie zu verfeinern; mit gedrückter Alt-Taste Striche löschen.
 	Clear Strokes	Striche löschen
