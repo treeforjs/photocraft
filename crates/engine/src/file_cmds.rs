@@ -222,6 +222,8 @@ pub(crate) struct SaveOpts {
     pub jpeg_optimize: bool,
     /// PSD/PSB: write the real merged composite (Maximize Compatibility); `None` = on.
     pub maximize_compatibility: Option<bool>,
+    /// PSD/PSB: embed a thumbnail (Image Previews); `None` = off.
+    pub image_previews: Option<bool>,
 }
 
 impl SaveOpts {
@@ -239,13 +241,16 @@ impl SaveOpts {
             jpeg_scans,
             jpeg_optimize,
             maximize_compatibility: p.get("maximizeCompatibility").and_then(Value::as_bool),
+            image_previews: p.get("imagePreviews").and_then(Value::as_bool),
         }
     }
 
     /// Maximize Compatibility from Preferences › File Handling when the params didn't say:
     /// off only when the preference is Never (headless saves have nobody to ask).
     pub(crate) fn or_prefs(mut self, s: &Session) -> Self {
-        self.maximize_compatibility = self.maximize_compatibility.or(Some(s.prefs().file_handling.maximize_psd_compatibility != crate::prefs::Ask::Never));
+        let f = &s.prefs().file_handling;
+        self.maximize_compatibility = self.maximize_compatibility.or(Some(f.maximize_psd_compatibility != crate::prefs::Ask::Never));
+        self.image_previews = self.image_previews.or(Some(f.image_previews == crate::prefs::Ask::Always));
         self
     }
 
@@ -267,6 +272,7 @@ pub(crate) fn encode(doc: &Document, path: &str, save: impl Into<SaveOpts>) -> R
     let mut opts = photocraft_io::ExportOptions {
         tiff_layers: save.tiff_layers,
         maximize_compatibility: save.maximize_compatibility.unwrap_or(true),
+        image_previews: save.image_previews.unwrap_or(false),
         ..Default::default()
     };
     opts.encode.jpeg_progressive_scans = save.jpeg_scans;
@@ -1366,7 +1372,7 @@ pub fn specs() -> Vec<CommandSpec> {
             "Save a Copy…",
             &["File"],
             Some("Cmd+Alt+S"),
-            r##"{"path":str (format from the extension),"quality":0..12? (JPEG),"jpegFormat":"baseline|optimized|progressive"="baseline" (JPEG),"scans":3..5=3 (progressive JPEG),"layers":bool=true,"tiffLayers":bool=false (TIFF: keep the layers; flat by default),"maximizeCompatibility":bool? (PSD/PSB: write the merged composite; default from Preferences › File Handling, on unless Never)}"##,
+            r##"{"path":str (format from the extension),"quality":0..12? (JPEG),"jpegFormat":"baseline|optimized|progressive"="baseline" (JPEG),"scans":3..5=3 (progressive JPEG),"layers":bool=true,"tiffLayers":bool=false (TIFF: keep the layers; flat by default),"maximizeCompatibility":bool? (PSD/PSB: write the merged composite; default from Preferences › File Handling, on unless Never),"imagePreviews":bool? (PSD/PSB: embed a thumbnail; default from Preferences › File Handling, on only when Always)}"##,
             native_doc,
             save_a_copy
         ),

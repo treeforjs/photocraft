@@ -2173,6 +2173,8 @@
 	Content-Aware Move Tool	Inhoudsbewust verplaatsen
 	TIFF Options	TIFF-opties
 	Including layers will increase file size.	Lagen meenemen vergroot de bestandsgrootte.
+	Image Previews	Afbeeldingsvoorvertoningen
+	Adds a small thumbnail that file browsers can show.	Voegt een kleine miniatuur toe die bestandsbrowsers kunnen tonen.
 	Column Width (points)	Kolombreedte (punten)
 	Gutter (points)	Tussenruimte (punten)
 	PSD Options	PSD-opties

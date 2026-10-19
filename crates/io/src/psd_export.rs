@@ -35,11 +35,14 @@ pub struct PsdExportOptions {
     /// Photoshop does: smaller and faster to save, but readers that only understand the
     /// composite see a blank image. A file without layer data always gets the real composite.
     pub maximize_compatibility: bool,
+    /// Write a JPEG thumbnail (resource 1036) for file browsers (Preferences › File Handling ›
+    /// Image Previews). Off by default.
+    pub thumbnail: bool,
 }
 
 impl Default for PsdExportOptions {
     fn default() -> Self {
-        PsdExportOptions { force_psb: false, merged_matte: true, merged_compression: Compression::Rle, maximize_compatibility: true }
+        PsdExportOptions { force_psb: false, merged_matte: true, merged_compression: Compression::Rle, maximize_compatibility: true, thumbnail: false }
     }
 }
 
@@ -1036,6 +1039,42 @@ fn merged_planes(doc: &Document, fmt: &PixelFormat, cmyk: bool, matte: bool) -> 
     (planes, has_alpha, translucent)
 }
 
+/// Longest side of the thumbnail an Image Previews save embeds (Photoshop's is 160 px).
+pub const THUMBNAIL_SIDE: u32 = 160;
+
+/// Resource 1036: the document as a JPEG thumbnail at most [`THUMBNAIL_SIDE`] px, matted
+/// against white, behind its 28-byte header (format 1 = JPEG RGB, width, row bytes, height,
+/// total size, compressed size, 24 bits per pixel, 1 plane). `None` if encoding fails.
+fn thumbnail_resource(doc: &Document) -> Option<Vec<u8>> {
+    let t = photocraft_compose::thumbnail(doc, THUMBNAIL_SIDE);
+    if t.width == 0 || t.height == 0 {
+        return None;
+    }
+    let rgb: Vec<u8> = t
+        .pixels
+        .as_chunks::<4>()
+        .0
+        .iter()
+        .flat_map(|&[r, g, b, a]| {
+            let a = u16::from(a);
+            let matte = |c: u8| ((u16::from(c) * a + 255 * (255 - a) + 127) / 255) as u8;
+            [matte(r), matte(g), matte(b)]
+        })
+        .collect();
+    let img = photocraft_codecs::Image::from_u8(t.width, t.height, photocraft_codecs::ChannelLayout::Rgb, rgb).ok()?;
+    let opts = photocraft_codecs::EncodeOptions { jpeg_quality: 80, ..Default::default() };
+    let jpeg = photocraft_codecs::encode(&img, photocraft_codecs::Format::Jpeg, &opts).ok()?;
+    let row = t.width.checked_mul(24)?.checked_add(31)? / 32 * 4;
+    let mut out = Vec::with_capacity(28 + jpeg.len());
+    for v in [1, t.width, row, t.height, row.checked_mul(t.height)?, u32::try_from(jpeg.len()).ok()?] {
+        out.extend(v.to_be_bytes());
+    }
+    out.extend(24u16.to_be_bytes());
+    out.extend(1u16.to_be_bytes());
+    out.extend(jpeg);
+    Some(out)
+}
+
 /// The merged image's colour planes filled with white (the placeholder written without
 /// Maximize Compatibility), encoded as [`merged_planes`] encodes white.
 fn white_planes(doc: &Document, fmt: &PixelFormat) -> Vec<u8> {
@@ -1464,6 +1503,11 @@ fn document_to_psd_nested(doc: &Document, opts: &PsdExportOptions, depth: u32) -
     }
     if let Some(Some(data)) = slices_resource {
         resources.push(ImageResource::new(crate::slices_map::SLICES, data));
+    }
+    if opts.thumbnail
+        && let Some(data) = thumbnail_resource(doc)
+    {
+        resources.push(ImageResource::new(photocraft_psd::resources::ids::THUMBNAIL, data));
     }
     resources.push(version_info_resource(real_merged));
 

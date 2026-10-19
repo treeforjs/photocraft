@@ -1,10 +1,12 @@
-//! PSD Options: the prompt a PSD or PSB save shows when Preferences › File
-//! Handling › Maximize PSD and PSB File Compatibility is set to Ask, as Photoshop does.
+//! PSD Options: the prompt a PSD or PSB save shows when Preferences › File Handling › Maximize
+//! PSD and PSB File Compatibility or Image Previews is set to Ask, as Photoshop does. It shows a
+//! checkbox for each setting that asks.
 //!
 //! The save is parked in [`Prompt`] while the modal is up (egui is immediate-mode) and written
-//! once answered: with the merged composite (Maximize Compatibility on) or with a white
-//! placeholder in its place (smaller, faster). "Don't show again" turns the preference into
-//! the answer given (Always or Never). Cancel drops the save.
+//! once answered: with or without the merged composite (Maximize Compatibility off writes a
+//! white placeholder: smaller, faster) and with or without a thumbnail (Image Previews). "Don't
+//! show again" turns each asked preference into the answer given (Always or Never). Cancel drops
+//! the save.
 
 use photocraft_engine::prefs::Ask;
 
@@ -18,7 +20,9 @@ pub struct Prompt {
     pub path: String,
     /// Maximize Compatibility.
     pub maximize: bool,
-    /// Store the answer as the preference.
+    /// Image Previews (a thumbnail in the file).
+    pub previews: bool,
+    /// Store the answers as the preferences.
     pub dont_ask_again: bool,
 }
 
@@ -28,9 +32,16 @@ pub fn is_psd_path(path: &str) -> bool {
     name.rsplit_once('.').is_some_and(|(stem, ext)| !stem.is_empty() && (ext.eq_ignore_ascii_case("psd") || ext.eq_ignore_ascii_case("psb")))
 }
 
-/// Whether saving to `path` should ask about Maximize Compatibility first.
+/// Which of (Maximize Compatibility, Image Previews) are set to Ask.
+fn asked(app: &PhotocraftApp) -> (bool, bool) {
+    let f = &app.session.prefs().file_handling;
+    (f.maximize_psd_compatibility == Ask::Ask, f.image_previews == Ask::Ask)
+}
+
+/// Whether saving to `path` should ask first.
 pub fn wants_prompt(app: &PhotocraftApp, path: &str) -> bool {
-    is_psd_path(path) && app.session.prefs().file_handling.maximize_psd_compatibility == Ask::Ask
+    let (maximize, previews) = asked(app);
+    is_psd_path(path) && (maximize || previews)
 }
 
 /// Maximize Compatibility for a save that doesn't ask: off only when the preference is Never.
@@ -38,27 +49,45 @@ pub fn maximize_by_default(app: &PhotocraftApp) -> bool {
     app.session.prefs().file_handling.maximize_psd_compatibility != Ask::Never
 }
 
+/// Image Previews for a save: Always and Never decide; Ask takes `answer` (the prompt's).
+pub fn previews(app: &PhotocraftApp, answer: bool) -> bool {
+    match app.session.prefs().file_handling.image_previews {
+        Ask::Always => true,
+        Ask::Never => false,
+        Ask::Ask => answer,
+    }
+}
+
 /// Parks the save behind the prompt.
 pub fn park(app: &mut PhotocraftApp, path: String) -> Result<(), String> {
     let doc = app.active_doc_id()?;
-    app.psd_options = Some(Prompt { doc, path, maximize: true, dont_ask_again: false });
+    app.psd_options = Some(Prompt { doc, path, maximize: true, previews: true, dont_ask_again: false });
     Ok(())
 }
 
 pub fn show(app: &mut PhotocraftApp, ctx: &egui::Context) {
+    let (ask_maximize, ask_previews) = asked(app);
     let Some(p) = &mut app.psd_options else { return };
     let (mut ok, mut cancel) = (false, false);
-    let (mut maximize, mut dont_ask) = (p.maximize, p.dont_ask_again);
+    let (mut maximize, mut previews, mut dont_ask) = (p.maximize, p.previews, p.dont_ask_again);
     let modal = egui::Modal::new(egui::Id::new("psd-options")).show(ctx, |ui| {
         ui.set_max_width(420.0);
         ui.label(egui::RichText::new(tl!("PSD Options")).font(crate::theme::semibold(15.0)));
         ui.add_space(4.0);
         crate::widgets::hairline(ui);
         ui.add_space(8.0);
-        crate::widgets::checkbox(ui, &mut maximize, tl!("Maximize Compatibility"));
-        ui.add_space(4.0);
-        ui.label(egui::RichText::new(tl!("Keeps a flattened copy of the image so other apps can read the file. Off saves smaller files faster.")).weak());
-        ui.add_space(8.0);
+        if ask_maximize {
+            crate::widgets::checkbox(ui, &mut maximize, tl!("Maximize Compatibility"));
+            ui.add_space(4.0);
+            ui.label(egui::RichText::new(tl!("Keeps a flattened copy of the image so other apps can read the file. Off saves smaller files faster.")).weak());
+            ui.add_space(8.0);
+        }
+        if ask_previews {
+            crate::widgets::checkbox(ui, &mut previews, tl!("Image Previews"));
+            ui.add_space(4.0);
+            ui.label(egui::RichText::new(tl!("Adds a small thumbnail that file browsers can show.")).weak());
+            ui.add_space(8.0);
+        }
         crate::widgets::checkbox(ui, &mut dont_ask, tl!("Don't show again"));
         ui.add_space(12.0);
         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
@@ -68,15 +97,22 @@ pub fn show(app: &mut PhotocraftApp, ctx: &egui::Context) {
         });
     });
     cancel |= modal.should_close();
-    p.maximize = maximize;
-    p.dont_ask_again = dont_ask;
+    (p.maximize, p.previews, p.dont_ask_again) = (maximize, previews, dont_ask);
     if ok || ctx.input_mut(|i| i.consume_key(egui::Modifiers::NONE, egui::Key::Enter)) {
         let Some(p) = app.psd_options.take() else { return };
         if p.dont_ask_again {
-            let answer = if p.maximize { Ask::Always } else { Ask::Never };
-            app.session.edit_prefs(|prefs| prefs.file_handling.maximize_psd_compatibility = answer);
+            let answer = |on: bool| if on { Ask::Always } else { Ask::Never };
+            app.session.edit_prefs(|prefs| {
+                let f = &mut prefs.file_handling;
+                if ask_maximize {
+                    f.maximize_psd_compatibility = answer(p.maximize);
+                }
+                if ask_previews {
+                    f.image_previews = answer(p.previews);
+                }
+            });
         }
-        let settings = ExportSettings { maximize_compatibility: p.maximize, ..Default::default() };
+        let settings = ExportSettings { maximize_compatibility: p.maximize, image_previews: p.previews, ..Default::default() };
         match app.with_document(p.doc, |app| app.write_document(p.path, &settings, false)) {
             Err(e) => {
                 app.ui.status = crate::i18n::fmt(tl!("Save failed: {error}"), &[("error", &e)]);
@@ -105,13 +141,21 @@ mod tests {
 
     /// An app with a layered document whose saves record (path, Maximize Compatibility).
     fn app() -> (PhotocraftApp, Saves) {
+        let (app, saves, _) = app_with_previews();
+        (app, saves)
+    }
+
+    /// [`app`], also recording each save's Image Previews.
+    fn app_with_previews() -> (PhotocraftApp, Saves, Rc<RefCell<Vec<bool>>>) {
         let saves: Saves = Rc::default();
-        let seen = saves.clone();
+        let previews: Rc<RefCell<Vec<bool>>> = Rc::default();
+        let (seen, seen_previews) = (saves.clone(), previews.clone());
         let mut app = PhotocraftApp::new(
             Session::new(),
             Services {
                 export: Some(Box::new(move |_, path, settings| {
                     seen.borrow_mut().push((path.to_string(), settings.maximize_compatibility));
+                    seen_previews.borrow_mut().push(settings.image_previews);
                     Ok((Vec::new(), Vec::new()))
                 })),
                 write: Some(Box::new(|_, _| Ok(()))),
@@ -120,7 +164,7 @@ mod tests {
         );
         app.run("file.new", serde_json::json!({"width": 4, "height": 4})).unwrap();
         app.run("layer.new.layer", serde_json::json!({})).unwrap();
-        (app, saves)
+        (app, saves, previews)
     }
 
     fn set(app: &mut PhotocraftApp, v: Ask) {
@@ -181,6 +225,30 @@ mod tests {
         app.save_as(Some("a.psd".into())).unwrap();
         assert!(app.psd_options.is_none());
         assert_eq!(saves.borrow().len(), 3);
+    }
+
+    #[test]
+    fn image_previews_follow_the_preference_and_the_prompt() {
+        let (mut app, saves, previews) = app_with_previews();
+        let set_previews = |app: &mut PhotocraftApp, v: Ask| app.session.edit_prefs(|p| p.file_handling.image_previews = v);
+        app.save_as(Some("a.psd".into())).unwrap();
+        set_previews(&mut app, Ask::Never);
+        app.save_as(Some("b.psd".into())).unwrap();
+        assert!(app.psd_options.is_none());
+        assert_eq!(previews.borrow().as_slice(), &[true, false]);
+
+        // Ask on Image Previews alone still prompts; Maximize Compatibility keeps its preference.
+        set_previews(&mut app, Ask::Ask);
+        app.save_as(Some("c.psd".into())).unwrap();
+        if let Some(p) = &mut app.psd_options {
+            p.previews = false;
+            p.dont_ask_again = true;
+        }
+        press_enter(&mut app);
+        assert_eq!(previews.borrow().last(), Some(&false));
+        assert_eq!(saves.borrow().last(), Some(&("c.psd".into(), true)));
+        let f = &app.session.prefs().file_handling;
+        assert_eq!((f.image_previews, f.maximize_psd_compatibility), (Ask::Never, Ask::Always));
     }
 
     #[test]
