@@ -114,10 +114,12 @@ jobs:
       - name: Use sccache
         if: runner.os == 'Linux'
         run: |
-          echo "SCCACHE_GHA_ENABLED=true" >> "$GITHUB_ENV"
-          echo "RUSTC_WRAPPER=sccache" >> "$GITHUB_ENV"
-          echo "SCCACHE_GHA_RW_MODE=READ_WRITE" >> "$GITHUB_ENV"
-          echo "CARGO_INCREMENTAL=0" >> "$GITHUB_ENV"
+          {
+            echo "SCCACHE_GHA_ENABLED=true"
+            echo "RUSTC_WRAPPER=sccache"
+            echo "SCCACHE_GHA_RW_MODE=READ_WRITE"
+            echo "CARGO_INCREMENTAL=0"
+          } >> "$GITHUB_ENV"
 
       - name: Format
         if: runner.os == 'Linux'
@@ -183,10 +185,12 @@ jobs:
       - name: Use sccache
         if: runner.os == 'Linux'
         run: |
-          echo "SCCACHE_GHA_ENABLED=true" >> "$GITHUB_ENV"
-          echo "RUSTC_WRAPPER=sccache" >> "$GITHUB_ENV"
-          echo "SCCACHE_GHA_RW_MODE=READ_WRITE" >> "$GITHUB_ENV"
-          echo "CARGO_INCREMENTAL=0" >> "$GITHUB_ENV"
+          {
+            echo "SCCACHE_GHA_ENABLED=true"
+            echo "RUSTC_WRAPPER=sccache"
+            echo "SCCACHE_GHA_RW_MODE=READ_WRITE"
+            echo "CARGO_INCREMENTAL=0"
+          } >> "$GITHUB_ENV"
 
       # The same tests built with the optional craft-fonts input (crates/text/build.rs), so the
       # Japanese font tests that skip without it run here. Keep the exact `--workspace --features
