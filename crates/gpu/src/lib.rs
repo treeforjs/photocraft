@@ -63,7 +63,8 @@ pub const CHUNK: u32 = 1024;
 const STRIDE: u64 = 256;
 const CHUNK_UNIFORM: u64 = 16;
 const OP_UNIFORM: u64 = 176;
-/// GPU memory the effect-map cache may hold before evicting layers not drawn this frame.
+/// GPU memory the effect-map cache may hold before evicting layers not drawn this frame (less when
+/// the effect-cache preference, `photocraft_compose::effect_cache_budget`, is lower).
 pub const FX_BUDGET: usize = 1536 << 20;
 /// Largest side of the square pages layer surfaces are stored in on the GPU (smaller when the
 /// device's texture limit is). A chunk only binds the pages of the cell it lies in, so layers of
@@ -983,7 +984,8 @@ impl Compositor {
             }
         }
         let mut total = self.fx_cache_bytes();
-        let fx_budget = usize::try_from(self.fx_budget).unwrap_or(usize::MAX);
+        // Preferences › Performance › Effect cache caps the GPU's effect maps as it does the CPU's.
+        let fx_budget = usize::try_from(self.fx_budget).unwrap_or(usize::MAX).min(photocraft_compose::effect_cache_budget());
         if total > fx_budget {
             let (frame, stamp) = (self.frame, self.stamp);
             let mut lru: Vec<((u64, u64), FxKey)> = self
