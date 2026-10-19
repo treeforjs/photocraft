@@ -3612,3 +3612,25 @@ theme	Warm	Тепла
 	This is everything that will be sent:	Це все, що буде надіслано:
 	Opens a new issue on GitHub in your browser; you can still edit it there.	Відкриває нову задачу на GitHub у браузері; там її ще можна відредагувати.
 	Open on GitHub	Відкрити на GitHub
+
+# Help › Check for Updates… and Preferences › General › Check for updates automatically.
+	Check for Updates…	Перевірити оновлення…
+	Checking for updates…	Пошук оновлень…
+	PhotoCraft {version} is up to date.	PhotoCraft {version} — остання версія.
+	PhotoCraft {version} is available	Доступна версія PhotoCraft {version}
+	You have version {version}.	У вас версія {version}.
+	The update is downloaded and verified. It installs when PhotoCraft quits.	Оновлення завантажено й перевірено. Його буде встановлено під час виходу з PhotoCraft.
+	Couldn't check for updates: {error}	Не вдалося перевірити оновлення: {error}
+	Downloading… {received} of {total} MB	Завантаження… {received} з {total} МБ
+	Downloading… {received} MB	Завантаження… {received} МБ
+	Download and Install	Завантажити й установити
+	Skip This Version	Пропустити цю версію
+	Later	Пізніше
+	Open Release Page	Відкрити сторінку випуску
+	Restart Now	Перезапустити зараз
+	Install When I Quit	Установити під час виходу
+	Check Now	Перевірити зараз
+	Check for updates automatically	Автоматично перевіряти оновлення
+	Looks for a new version once a day, a few seconds after PhotoCraft starts.	Шукає нову версію раз на день, за кілька секунд після запуску PhotoCraft.
+	Open it to see what's new and install it.	Відкрийте, щоб дізнатися про нове й установити оновлення.
+	View Update	Переглянути оновлення

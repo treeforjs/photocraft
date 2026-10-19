@@ -2929,3 +2929,25 @@ theme	Warm	Chaud
 	This is everything that will be sent:	Voici tout ce qui sera envoyé :
 	Opens a new issue on GitHub in your browser; you can still edit it there.	Ouvre un nouveau ticket sur GitHub dans votre navigateur ; vous pourrez encore le modifier.
 	Open on GitHub	Ouvrir sur GitHub
+
+# Help › Check for Updates… and Preferences › General › Check for updates automatically.
+	Check for Updates…	Rechercher des mises à jour…
+	Checking for updates…	Recherche de mises à jour…
+	PhotoCraft {version} is up to date.	PhotoCraft {version} est à jour.
+	PhotoCraft {version} is available	PhotoCraft {version} est disponible
+	You have version {version}.	Vous avez la version {version}.
+	The update is downloaded and verified. It installs when PhotoCraft quits.	La mise à jour est téléchargée et vérifiée. Elle sera installée à la fermeture de PhotoCraft.
+	Couldn't check for updates: {error}	Impossible de rechercher des mises à jour : {error}
+	Downloading… {received} of {total} MB	Téléchargement… {received} sur {total} Mo
+	Downloading… {received} MB	Téléchargement… {received} Mo
+	Download and Install	Télécharger et installer
+	Skip This Version	Ignorer cette version
+	Later	Plus tard
+	Open Release Page	Ouvrir la page de la version
+	Restart Now	Redémarrer maintenant
+	Install When I Quit	Installer à la fermeture
+	Check Now	Rechercher maintenant
+	Check for updates automatically	Rechercher automatiquement les mises à jour
+	Looks for a new version once a day, a few seconds after PhotoCraft starts.	Recherche une nouvelle version une fois par jour, quelques secondes après le démarrage de PhotoCraft.
+	Open it to see what's new and install it.	Ouvrez-la pour découvrir les nouveautés et l'installer.
+	View Update	Voir la mise à jour
