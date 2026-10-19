@@ -251,6 +251,17 @@ pub fn clone_preview(s: &Session, rect: Rect, map: &crate::presets::clone_source
     Ok(photocraft_compose::Buffer { rect, px })
 }
 
+/// The document composite under `rect`: what a Darken/Lighten/Difference clone overlay blends
+/// onto (`clone_source::blend_overlay`).
+pub fn clone_overlay_base(s: &Session, rect: Rect) -> Result<photocraft_compose::Buffer> {
+    let near = [rect.x0, rect.y0, rect.x1, rect.y1].into_iter().all(|v| v.abs_diff(0) < 1_000_000);
+    if !near || !(rect.width() > 0 && rect.height() > 0 && rect.width() <= 1024 && rect.height() <= 1024) {
+        return Err(bad("clone.preview", "preview region exceeds its budget"));
+    }
+    let d = s.active().ok_or(EngineError::NoDocument)?;
+    Ok(photocraft_compose::render(&d.doc, rect))
+}
+
 /// Result JSON shared by Clone Stamp and Healing Brush: the offset used and where the next stroke
 /// should sample from if the UI keeps Photoshop's "Aligned" semantics.
 fn clone_result(dmg: Rect, off: (i32, i32), aligned: bool, p: &Value, stroke: &Stroke) -> Value {

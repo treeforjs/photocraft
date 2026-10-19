@@ -33,11 +33,14 @@ pub struct CloneSource {
     pub rotation: f64,
     pub flip_h: bool,
     pub flip_v: bool,
+    /// W and H are linked: setting one sets the other to the same size.
+    #[serde(default)]
+    pub link: bool,
 }
 
 impl Default for CloneSource {
     fn default() -> Self {
-        CloneSource { source: None, anchor: None, layer: None, scale: [100.0, 100.0], rotation: 0.0, flip_h: false, flip_v: false }
+        CloneSource { source: None, anchor: None, layer: None, scale: [100.0, 100.0], rotation: 0.0, flip_h: false, flip_v: false, link: false }
     }
 }
 
@@ -57,6 +60,7 @@ impl CloneSource {
         json!({
             "index": i, "source": self.source, "anchor": self.anchor, "offset": self.offset(), "layer": self.layer,
             "width": self.scale[0], "height": self.scale[1], "rotation": self.rotation, "flipH": self.flip_h, "flipV": self.flip_v,
+            "link": self.link,
         })
     }
 }
@@ -292,12 +296,25 @@ fn set(s: &mut Session, p: &Value) -> Result<Value> {
     if let Some(a) = p.get("scale").and_then(Value::as_array) {
         slot.scale = [a.first().and_then(Value::as_f64).unwrap_or(100.0), a.get(1).and_then(Value::as_f64).unwrap_or(100.0)];
     }
-    let num = |k: &str| p.get(k).and_then(Value::as_f64);
-    if let Some(w) = num("width") {
-        slot.scale[0] = w;
+    let num = |k: &str| p.get(k).and_then(Value::as_f64).filter(|v| v.is_finite());
+    if let Some(b) = p.get("link").and_then(Value::as_bool) {
+        slot.link = b;
+        if b {
+            slot.scale[1] = slot.scale[0].abs().copysign(slot.scale[1]);
+        }
     }
-    if let Some(h) = num("height") {
+    let (w, h) = (num("width"), num("height"));
+    if let Some(w) = w {
+        slot.scale[0] = w;
+        if slot.link && h.is_none() {
+            slot.scale[1] = w.abs().copysign(slot.scale[1]);
+        }
+    }
+    if let Some(h) = h {
         slot.scale[1] = h;
+        if slot.link && w.is_none() {
+            slot.scale[0] = h.abs().copysign(slot.scale[0]);
+        }
     }
     if slot.scale.iter().any(|v| !(1.0..=1000.0).contains(&v.abs())) {
         slot.scale = slot.scale.map(|v| v.clamp(1.0, 1000.0));
@@ -354,6 +371,28 @@ fn overlay(s: &mut Session, p: &Value) -> Result<Value> {
     Ok(serde_json::to_value(&*o).unwrap_or(Value::Null))
 }
 
+/// The overlay drawn with a Darken, Lighten or Difference mode: `src` (the clone source under the
+/// brush) blended onto `base` (the document composite at the same place) at `opacity` (0..1),
+/// in place. Normal leaves `src` as is; the canvas draws it with its opacity over the image.
+pub fn blend_overlay(src: &mut photocraft_compose::Buffer, base: &photocraft_compose::Buffer, mode: &str, opacity: f32) {
+    let f: fn(f32, f32) -> f32 = match mode {
+        "darken" => f32::min,
+        "lighten" => f32::max,
+        "difference" => |b, s| (b - s).abs(),
+        _ => return,
+    };
+    let op = if opacity.is_finite() { opacity.clamp(0.0, 1.0) } else { 1.0 };
+    for (s, b) in src.px.iter_mut().zip(&base.px) {
+        let k = s[3].clamp(0.0, 1.0) * op;
+        let mut out = [0.0f32; 4];
+        for c in 0..3 {
+            out[c] = b[c] + (f(b[c], s[c]) - b[c]) * k;
+        }
+        out[3] = b[3] + (1.0 - b[3]) * k;
+        *s = out;
+    }
+}
+
 pub fn specs() -> Vec<CommandSpec> {
     vec![
         CommandSpec {
@@ -381,7 +420,7 @@ pub fn specs() -> Vec<CommandSpec> {
             label: "Set Clone Source",
             menu: &[],
             shortcut: None,
-            params: r##"{"index":0..4?=active,"source":[x,y]? (⌥-click; re-pairs with the next stroke),"offset":[dx,dy]?,"width":%?,"height":%?|"scale":[w%,h%]?,"rotation":deg?,"flipH":bool?,"flipV":bool?,"layer":id?,"clear":bool?,"select":bool=true}"##,
+            params: r##"{"index":0..4?=active,"source":[x,y]? (⌥-click; re-pairs with the next stroke),"offset":[dx,dy]?,"width":%?,"height":%?|"scale":[w%,h%]?,"link":bool? (W and H move together),"rotation":deg?,"flipH":bool?,"flipV":bool?,"layer":id?,"clear":bool?,"select":bool=true}"##,
             enabled: always,
             run: set,
             journal: true,
