@@ -15,6 +15,7 @@
 
 mod codecs;
 mod error;
+pub mod exif_color;
 mod fidelity;
 mod format;
 mod image;
