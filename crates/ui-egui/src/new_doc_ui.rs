@@ -195,20 +195,46 @@ pub fn swap_size(f: &mut Map<String, Value>) {
     }
 }
 
+/// The fields' Print Resolution (Preferences › Units & Rulers › New Document Preset
+/// Resolutions), set when the dialog opens; 300 ppi when absent.
+pub const PRINT_PPI: &str = "__printPpi";
+
+/// The resolution print, photo and art presets are listed at.
+const PRESET_PRINT_PPI: f32 = 300.0;
+
+/// A preset's size in the fields' Print Resolution: print presets (listed at 300 ppi) keep their
+/// physical size, so a 200 ppi Print Resolution makes Letter 1700 × 2200 px at 200 ppi. Screen
+/// presets are pixel sizes and stay as they are.
+fn sized(f: &Map<String, Value>, p: &Preset) -> (u32, u32, f32) {
+    let ppi = get_f(f, PRINT_PPI, PRESET_PRINT_PPI);
+    if p.3 != PRESET_PRINT_PPI || !(1.0..=30_000.0).contains(&ppi) || ppi == PRESET_PRINT_PPI {
+        return (p.1, p.2, p.3);
+    }
+    let scale = |v: u32| ((v as f32 * ppi / PRESET_PRINT_PPI).round() as u32).clamp(1, 300_000);
+    (scale(p.1), scale(p.2), ppi)
+}
+
 /// Apply a preset to the dialog fields.
 pub fn apply_preset(f: &mut Map<String, Value>, p: &Preset) {
-    apply_size(f, p.0, (p.1, p.2, p.3));
+    let size = sized(f, p);
+    apply_size_in(f, p.0, size, p.3 >= PRESET_PRINT_PPI);
 }
 
 /// Select the preset card `id` with its size (width px, height px, ppi).
-fn apply_size(f: &mut Map<String, Value>, id: &str, (w, h, ppi): (u32, u32, f32)) {
+#[cfg(test)]
+fn apply_size(f: &mut Map<String, Value>, id: &str, size: (u32, u32, f32)) {
+    apply_size_in(f, id, size, size.2 >= PRESET_PRINT_PPI);
+}
+
+/// [`apply_size`], shown in inches when `print` (print and photo presets are specified in
+/// inches, screen presets in pixels).
+fn apply_size_in(f: &mut Map<String, Value>, id: &str, (w, h, ppi): (u32, u32, f32), print: bool) {
     f.remove("__savedPreset");
     f.insert("width".into(), json!(w));
     f.insert("height".into(), json!(h));
     f.insert("resolution".into(), json!(ppi));
     f.insert("__preset".into(), json!(id));
-    // Print and photo presets are specified in inches, screen presets in pixels.
-    f.insert("__unit".into(), json!(if ppi >= 300.0 { "in" } else { "px" }));
+    f.insert("__unit".into(), json!(if print { "in" } else { "px" }));
 }
 
 /// A card in the preset grid.
@@ -217,20 +243,27 @@ struct Card {
     id: String,
     title: String,
     size: (u32, u32, f32),
+    /// A print preset: specified (and shown) in inches.
+    print: bool,
 }
 
 /// The cards of category `cat`. Recent offers the clipboard image's size, then the sizes of the
 /// last documents made, then its fixed presets that aren't among them.
 fn cards(f: &Map<String, Value>, cat: &str) -> Vec<Card> {
     let fixed = CATEGORIES.iter().find(|c| c.0 == cat).map_or(CATEGORIES[0].1, |c| c.1);
-    let card = |p: &Preset| Card { id: p.0.to_string(), title: tl!(p.0).to_string(), size: (p.1, p.2, p.3) };
+    let card = |p: &Preset| Card { id: p.0.to_string(), title: tl!(p.0).to_string(), size: sized(f, p), print: p.3 >= PRESET_PRINT_PPI };
     if cat != CATEGORIES[0].0 {
         return fixed.iter().map(card).collect();
     }
     let recent = recent_sizes(f.get(RECENT));
     let mut out: Vec<Card> = clipboard_preset(f).iter().map(card).collect();
-    out.extend(recent.iter().map(|&(w, h, ppi)| Card { id: recent_id((w, h, ppi)), title: tl!("Custom").to_string(), size: (w, h, ppi) }));
-    out.extend(fixed.iter().filter(|p| !recent.contains(&(p.1, p.2, p.3))).map(card));
+    out.extend(recent.iter().map(|&(w, h, ppi)| Card {
+        id: recent_id((w, h, ppi)),
+        title: tl!("Custom").to_string(),
+        size: (w, h, ppi),
+        print: ppi >= PRESET_PRINT_PPI,
+    }));
+    out.extend(fixed.iter().filter(|p| !recent.contains(&sized(f, p))).map(card));
     out
 }
 
@@ -450,7 +483,7 @@ pub fn body(app: &mut crate::PhotocraftApp, ui: &mut egui::Ui, f: &mut Map<Strin
                         let title = card_title(ui.painter(), &p.title, card.x - 12.0, t.text);
                         let elided = title.elided;
                         ui.painter().galley(pos2(r.center().x, r.top() + 70.0 - title.size().y / 2.0), title, t.text);
-                        let unit = if ppi >= 300.0 { "in" } else { "px" };
+                        let unit = if p.print { "in" } else { "px" };
                         let size = if unit == "in" {
                             format!(
                                 "{} x {} in @ {} ppi",
@@ -464,7 +497,7 @@ pub fn body(app: &mut crate::PhotocraftApp, ui: &mut egui::Ui, f: &mut Map<Strin
                         ui.painter().text(pos2(r.center().x, r.top() + 97.0), Align2::CENTER_CENTER, size, egui::FontId::proportional(10.5), t.text_faint);
                         let resp = if elided { resp.on_hover_text(&p.title) } else { resp };
                         if resp.clicked() {
-                            apply_size(f, &p.id, p.size);
+                            apply_size_in(f, &p.id, p.size, p.print);
                         }
                     }
                 });
@@ -615,6 +648,45 @@ mod tests {
         let p = command_params(&f);
         assert_eq!((p["width"].clone(), p["height"].clone()), (json!(3370), json!(2384)));
         assert_eq!((shown_size(&f, "width", 1920.0, "mm", 72.0), shown_size(&f, "height", 1080.0, "mm", 72.0)), (1189.0, 841.0));
+    }
+
+    /// Preferences › Units & Rulers › Print Resolution: print presets keep their physical size
+    /// at that resolution; screen presets keep their pixels.
+    #[test]
+    fn print_presets_follow_the_print_resolution_preference() {
+        let preset = |cat: &str, name: &str| *CATEGORIES.iter().find(|c| c.0 == cat).unwrap().1.iter().find(|p| p.0 == name).unwrap();
+        let (letter, web) = (preset("Print", "Letter"), preset("Web", "Web Large"));
+        let mut f = crate::state::UiState::new_document_fields();
+        apply_preset(&mut f, &letter);
+        assert_eq!((f["width"].clone(), f["height"].clone(), f["resolution"].clone()), (json!(2550), json!(3300), json!(300.0)), "300 ppi by default");
+        f.insert(PRINT_PPI.into(), json!(200.0));
+        apply_preset(&mut f, &letter);
+        assert_eq!((f["width"].clone(), f["height"].clone(), f["resolution"].clone()), (json!(1700), json!(2200), json!(200.0)), "8.5 x 11 in at 200 ppi");
+        assert_eq!(f["__unit"], json!("in"));
+        apply_preset(&mut f, &web);
+        assert_eq!((f["width"].clone(), f["height"].clone(), f["resolution"].clone()), (json!(1920), json!(1080), json!(72.0)));
+        let cards = cards(&f, "Print");
+        assert_eq!(
+            cards.iter().find(|c| c.id == "Letter").map(|c| (c.size, c.print)),
+            Some(((1700, 2200, 200.0), true)),
+            "the grid shows the same size, in inches"
+        );
+        // A hostile value is ignored.
+        f.insert(PRINT_PPI.into(), json!(-5.0));
+        apply_preset(&mut f, &letter);
+        assert_eq!(f["width"], json!(2550));
+    }
+
+    #[test]
+    fn the_dialog_reads_the_print_resolution_preference() {
+        let mut app = crate::PhotocraftApp::new(photocraft_engine::Session::new(), crate::Services::default());
+        app.run("prefs.set", json!({"path": "unitsAndRulers.printResolution", "value": 150})).unwrap();
+        let mut f = app.new_document_fields();
+        assert_eq!(get_f(&f, PRINT_PPI, 0.0), 150.0);
+        let a4 = *CATEGORIES.iter().find(|c| c.0 == "Print").unwrap().1.iter().find(|p| p.0 == "A4").unwrap();
+        apply_preset(&mut f, &a4);
+        assert_eq!((f["width"].clone(), f["resolution"].clone()), (json!(1240), json!(150.0)));
+        assert!(command_params(&f).get(PRINT_PPI).is_none(), "not a file.new parameter");
     }
 
     #[test]
