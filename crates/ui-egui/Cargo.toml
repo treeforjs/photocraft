@@ -29,6 +29,9 @@ photocraft-format = { workspace = true }
 photocraft-codecs = { workspace = true }
 egui = { workspace = true }
 craft-ui = { workspace = true }
+# Help › Check for Updates… (`updates_ui`): the updater state machine; the desktop app hands it
+# the GitHub source, so this crate has no network code of its own.
+craft-update = { workspace = true }
 egui_extras = { version = "0.36", default-features = false, features = ["svg"] }
 eframe = { workspace = true, features = ["default_fonts", "wgpu", "accesskit"] }
 serde = { workspace = true }
