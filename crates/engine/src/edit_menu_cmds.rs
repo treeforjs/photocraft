@@ -560,7 +560,18 @@ fn content_aware_scale(s: &mut Session, p: &Value) -> Result<Value> {
         None => None,
     };
     let skin_tones = bool_or(p, "protectSkinTones", false);
-    let dst = Rect::from_xywh(region.x0, region.y0, nw as u32, nh as u32);
+    // Where the scaled pixels land (the Free Transform box's top-left); default: in place.
+    let at = |k: &str, cur: i32| -> Result<i32> {
+        match p.get(k).filter(|v| !v.is_null()) {
+            None => Ok(cur),
+            Some(v) => v
+                .as_f64()
+                .filter(|v| v.is_finite() && (-60_000.0..=60_000.0).contains(v))
+                .map(|v| v.round() as i32)
+                .ok_or_else(|| bad(cmd, format!("`{k}` must be -60000..60000 px"))),
+        }
+    };
+    let dst = Rect::from_xywh(at("x", region.x0)?, at("y", region.y0)?, nw as u32, nh as u32);
     let label = "Content-Aware Scale";
     // A background job when started with `Session::start` (#210): seam carving runs on a worker
     // against the document snapshot and checks for cancellation before every seam.
@@ -1023,7 +1034,7 @@ pub fn specs() -> Vec<CommandSpec> {
             "Content-Aware Scale",
             ["Edit"],
             Some("Cmd+Alt+Shift+C"),
-            r##"{"width":px?,"height":px?,"scaleX":1..400=100,"scaleY":1..400=100,"amount":0..100=100,"protect":"none"|channel index|name,"protectSkinTones":bool=false}"##,
+            r##"{"x":px?,"y":px?,"width":px?,"height":px?,"scaleX":1..400=100,"scaleY":1..400=100,"amount":0..100=100,"protect":"none"|channel index|name,"protectSkinTones":bool=false}"##,
             |s| pixel_layer(s).map(|_| ()),
             content_aware_scale
         ),

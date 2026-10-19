@@ -62,7 +62,7 @@ fn contains(r: photocraft_geom::Rect, x: f64, y: f64) -> bool {
 }
 
 /// Document point of handle `(hx, hy)` of `r`.
-fn handle_point(r: photocraft_geom::Rect, (hx, hy): (i8, i8)) -> [f64; 2] {
+pub(crate) fn handle_point(r: photocraft_geom::Rect, (hx, hy): (i8, i8)) -> [f64; 2] {
     let pick = |a: i32, b: i32, h: i8| match h {
         -1 => f64::from(a),
         1 => f64::from(b),
@@ -72,10 +72,10 @@ fn handle_point(r: photocraft_geom::Rect, (hx, hy): (i8, i8)) -> [f64; 2] {
 }
 
 /// The eight handles, corners first.
-const HANDLES: [(i8, i8); 8] = [(-1, -1), (1, -1), (1, 1), (-1, 1), (0, -1), (1, 0), (0, 1), (-1, 0)];
+pub(crate) const HANDLES: [(i8, i8); 8] = [(-1, -1), (1, -1), (1, 1), (-1, 1), (0, -1), (1, 0), (0, 1), (-1, 0)];
 
 /// The handle of `r` within `tol` document pixels of `(x, y)`.
-fn handle_at(r: photocraft_geom::Rect, x: f64, y: f64, tol: f64) -> Option<(i8, i8)> {
+pub(crate) fn handle_at(r: photocraft_geom::Rect, x: f64, y: f64, tol: f64) -> Option<(i8, i8)> {
     HANDLES.into_iter().find(|h| {
         let p = handle_point(r, *h);
         (p[0] - x).abs() <= tol && (p[1] - y).abs() <= tol

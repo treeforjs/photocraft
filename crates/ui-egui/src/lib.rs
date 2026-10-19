@@ -34,6 +34,7 @@ pub mod brush_resize;
 pub mod brush_sections;
 pub mod brushes_tab;
 pub mod bug_report;
+pub mod ca_scale_ui;
 mod camera_raw_detail_ui;
 mod camera_raw_preview_ui;
 mod camera_raw_scope_ui;
