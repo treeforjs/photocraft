@@ -2184,6 +2184,9 @@
 	Content-Aware Move Tool	Inhaltsbasiert-verschieben-Werkzeug
 	TIFF Options	TIFF-Optionen
 	Including layers will increase file size.	Das Einbeziehen von Ebenen vergrößert die Datei.
+	Refine Edge Brush	Kante-verbessern-Pinsel
+	Paint over hair and fur to refine them; hold Alt to erase strokes.	Über Haare und Fell malen, um sie zu verfeinern; mit gedrückter Alt-Taste Striche löschen.
+	Clear Strokes	Striche löschen
 	Select and Mask	Auswählen und maskieren
 	Onion Skin	Zwiebelschichten
 	Marching Ants	Laufende Ameisen

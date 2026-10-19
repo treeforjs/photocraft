@@ -149,6 +149,24 @@ fn refine_params(p: &Value) -> RefineParams {
     }
 }
 
+/// Most Refine Edge brush dabs one command reads (a long session of strokes stays well under).
+pub const MAX_DABS: usize = 50_000;
+
+/// `edgeBrush`: `[[x, y, radius, add?], …]` in document pixels; `add` defaults to true and a
+/// false entry erases earlier strokes. Malformed entries are skipped.
+fn edge_brush(p: &Value) -> Vec<matting::Dab> {
+    let Some(list) = p.get("edgeBrush").and_then(Value::as_array) else { return Vec::new() };
+    list.iter()
+        .take(MAX_DABS)
+        .filter_map(|d| {
+            let a = d.as_array()?;
+            let n = |i: usize| a.get(i).and_then(Value::as_f64).filter(|v| v.is_finite()).map(|v| v.clamp(-1e7, 1e7) as f32);
+            let add = a.get(3).map_or(Some(true), |v| v.as_bool().or_else(|| v.as_f64().map(|n| n != 0.0)))?;
+            Some(matting::Dab { x: n(0)?, y: n(1)?, r: n(2)?.clamp(0.5, 1000.0), add })
+        })
+        .collect()
+}
+
 /// The Output To choices of Select and Mask, in Photoshop's order.
 pub const REFINE_OUTPUTS: [&str; 6] = ["selection", "layerMask", "newLayer", "newLayerWithMask", "newDocument", "newDocumentWithMask"];
 
@@ -159,6 +177,7 @@ pub const REFINE_OUTPUTS: [&str; 6] = ["selection", "layerMask", "newLayer", "ne
 /// outputs leave the source document untouched.
 fn refine_edge(s: &mut Session, p: &Value) -> Result<Value> {
     let params = refine_params(p);
+    let dabs = edge_brush(p);
     let decontaminate = b(p, "decontaminate", false);
     let amount = f(p, "amount", 100.0).clamp(0.0, 100.0);
     let mut output = p.get("output").and_then(Value::as_str).unwrap_or("selection").to_string();
@@ -170,7 +189,7 @@ fn refine_edge(s: &mut Session, p: &Value) -> Result<Value> {
     }
     let region = with_sampler(s, b(p, "sampleAllLayers", false), |smp, doc| {
         let sel = doc.selection.as_ref()?;
-        matting::refine_mask(smp, &matting::surface_reader(sel), sel.content_bounds(), doc.bounds(), &params)
+        matting::refine_mask_brushed(smp, &matting::surface_reader(sel), sel.content_bounds(), doc.bounds(), &params, &dabs)
     })?;
     let d = s.active().ok_or(EngineError::NoDocument)?;
     let active = d.active_layer.filter(|id| d.doc.layer(*id).is_some());
@@ -275,7 +294,7 @@ pub fn specs() -> Vec<CommandSpec> {
             "select.refineEdge",
             "Refine Edge",
             [],
-            r##"{"radius":px=0,"smartRadius":bool=false,"smooth":0..100=0,"feather":px=0,"contrast":0..100=0,"shiftEdge":-100..100=0,"decontaminate":bool=false,"amount":0..100=100,"output":"selection|layerMask|newLayer|newLayerWithMask|newDocument|newDocumentWithMask"="selection","sampleAllLayers":bool=false}"##,
+            r##"{"radius":px=0,"smartRadius":bool=false,"smooth":0..100=0,"feather":px=0,"contrast":0..100=0,"shiftEdge":-100..100=0,"decontaminate":bool=false,"amount":0..100=100,"output":"selection|layerMask|newLayer|newLayerWithMask|newDocument|newDocumentWithMask"="selection","sampleAllLayers":bool=false,"edgeBrush":[[x,y,radius,add=true],…]? (Refine Edge brush dabs)}"##,
             has_selection,
             refine_edge
         ),
@@ -473,6 +492,22 @@ mod tests {
                 v > 0.05 && v < 0.95
             })
             .count()
+    }
+
+    #[test]
+    fn the_refine_edge_brush_softens_where_it_painted() {
+        let row = |s: &Session, y: i32| soft_count(s.active().unwrap().doc.selection.as_ref().unwrap(), y);
+        let mut s = blurred_edge_selected();
+        s.execute("select.refineEdge", json!({"edgeBrush": [[40, 8, 6]]})).unwrap();
+        assert!(row(&s, 8) >= 4, "the stroke softens the edge it covers");
+        assert_eq!(row(&s, 32), 0, "the rest of the edge stays hard");
+        s.execute("edit.undo", json!({})).unwrap();
+        // Erasing dabs, junk entries and a flood of dabs are all fine.
+        s.execute("select.refineEdge", json!({"edgeBrush": [[40, 8, 6], [40, 8, 9, false], "x", [1], [1, 2, "r"], [f64::MAX, 0, 1]]})).unwrap();
+        assert_eq!(row(&s, 8), 0);
+        let many: Vec<Value> = (0..MAX_DABS + 10).map(|i| json!([i % 80, 8, 2])).collect();
+        s.execute("edit.undo", json!({})).unwrap();
+        s.execute("select.refineEdge", json!({"edgeBrush": many})).unwrap();
     }
 
     #[test]

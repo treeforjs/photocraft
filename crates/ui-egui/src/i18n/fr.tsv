@@ -2576,6 +2576,9 @@ cameraRaw	Blending	Fusion
 	Content-Aware Move Tool	Outil Déplacement selon le contenu
 	TIFF Options	Options TIFF
 	Including layers will increase file size.	L'inclusion des calques augmentera la taille du fichier.
+	Refine Edge Brush	Pinceau Améliorer le contour
+	Paint over hair and fur to refine them; hold Alt to erase strokes.	Peignez sur les cheveux et la fourrure pour les affiner ; maintenez Alt pour effacer les traits.
+	Clear Strokes	Effacer les traits
 	Select and Mask	Sélectionner et masquer
 	Onion Skin	Pelure d'oignon
 	Marching Ants	Fourmis
