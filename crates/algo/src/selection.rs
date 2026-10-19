@@ -587,7 +587,9 @@ fn coverage(lab: [f32; 3], range: &LabRange, fuzziness: f32, grid8: bool) -> f32
     if fuzziness.is_nan() || fuzziness <= 0.0 {
         let d =
             (outside(lab[0], range.lo[0], range.hi[0]) * 2.55).max(outside(lab[1], range.lo[1], range.hi[1])).max(outside(lab[2], range.lo[2], range.hi[2]));
-        return if d < 0.5 { 1.0 } else { 0.0 };
+        // On the 8-bit Lab grid equal means the same grid cell; at 16 and 32 bits a one-level
+        // step is far below half a unit, so "equal" there allows only rounding noise.
+        return if d < if grid8 { 0.5 } else { 0.01 } { 1.0 } else { 0.0 };
     }
     let ab = |v: f32, lo: f32, hi: f32| {
         if !grid8 {
