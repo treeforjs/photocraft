@@ -934,7 +934,18 @@ impl Session {
     /// Add a document read from a file, applying the Color Settings policy first (preserve,
     /// convert to the working space, or discard the embedded profile). Returns the document
     /// index and a report (`action`, `mismatch`, `ask`) the UI can turn into a prompt.
+    ///
+    /// An RGB file with no ICC profile whose EXIF ColorSpace tag says sRGB (as camera JPEGs
+    /// write) opens tagged sRGB, unless Preferences › File Handling › Ignore EXIF Profile Tag
+    /// is on: then it is untagged, and the Missing Profile policy applies.
     pub fn open_document(&mut self, mut doc: Document, path: Option<String>) -> (usize, Value) {
+        if doc.icc_profile.is_none()
+            && doc.mode == ColorMode::Rgb
+            && !self.prefs().file_handling.ignore_exif_profile_tag
+            && doc.metadata.exif.as_deref().is_some_and(|e| photocraft_codecs::exif_color::exif_says_srgb(e))
+        {
+            doc.icc_profile = Some(Builtin::Srgb.profile().to_bytes());
+        }
         let report = self.color.open_policy(&mut doc);
         (self.add_document(doc, path), report)
     }

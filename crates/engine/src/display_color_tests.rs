@@ -374,3 +374,43 @@ fn proof_colors_still_apply_on_top() {
     s.execute("view.gamutWarning", json!({"on": true})).unwrap();
     assert_ne!(sig, s.color.display_signature(&d));
 }
+
+/// A little-endian EXIF block whose Exif IFD holds ColorSpace = `cs` (1 = sRGB).
+fn exif_color_space(cs: u16) -> Vec<u8> {
+    let mut b = b"Exif\0\0II\x2a\0\x08\0\0\0".to_vec();
+    // IFD0: ExifIFDPointer (0x8769, LONG, 1) → 26.
+    b.extend([1, 0, 0x69, 0x87, 4, 0, 1, 0, 0, 0, 26, 0, 0, 0, 0, 0, 0, 0]);
+    // Exif IFD: ColorSpace (0xA001, SHORT, 1).
+    b.extend([1, 0, 0x01, 0xA0, 3, 0, 1, 0, 0, 0]);
+    b.extend(cs.to_le_bytes());
+    b.extend([0, 0, 0, 0, 0, 0]);
+    b
+}
+
+#[test]
+fn exif_srgb_tag_counts_as_an_embedded_profile_unless_ignored() {
+    let mut s = Session::new();
+    s.execute("edit.colorSettings", json!({"workingRgb": "adobe-rgb-compat"})).unwrap();
+    let camera = || {
+        let mut d = rgb_doc(None, [0.8, 0.5, 0.3], SampleType::U8);
+        d.metadata.exif = Some(Arc::new(exif_color_space(1)));
+        d
+    };
+    // Tagged sRGB: a mismatch with the Adobe RGB working space, kept by the default policy.
+    let (_, report) = s.open_document(camera(), None);
+    assert_eq!(report["mismatch"], true, "{report}");
+    assert_eq!(report["action"], "kept");
+    let icc = s.active().unwrap().doc.icc_profile.clone().expect("tagged sRGB");
+    assert_eq!(Profile::parse(&icc).unwrap().content_hash(), Builtin::Srgb.profile().content_hash());
+    // Uncalibrated, or the preference on: untagged, so the Missing Profile policy assigns the
+    // working space.
+    let mut uncalibrated = camera();
+    uncalibrated.metadata.exif = Some(Arc::new(exif_color_space(0xFFFF)));
+    let (_, report) = s.open_document(uncalibrated, None);
+    assert_eq!((report["missing"].clone(), report["action"].clone()), (json!(true), json!("assigned")));
+    s.edit_prefs(|p| p.file_handling.ignore_exif_profile_tag = true);
+    let (_, report) = s.open_document(camera(), None);
+    assert_eq!(report["missing"], true, "{report}");
+    let icc = s.active().unwrap().doc.icc_profile.clone().expect("assigned the working space");
+    assert_eq!(Profile::parse(&icc).unwrap().content_hash(), Builtin::AdobeRgbCompat.profile().content_hash());
+}
