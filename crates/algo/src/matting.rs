@@ -312,9 +312,80 @@ pub fn edge_width(img: &RgbImage, r: usize) -> Vec<f32> {
     (0..w * h).map(|i| (hi[i] - lo[i]) / gm[i].max(1e-4)).collect()
 }
 
+/// One dab of the Refine Edge brush, in document pixels: `add` paints refinement where the
+/// automatic edge band doesn't reach (hair, fur), otherwise it erases earlier `add` dabs.
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+pub struct Dab {
+    pub x: f32,
+    pub y: f32,
+    pub r: f32,
+    pub add: bool,
+}
+
+/// Guided-filter radius used under Refine Edge brush strokes: wide enough to pick up strands
+/// around the dab, bounded so a huge brush stays cheap.
+pub fn brush_window(dabs: &[Dab]) -> usize {
+    let r = dabs.iter().filter(|d| d.add && d.r.is_finite()).fold(0.0f32, |m, d| m.max(d.r));
+    (r / 2.0).clamp(4.0, 32.0) as usize
+}
+
+/// The brush's refinement weight (0–1) over `area` (row-major), or `None` where no dab adds any.
+/// Dabs apply in order with a one-pixel soft rim.
+pub fn brush_weights(dabs: &[Dab], area: Rect) -> Option<Vec<f32>> {
+    let hit = |d: &Dab| {
+        d.x.is_finite() && d.y.is_finite() && d.r.is_finite() && d.r > 0.0 && {
+            let e = d.r + 1.0;
+            d.x + e > area.x0 as f32 && d.x - e < area.x1 as f32 && d.y + e > area.y0 as f32 && d.y - e < area.y1 as f32
+        }
+    };
+    if !dabs.iter().any(|d| d.add && hit(d)) {
+        return None;
+    }
+    let (w, h) = (area.width() as usize, area.height() as usize);
+    let mut out = vec![0.0f32; w.checked_mul(h)?];
+    for d in dabs.iter().filter(|d| hit(d)) {
+        let e = d.r + 1.0;
+        let clampx = |v: f32| (v.floor() as i64).clamp(i64::from(area.x0), i64::from(area.x1)) as i32;
+        let clampy = |v: f32| (v.floor() as i64).clamp(i64::from(area.y0), i64::from(area.y1)) as i32;
+        let (x0, x1, y0, y1) = (clampx(d.x - e), clampx(d.x + e + 1.0), clampy(d.y - e), clampy(d.y + e + 1.0));
+        for y in y0..y1 {
+            for x in x0..x1 {
+                let (dx, dy) = (x as f32 + 0.5 - d.x, y as f32 + 0.5 - d.y);
+                let c = (d.r - (dx * dx + dy * dy).sqrt() + 0.5).clamp(0.0, 1.0);
+                if c <= 0.0 {
+                    continue;
+                }
+                let i = (y - area.y0) as usize * w + (x - area.x0) as usize;
+                if let Some(v) = out.get_mut(i) {
+                    *v = if d.add { v.max(c) } else { *v * (1.0 - c) };
+                }
+            }
+        }
+    }
+    out.iter().any(|v| *v > 0.0).then_some(out)
+}
+
 /// Refines a soft mask buffer `m` (`w × h`) with `img` as guide (required when `radius > 0`).
 pub fn refine_buffer(img: Option<&RgbImage>, m: &[f32], w: usize, h: usize, p: &RefineParams) -> Vec<f32> {
+    refine_buffer_brushed(img, m, w, h, p, None)
+}
+
+/// [`refine_buffer`] that also refines where `brush` (per-pixel weights from [`brush_weights`],
+/// guided-filter window `.1`) asks, beyond the automatic band; `img` is then required too.
+pub fn refine_buffer_brushed(img: Option<&RgbImage>, m: &[f32], w: usize, h: usize, p: &RefineParams, brush: Option<(&[f32], usize)>) -> Vec<f32> {
     let mut a = m.to_vec();
+    if let (Some((b, r)), Some(img)) = (brush, img)
+        && b.len() == m.len()
+        && img.w == w
+        && img.h == h
+    {
+        let q = guided_filter_color(img, m, r.clamp(1, 64), EPS);
+        for ((av, (mv, qv)), wgt) in a.iter_mut().zip(m.iter().zip(&q)).zip(b) {
+            if *wgt > 0.0 {
+                *av = mv + (qv.clamp(0.0, 1.0) - mv) * wgt;
+            }
+        }
+    }
     if let (true, Some(img)) = (p.uses_image(), img) {
         let bin: Vec<bool> = m.iter().map(|v| *v >= 0.5).collect();
         let mut boundary = vec![false; w * h];
@@ -339,7 +410,9 @@ pub fn refine_buffer(img: Option<&RgbImage>, m: &[f32], w: usize, h: usize, p: &
                     None => p.radius,
                 };
                 let wgt = (reff + 1.0 - dist[i]).clamp(0.0, 1.0);
-                if wgt > 0.0 {
+                // Under a brush stroke the brush's (wider) refinement wins where it is stronger.
+                let brushed = brush.and_then(|(b, _)| b.get(i)).copied().unwrap_or(0.0);
+                if wgt > 0.0 && wgt >= brushed {
                     a[i] = m[i] + (q[i].clamp(0.0, 1.0) - m[i]) * wgt;
                 }
             }
@@ -371,12 +444,26 @@ pub fn refine_buffer(img: Option<&RgbImage>, m: &[f32], w: usize, h: usize, p: &
 /// its non-zero pixels; the result is clipped to `canvas`. `sampler` supplies the guide image
 /// (only read when `radius > 0`). Returns `None` when nothing remains selected.
 pub fn refine_mask(sampler: &dyn Sampler, mask: &(dyn Fn(Rect) -> Vec<f32> + Sync), content: Rect, canvas: Rect, p: &RefineParams) -> Option<Region> {
+    refine_mask_brushed(sampler, mask, content, canvas, p, &[])
+}
+
+/// [`refine_mask`] with Refine Edge brush `dabs` (document pixels) widening the refined area.
+pub fn refine_mask_brushed(
+    sampler: &dyn Sampler,
+    mask: &(dyn Fn(Rect) -> Vec<f32> + Sync),
+    content: Rect,
+    canvas: Rect,
+    p: &RefineParams,
+    dabs: &[Dab],
+) -> Option<Region> {
     let content = content.intersect(&canvas);
     if content.is_empty() {
         return None;
     }
-    let bbox = content.inflate(p.spread()).intersect(&canvas);
-    let halo = p.halo();
+    // A stroke only changes pixels within its guided-filter window of the selection edge.
+    let window = if dabs.iter().any(|d| d.add) { brush_window(dabs) as i32 } else { 0 };
+    let bbox = content.inflate(p.spread().saturating_add(window)).intersect(&canvas);
+    let halo = p.halo().saturating_add(2 * window + 1);
     let mut tiles = Vec::new();
     let mut y = bbox.y0;
     while y < bbox.y1 {
@@ -404,8 +491,9 @@ pub fn refine_mask(sampler: &dyn Sampler, mask: &(dyn Fn(Rect) -> Vec<f32> + Syn
         if (first == 0.0 || first == 1.0) && m.iter().all(|v| *v == first) {
             return (*t, vec![q(first); cw * ch]);
         }
-        let img = p.uses_image().then(|| sampler.rgb(r));
-        let out = refine_buffer(img.as_ref(), &m, rw, rh, p);
+        let brush = if window > 0 { brush_weights(dabs, r) } else { None };
+        let img = (p.uses_image() || brush.is_some()).then(|| sampler.rgb(r));
+        let out = refine_buffer_brushed(img.as_ref(), &m, rw, rh, p, brush.as_deref().map(|b| (b, window as usize)));
         (*t, core(&out))
     };
     #[cfg(not(target_arch = "wasm32"))]
@@ -659,6 +747,33 @@ mod tests {
         let s = refine_buffer(Some(&sharp), &m, w, h, &RefineParams { radius: 10.0, smart_radius: true, ..Default::default() });
         let soft = s[10 * w..11 * w].iter().filter(|v| **v > 0.05 && **v < 0.95).count();
         assert!(soft <= 2, "sharp edge became soft: {soft}");
+    }
+
+    #[test]
+    fn the_refine_edge_brush_softens_only_where_it_painted_and_erases() {
+        let (w, h) = (80usize, 40usize);
+        let (img, _) = blurred_edge(w, h, 3.0);
+        let s = ImageSampler { img: &img, origin: (0, 0) };
+        let mask: Vec<u8> = (0..w * h).map(|i| if (i % w) < 40 { 255 } else { 0 }).collect();
+        let reg = Region { bbox: Rect::new(0, 0, w as i32, h as i32), mask };
+        let canvas = reg.bbox;
+        let p = RefineParams::default();
+        let soft = |r: &Region, y: i32| (0..w as i32).filter(|x| (0.05..0.95).contains(&r.at(*x, y))).count();
+        let dab = |x: f32, y: f32, add: bool| Dab { x, y, r: 6.0, add };
+        let painted = refine_mask_brushed(&s, &region_reader(&reg), canvas, canvas, &p, &[dab(40.0, 10.0, true)]).unwrap();
+        assert!(soft(&painted, 10) >= 4, "the stroke softens the edge it covers");
+        assert_eq!(soft(&painted, 30), 0, "away from the stroke the edge stays hard");
+        let erased =
+            refine_mask_brushed(&s, &region_reader(&reg), canvas, canvas, &p, &[dab(40.0, 10.0, true), Dab { r: 9.0, ..dab(40.0, 10.0, false) }]).unwrap();
+        assert_eq!(soft(&erased, 10), 0, "a subtracting dab erases the stroke");
+        // Hostile dabs neither panic nor paint.
+        let bad = [
+            Dab { x: f32::NAN, y: 1.0, r: 5.0, add: true },
+            Dab { x: 1.0, y: 1.0, r: f32::INFINITY, add: true },
+            Dab { x: 1e30, y: -1e30, r: 1e30, add: true },
+        ];
+        assert!(brush_weights(&bad[..2], canvas).is_none());
+        let _ = refine_mask_brushed(&s, &region_reader(&reg), canvas, canvas, &p, &bad);
     }
 
     #[test]

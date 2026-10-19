@@ -80,3 +80,69 @@ fn the_view_only_reaches_the_preview_never_the_command() {
     assert_eq!(take_view(&mut bogus), None);
     assert!(bogus.get("__view").is_none());
 }
+
+#[test]
+fn the_refine_edge_brush_paints_dabs_on_the_image_under_the_dialog() {
+    use egui::{Event, Modifiers, PointerButton};
+    let mut app = PhotocraftApp::new(photocraft_engine::Session::new(), crate::Services::default());
+    app.run("file.new", json!({"width": 600, "height": 400})).unwrap();
+    app.run("select.rect", json!({"x": 0, "y": 0, "width": 300, "height": 400})).unwrap();
+    app.sync_views();
+    app.ui.extras.rulers = false;
+    let mut h = egui_kittest::Harness::builder().with_size(egui::vec2(1200.0, 900.0)).build_ui_state(
+        |ui, app: &mut PhotocraftApp| {
+            if !ui.ctx().fonts(|f| f.families().contains(&egui::FontFamily::Name("medium".into()))) {
+                return;
+            }
+            egui::CentralPanel::default().show(ui, |ui| crate::canvas::document_area(app, ui));
+            crate::dialogs::show(app, ui.ctx());
+        },
+        app,
+    );
+    PhotocraftApp::setup_context(&h.ctx, crate::theme::ThemeKind::Craft);
+    h.run_steps(3);
+    let id = open(h.state_mut()).unwrap();
+    h.state_mut().ui.dialog_mut(id).unwrap().fields.insert(BRUSH.into(), json!(true));
+    h.state_mut().ui.dialog_mut(id).unwrap().fields.insert(BRUSH_SIZE.into(), json!(20.0));
+    h.run_steps(3);
+    let screen = |h: &egui_kittest::Harness<'static, PhotocraftApp>, x: f32, y: f32| {
+        let app = h.state();
+        let v = &app.ui.views[0];
+        crate::canvas::ViewXform { rect: app.last_canvas_rect, zoom: v.zoom, center: v.center, flip: false, rotation: v.rotation }.to_screen(x, y)
+    };
+    let stroke = |h: &mut egui_kittest::Harness<'static, PhotocraftApp>, y: f32, mods: Modifiers| {
+        let (a, b) = (screen(h, 20.0, y), screen(h, 60.0, y));
+        h.event(Event::ModifiersChanged(mods));
+        h.event(Event::PointerMoved(a));
+        h.step();
+        h.event(Event::PointerButton { pos: a, button: PointerButton::Primary, pressed: true, modifiers: mods });
+        h.step();
+        for i in 1..=8 {
+            h.event(Event::PointerMoved(a + (b - a) * (i as f32 / 8.0)));
+            h.step();
+        }
+        h.event(Event::PointerButton { pos: b, button: PointerButton::Primary, pressed: false, modifiers: mods });
+        h.event(Event::ModifiersChanged(Modifiers::NONE));
+        h.run_steps(2);
+    };
+    stroke(&mut h, 100.0, Modifiers::NONE);
+    let dabs = |h: &egui_kittest::Harness<'static, PhotocraftApp>| -> Vec<Value> {
+        h.state().ui.dialogs.iter().find(|d| d.id == id).and_then(|d| d.fields.get(STROKES)).and_then(Value::as_array).cloned().unwrap_or_default()
+    };
+    let painted = dabs(&h);
+    assert!(painted.len() >= 3, "{painted:?}");
+    for d in &painted {
+        let (x, y, r, add) = (d[0].as_f64().unwrap(), d[1].as_f64().unwrap(), d[2].as_f64().unwrap(), d[3].as_bool().unwrap());
+        assert!((19.0..=61.0).contains(&x) && (y - 100.0).abs() < 1.5 && (r - 10.0).abs() < 1e-6 && add, "{d:?}");
+    }
+    // ⌥ paints erasing dabs.
+    stroke(&mut h, 100.0, Modifiers::ALT);
+    assert!(dabs(&h).iter().skip(painted.len()).any(|d| d[3] == false), "{:?}", dabs(&h));
+    // The strokes go to the command, scaled with the proxy.
+    let d = h.state().ui.dialogs.iter().find(|d| d.id == id).unwrap();
+    let mut params = crate::filter_dialog::params_of(&d.fields);
+    assert!(params.get(STROKES).is_some_and(Value::is_array));
+    assert!(params.get(BRUSH).is_none());
+    scale_strokes(&mut params, 2);
+    assert!((params[STROKES][0][2].as_f64().unwrap() - 5.0).abs() < 1e-6);
+}

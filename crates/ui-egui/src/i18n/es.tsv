@@ -2220,6 +2220,9 @@ cameraRaw	Amount	Cantidad
 	Content-Aware Move Tool	Herramienta Mover según el contenido
 	TIFF Options	Opciones de TIFF
 	Including layers will increase file size.	Incluir las capas aumentará el tamaño del archivo.
+	Refine Edge Brush	Pincel para perfeccionar bordes
+	Paint over hair and fur to refine them; hold Alt to erase strokes.	Pinte sobre el pelo y el pelaje para perfeccionarlos; mantenga Alt para borrar trazos.
+	Clear Strokes	Borrar trazos
 	Select and Mask	Selección y máscara
 	Onion Skin	Papel cebolla
 	Marching Ants	Hormigas en marcha

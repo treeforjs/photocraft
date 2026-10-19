@@ -2600,6 +2600,9 @@ cameraRaw	Roughness	Chropowatość
 	Content-Aware Move Tool	Narzędzie Przesunięcie z uwzględnieniem zawartości
 	TIFF Options	Opcje TIFF
 	Including layers will increase file size.	Dołączenie warstw zwiększy rozmiar pliku.
+	Refine Edge Brush	Pędzel udoskonalania krawędzi
+	Paint over hair and fur to refine them; hold Alt to erase strokes.	Maluj po włosach i sierści, aby je udoskonalić; przytrzymaj Alt, aby wymazać pociągnięcia.
+	Clear Strokes	Wyczyść pociągnięcia
 	Onion Skin	Skórka cebuli
 	Marching Ants	Maszerujące mrówki
 	On Black	Na czarnym
