@@ -880,7 +880,6 @@ pub const HIDDEN_UNTIL_IMPLEMENTED: &[&str] = &[
     "scratchDisks.disks",
     "unitsAndRulers.columnWidth",
     "unitsAndRulers.gutter",
-    "unitsAndRulers.printResolution",
     "plugIns.showExtensionPanels",
     "plugIns.allowScriptsToConnect",
     "plugIns.generatorEnabled",

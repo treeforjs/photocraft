@@ -1889,6 +1889,11 @@ impl PhotocraftApp {
     /// request, so the OS clipboard is read here, as for a paste.
     pub(crate) fn new_document_fields(&mut self) -> serde_json::Map<String, serde_json::Value> {
         let mut f = crate::state::UiState::new_document_fields();
+        // Print presets are sized at Preferences › Units & Rulers › Print Resolution.
+        let print_ppi = self.session.prefs().units_and_rulers.print_resolution;
+        if print_ppi != 300.0 {
+            f.insert(crate::new_doc_ui::PRINT_PPI.into(), serde_json::json!(print_ppi));
+        }
         if let Some(serde_json::Value::Object(saved)) = self.session.prefs().dialogs.get(NEW_DOCUMENT) {
             for k in NEW_DOCUMENT_REMEMBERED {
                 if let Some(v) = saved.get(k).filter(|v| remembered_new_document_value(k, v)) {
