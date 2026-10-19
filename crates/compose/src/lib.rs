@@ -1355,7 +1355,7 @@ struct FxCache {
 }
 
 /// Default effect-cache budget (Preferences › Performance can change it).
-pub const DEFAULT_FX_CACHE_BUDGET: usize = 768 << 20;
+pub const DEFAULT_FX_CACHE_BUDGET: usize = 1536 << 20;
 static FX_CACHE_BUDGET: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(DEFAULT_FX_CACHE_BUDGET);
 
 /// Set the memory budget (bytes) of the layer-effect map cache; entries over it are evicted
