@@ -272,6 +272,7 @@ pub(crate) fn run_filter(s: &mut Session, id: &str, p: &Value) -> Result<Value> 
             let area = algo::output_area(&fp, content, bounds, sel_bounds);
             *surf = filter(surf, &fp, area, bounds, selection.as_ref(), doc_bounds.union(&content))?;
             if let Some(before) = &before {
+                ctx.check()?;
                 keep_alpha(before, surf);
             }
             Ok(fp)
@@ -280,24 +281,31 @@ pub(crate) fn run_filter(s: &mut Session, id: &str, p: &Value) -> Result<Value> 
     )
 }
 
-/// Lock transparency: put the layer's alpha back after a filter, in the tiles it changed.
+/// Lock transparency: put the layer's alpha back after a filter, in the tiles it changed. Copies
+/// the stored alpha samples byte for byte (both surfaces share a format), so it is exact and cheap:
+/// a blurred 24 MP Background no longer spends hundreds of milliseconds here after the filter.
 fn keep_alpha(old: &photocraft_raster::Surface, new: &mut photocraft_raster::Surface) {
-    if old.format() != new.format() || !new.format().alpha {
+    let fmt = new.format();
+    if old.format() != fmt || !fmt.alpha {
         return;
     }
+    let (bpp, sample) = (fmt.bytes_per_pixel(), fmt.sample.bytes());
+    let Some(alpha) = bpp.checked_sub(sample) else { return };
     let mut coords: Vec<_> = new.tiles().filter(|(c, t)| old.tile(**c).is_none_or(|o| !std::sync::Arc::ptr_eq(o, t))).map(|(c, _)| *c).collect();
     coords.extend(old.tiles().filter(|(c, _)| new.tile(**c).is_none()).map(|(c, _)| *c));
-    let n = new.channels();
+    let default = old.default_bytes();
     for c in coords {
-        let r = c.rect();
-        let o = old.read_region(r);
-        let mut v = new.read_region(r);
-        for (pn, po) in v.chunks_exact_mut(n).zip(o.chunks_exact(n)) {
-            if let (Some(a), Some(b)) = (pn.last_mut(), po.last()) {
-                *a = *b;
+        let src = old.tile(c).map(|t| t.bytes());
+        let dst = new.tile_mut(c).bytes_mut();
+        for (i, px) in dst.chunks_exact_mut(bpp).enumerate() {
+            let from = match src {
+                Some(b) => b.get(i * bpp + alpha..(i + 1) * bpp),
+                None => default.get(alpha..bpp),
+            };
+            if let (Some(to), Some(from)) = (px.get_mut(alpha..), from) {
+                to.copy_from_slice(from);
             }
         }
-        new.write_region(r, &v);
     }
     new.prune();
 }
@@ -443,6 +451,38 @@ mod tests {
             Ok(())
         })
         .unwrap();
+    }
+
+    /// Lock transparency keeps every alpha sample exactly, in every sample type, including tiles
+    /// only one side has, and leaves the colour channels as filtered.
+    #[test]
+    fn keep_alpha_restores_alpha_exactly() {
+        use photocraft_color::{PixelFormat, SampleType};
+        use photocraft_geom::Rect;
+        use photocraft_raster::Surface;
+        for sample in [SampleType::U8, SampleType::U16, SampleType::F32] {
+            let fmt = PixelFormat::RGBA8.with_sample(sample);
+            let mut old = Surface::new(fmt);
+            for y in 0..300 {
+                for x in 0..300 {
+                    old.write_pixel(x, y, &[0.2, 0.4, 0.6, ((x + y) % 7) as f32 / 6.0]);
+                }
+            }
+            let mut new = old.clone();
+            for y in 100..600 {
+                for x in 100..600 {
+                    new.write_pixel(x, y, &[1.0, 0.0, 1.0, 1.0]);
+                }
+            }
+            keep_alpha(&old, &mut new);
+            let r = Rect::new(0, 0, 600, 600);
+            let (o, n) = (old.read_region(r), new.read_region(r));
+            for (po, pn) in o.chunks_exact(4).zip(n.chunks_exact(4)) {
+                assert_eq!(po[3], pn[3], "{sample:?}");
+            }
+            assert_eq!(new.pixel(400, 400)[..3], [1.0, 0.0, 1.0][..], "{sample:?}: colour kept, alpha 0 outside the old content");
+            assert_eq!(new.pixel(400, 400)[3], 0.0);
+        }
     }
 
     const ALL: [&str; 24] = [
