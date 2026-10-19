@@ -622,6 +622,9 @@ pub(crate) fn preview_document_authorized(
     } else {
         crate::smart_adjust_preview::scale_params(command, &mut p, k);
     }
+    if command == crate::ca_scale_ui::COMMAND {
+        crate::ca_scale_ui::scale_params(&mut p, k);
+    }
     if k > 1
         && let Some(o) = p.as_object_mut()
     {

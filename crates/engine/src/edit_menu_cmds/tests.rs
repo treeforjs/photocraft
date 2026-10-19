@@ -283,6 +283,23 @@ fn content_aware_scale_params() {
 }
 
 #[test]
+fn content_aware_scale_lands_where_the_box_was_moved() {
+    let mut s = session(8);
+    s.execute("layer.new.layer", json!({})).unwrap();
+    s.edit("paint", |doc, active| {
+        doc.layer_mut(active.unwrap()).unwrap().surface_mut().unwrap().fill_rect(Rect::new(0, 0, 32, 32), &[0.8, 0.6, 0.5, 1.0]);
+        Ok(())
+    })
+    .unwrap();
+    let r = s.execute("edit.contentAwareScale", json!({"x": 10, "y": 6, "width": 20, "height": 32})).unwrap();
+    assert_eq!(r["bounds"], json!([10, 6, 20, 32]));
+    assert_eq!(active(&s).surface().unwrap().content_bounds(), Rect::new(10, 6, 30, 38));
+    for bad in [json!({"x": f64::MAX}), json!({"y": -1e9}), json!({"x": "left"})] {
+        assert!(s.execute("edit.contentAwareScale", bad).is_err());
+    }
+}
+
+#[test]
 fn content_aware_scale_enlarges_a_one_pixel_line() {
     // A 1 px wide (or tall) layer has no seam to spare, so enlarging it used to return the line
     // unchanged and crash or write a short buffer. The line's single column (row) is repeated.
