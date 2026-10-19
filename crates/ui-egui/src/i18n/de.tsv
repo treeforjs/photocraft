@@ -2184,6 +2184,8 @@
 	Content-Aware Move Tool	Inhaltsbasiert-verschieben-Werkzeug
 	TIFF Options	TIFF-Optionen
 	Including layers will increase file size.	Das Einbeziehen von Ebenen vergrößert die Datei.
+	Image Previews	Bildvorschauen
+	Adds a small thumbnail that file browsers can show.	Fügt ein kleines Miniaturbild hinzu, das Dateibrowser anzeigen können.
 	Columns	Spalten
 	Column Width (points)	Spaltenbreite (Punkt)
 	Gutter (points)	Steg (Punkt)

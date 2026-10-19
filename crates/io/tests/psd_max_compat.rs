@@ -59,3 +59,34 @@ fn a_file_without_layers_always_gets_the_real_composite() {
         assert_eq!(off.has_real_merged_data(), Some(true));
     }
 }
+
+/// Image Previews (Preferences › File Handling): a JPEG thumbnail in resource 1036.
+#[test]
+fn image_previews_embed_a_jpeg_thumbnail() {
+    let d = red_square(ColorMode::Rgb, SampleType::U8);
+    let plain = PsdFile::from_bytes(&save(&d, true)).unwrap();
+    assert!(plain.resource(1036).is_none(), "off by default");
+    let bytes = export(&d, "x.psd", &ExportOptions { image_previews: true, ..Default::default() }).unwrap().bytes;
+    let f = PsdFile::from_bytes(&bytes).unwrap();
+    let r = f.resource(1036).expect("thumbnail resource");
+    let be = |at: usize| u32::from_be_bytes(r.data[at..at + 4].try_into().unwrap());
+    assert_eq!((be(0), be(4), be(12)), (1, 8, 6), "JPEG RGB at the document's size (smaller than 160 px)");
+    assert_eq!(be(8), 24, "row bytes padded to 4");
+    assert_eq!(be(20) as usize, r.data.len() - 28);
+    let jpeg = photocraft_codecs::decode(&r.data[28..]).unwrap();
+    assert_eq!((jpeg.width(), jpeg.height()), (8, 6));
+    // The file still opens the same, and a re-save regenerates the thumbnail rather than keeping a stale one.
+    let back = import("x.psd", &bytes).unwrap().document;
+    let again = PsdFile::from_bytes(&save(&back, true)).unwrap();
+    assert!(again.resource(1036).is_none());
+}
+
+#[test]
+fn image_previews_scale_large_documents_down() {
+    let d = Document::new("big", Size::new(800, 400), ColorMode::Cmyk, SampleType::U16);
+    let bytes = export(&d, "x.psb", &ExportOptions { image_previews: true, ..Default::default() }).unwrap().bytes;
+    let f = PsdFile::from_bytes(&bytes).unwrap();
+    let r = f.resource(1036).expect("thumbnail resource");
+    let be = |at: usize| u32::from_be_bytes(r.data[at..at + 4].try_into().unwrap());
+    assert_eq!((be(4), be(12)), (160, 80));
+}

@@ -221,6 +221,9 @@ pub struct ExportSettings {
     /// PSD/PSB: write the merged composite (Maximize Compatibility). `true` by default; a save
     /// turns it off when Preferences › File Handling says Never or the prompt's box is cleared.
     pub maximize_compatibility: bool,
+    /// PSD/PSB: embed a thumbnail (Image Previews). A save takes it from Preferences › File
+    /// Handling (Always / Never), or from this when the preference asks (the PSD Options prompt).
+    pub image_previews: bool,
 }
 
 impl Default for ExportSettings {
@@ -234,6 +237,7 @@ impl Default for ExportSettings {
             tiff_layers: true,
             xmp_all: true,
             maximize_compatibility: true,
+            image_previews: false,
         }
     }
 }
@@ -1123,8 +1127,11 @@ impl PhotocraftApp {
     /// [`jobs_ui::tick`].
     pub(crate) fn write_document(&mut self, path: String, settings: &ExportSettings, copy: bool) -> Result<Option<(String, Vec<String>)>, String> {
         // Preferences › File Handling › Maximize Compatibility: Never drops the composite.
-        let settings =
-            &ExportSettings { maximize_compatibility: settings.maximize_compatibility && psd_options_ui::maximize_by_default(self), ..settings.clone() };
+        let settings = &ExportSettings {
+            maximize_compatibility: settings.maximize_compatibility && psd_options_ui::maximize_by_default(self),
+            image_previews: psd_options_ui::previews(self, settings.image_previews),
+            ..settings.clone()
+        };
         // Preferences › File Handling › Save in Background: off, the save runs inline (the
         // window waits), as Photoshop's does.
         if self.background_jobs
@@ -1185,7 +1192,11 @@ impl PhotocraftApp {
             .or_else(|| state.path.clone().filter(|p| photocraft_engine::file_cmds::saves_in_place(p)))
             .ok_or("pass `path`: a save without one writes back only to the document's own PSD, PSB or .pcraft file")?;
         let export = self.services.export.as_ref().ok_or("no exporter configured")?;
-        let settings = ExportSettings { maximize_compatibility: psd_options_ui::maximize_by_default(self), ..Default::default() };
+        let settings = ExportSettings {
+            maximize_compatibility: psd_options_ui::maximize_by_default(self),
+            image_previews: psd_options_ui::previews(self, false),
+            ..Default::default()
+        };
         let (bytes, warnings) = export(&state.doc, &target, &settings)?;
         let write = self.services.automation_write.as_mut().ok_or("automation write authority is not configured")?;
         write(&target, &bytes)?;

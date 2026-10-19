@@ -2563,6 +2563,8 @@ cameraRaw	Blending	Pembauran
 	Content-Aware Move Tool	Alat Content-Aware Move
 	TIFF Options	Opsi TIFF
 	Including layers will increase file size.	Menyertakan layer akan memperbesar ukuran file.
+	Image Previews	Pratinjau Gambar
+	Adds a small thumbnail that file browsers can show.	Menambahkan gambar mini kecil yang dapat ditampilkan oleh peramban file.
 	Column Width (points)	Lebar Kolom (poin)
 	Gutter (points)	Jarak Antarkolom (poin)
 	PSD Options	Opsi PSD

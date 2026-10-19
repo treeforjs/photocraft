@@ -872,7 +872,6 @@ pub const HIDDEN_UNTIL_IMPLEMENTED: &[&str] = &[
     "workspace.enableFloatingDocumentWindowDocking",
     "workspace.enableNarrowOptionsBar",
     "tools.doubleClickLayerMaskLaunchesSelectAndMask",
-    "fileHandling.imagePreviews",
     "performance.cacheLevels",
     "performance.effectCacheMb",
     "performance.legacyCompositing",
