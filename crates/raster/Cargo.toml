@@ -11,6 +11,7 @@ workspace = true
 photocraft-geom = { workspace = true }
 photocraft-color = { workspace = true }
 serde = { workspace = true }
+rayon = { workspace = true }
 
 [dev-dependencies]
 proptest = { workspace = true }

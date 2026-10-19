@@ -527,7 +527,9 @@ impl Surface {
         let bpp = self.format.bytes_per_pixel();
         let moved = content.translate(dx, dy);
         let targets: std::collections::BTreeSet<TileCoord> = sources().flat_map(|(c, _)| c.rect().translate(dx, dy).intersect(&moved).tiles()).collect();
-        for dc in targets {
+        // Each target tile is assembled from up to four source tiles, independently of the
+        // others: in parallel on native.
+        let build = |&dc: &TileCoord| {
             let mut tile = Tile::filled(&self.format, &self.default_pixel);
             let dr = dc.rect();
             let sr = dr.translate(dx.saturating_neg(), dy.saturating_neg());
@@ -547,7 +549,17 @@ impl Surface {
                     }
                 }
             }
-            out.tiles.insert(dc, Arc::new(tile));
+            (dc, Arc::new(tile))
+        };
+        let targets: Vec<TileCoord> = targets.into_iter().collect();
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            use rayon::prelude::*;
+            out.tiles = targets.par_iter().map(build).collect::<Vec<_>>().into_iter().collect();
+        }
+        #[cfg(target_arch = "wasm32")]
+        {
+            out.tiles = targets.iter().map(build).collect();
         }
         out
     }

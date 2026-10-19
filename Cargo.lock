@@ -4502,6 +4502,7 @@ dependencies = [
  "photocraft-color",
  "photocraft-geom",
  "proptest",
+ "rayon",
  "serde",
 ]
 
