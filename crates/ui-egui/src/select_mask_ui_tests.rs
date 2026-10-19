@@ -102,8 +102,8 @@ fn the_refine_edge_brush_paints_dabs_on_the_image_under_the_dialog() {
     PhotocraftApp::setup_context(&h.ctx, crate::theme::ThemeKind::Craft);
     h.run_steps(3);
     let id = open(h.state_mut()).unwrap();
-    h.state_mut().ui.dialog_mut(id).unwrap().fields.insert(BRUSH.into(), json!(true));
-    h.state_mut().ui.dialog_mut(id).unwrap().fields.insert(BRUSH_SIZE.into(), json!(20.0));
+    h.state_mut().ui.dialog_mut(id).unwrap().fields.insert(crate::dialog_brush::ARMED.into(), json!(true));
+    h.state_mut().ui.dialog_mut(id).unwrap().fields.insert(crate::dialog_brush::SIZE.into(), json!(20.0));
     h.run_steps(3);
     let screen = |h: &egui_kittest::Harness<'static, PhotocraftApp>, x: f32, y: f32| {
         let app = h.state();
@@ -127,7 +127,7 @@ fn the_refine_edge_brush_paints_dabs_on_the_image_under_the_dialog() {
     };
     stroke(&mut h, 100.0, Modifiers::NONE);
     let dabs = |h: &egui_kittest::Harness<'static, PhotocraftApp>| -> Vec<Value> {
-        h.state().ui.dialogs.iter().find(|d| d.id == id).and_then(|d| d.fields.get(STROKES)).and_then(Value::as_array).cloned().unwrap_or_default()
+        h.state().ui.dialogs.iter().find(|d| d.id == id).and_then(|d| d.fields.get("edgeBrush")).and_then(Value::as_array).cloned().unwrap_or_default()
     };
     let painted = dabs(&h);
     assert!(painted.len() >= 3, "{painted:?}");
@@ -141,8 +141,8 @@ fn the_refine_edge_brush_paints_dabs_on_the_image_under_the_dialog() {
     // The strokes go to the command, scaled with the proxy.
     let d = h.state().ui.dialogs.iter().find(|d| d.id == id).unwrap();
     let mut params = crate::filter_dialog::params_of(&d.fields);
-    assert!(params.get(STROKES).is_some_and(Value::is_array));
-    assert!(params.get(BRUSH).is_none());
-    scale_strokes(&mut params, 2);
-    assert!((params[STROKES][0][2].as_f64().unwrap() - 5.0).abs() < 1e-6);
+    assert!(params.get("edgeBrush").is_some_and(Value::is_array));
+    assert!(params.get(crate::dialog_brush::ARMED).is_none());
+    crate::dialog_brush::scale(&mut params, 2);
+    assert!((params["edgeBrush"][0][2].as_f64().unwrap() - 5.0).abs() < 1e-6);
 }

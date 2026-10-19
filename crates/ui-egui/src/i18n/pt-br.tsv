@@ -2579,6 +2579,8 @@ cameraRaw	Whites	Brancos
 	Content-Aware Move Tool	Ferramenta Mover com reconhecimento de conteúdo
 	TIFF Options	Opções de TIFF
 	Including layers will increase file size.	Incluir as camadas aumentará o tamanho do arquivo.
+	Sampling Brush	Pincel de amostragem
+	Paint where the fill may sample from (green); hold Alt to exclude areas (red).	Pinte de onde o preenchimento pode amostrar (verde); segure Alt para excluir áreas (vermelho).
 	Refine Edge Brush	Pincel Refinar arestas
 	Paint over hair and fur to refine them; hold Alt to erase strokes.	Pinte sobre cabelos e pelos para refiná-los; segure Alt para apagar traçados.
 	Clear Strokes	Limpar traçados

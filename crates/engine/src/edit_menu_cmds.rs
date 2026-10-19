@@ -365,6 +365,17 @@ fn content_aware_fill_as(s: &mut Session, p: &Value, cmd: &'static str, label: &
         other => return Err(bad(cmd, format!("unknown sampling `{other}` (auto|rectangular|custom)"))),
     }
     .intersect(&doc.bounds());
+    // The Sampling Brush paints onto that area: adding dabs widen the window to reach them.
+    let dabs = crate::smartselect_cmds::brush_dabs(p, "sampleBrush");
+    let window = dabs
+        .iter()
+        .filter(|d| d.add)
+        .map(|d| {
+            let e = d.r.ceil() as i32 + 1;
+            let (x, y) = (d.x.round() as i32, d.y.round() as i32);
+            Rect::new(x.saturating_sub(e), y.saturating_sub(e), x.saturating_add(e), y.saturating_add(e))
+        })
+        .fold(window, |w, r| w.union(&r.intersect(&doc.bounds())));
     let opts = FillOptions {
         color_adaptation: color_level(str_or(p, "colorAdaptation", "default")),
         rotations: rotation_level(str_or(p, "rotationAdaptation", "none")),
@@ -412,12 +423,36 @@ fn content_aware_fill_as(s: &mut Session, p: &Value, cmd: &'static str, label: &
                     }
                 }
             }
+            paint_sampling(&mut source, window, &dabs);
             ctx.check()?;
             let filled = ctx.stage(0.05, 1.0, label, |ctl| fill_with(w, h, n, &img, &hole, &source, &opts, ctl)).map_err(|_| EngineError::Cancelled)?;
             Ok((img, cover, hole, filled))
         },
         move |s, (img, cover, hole, filled)| apply_content_aware_fill(s, label, id, &output, fmt, window, &img, &cover, &hole, &filled),
     )
+}
+
+/// Applies Sampling Brush dabs to the sampling area `source` (row-major over `window`), in order:
+/// a dab paints pixels whose centre lies within its radius in (`add`) or out.
+fn paint_sampling(source: &mut [bool], window: Rect, dabs: &[photocraft_algo::matting::Dab]) {
+    let w = window.width() as usize;
+    for d in dabs {
+        let (x0, x1) = ((d.x - d.r).floor(), (d.x + d.r).ceil());
+        let (y0, y1) = ((d.y - d.r).floor(), (d.y + d.r).ceil());
+        let cx = |v: f32| (v as i64).clamp(i64::from(window.x0), i64::from(window.x1)) as i32;
+        let cy = |v: f32| (v as i64).clamp(i64::from(window.y0), i64::from(window.y1)) as i32;
+        let r2 = d.r * d.r;
+        for y in cy(y0)..cy(y1) {
+            for x in cx(x0)..cx(x1) {
+                let (dx, dy) = (x as f32 + 0.5 - d.x, y as f32 + 0.5 - d.y);
+                if dx * dx + dy * dy <= r2
+                    && let Some(s) = source.get_mut((y - window.y0) as usize * w + (x - window.x0) as usize)
+                {
+                    *s = d.add;
+                }
+            }
+        }
+    }
 }
 
 /// Write a Content-Aware Fill result (the job's apply step): into the layer, a new layer or a
@@ -989,7 +1024,7 @@ pub fn specs() -> Vec<CommandSpec> {
             "Content-Aware Fill…",
             ["Edit"],
             None,
-            r##"{"sampling":"auto|rectangular|custom","margin":px?,"area":[x,y,w,h]?,"channel":index|name?,"colorAdaptation":"default|none|high|veryHigh","rotationAdaptation":"none|low|medium|high|full","scale":bool=false,"mirror":bool=false,"output":"current|new|duplicate","seed":u64=1}"##,
+            r##"{"sampling":"auto|rectangular|custom","margin":px?,"area":[x,y,w,h]?,"channel":index|name?,"colorAdaptation":"default|none|high|veryHigh","rotationAdaptation":"none|low|medium|high|full","scale":bool=false,"mirror":bool=false,"output":"current|new|duplicate","seed":u64=1,"sampleBrush":[[x,y,radius,add=true],…]? (Sampling Brush: add to or remove from the sampling area)}"##,
             can_caf,
             content_aware_fill
         ),

@@ -211,9 +211,9 @@ note = "filter.vanishingPoint (vp_cmds.rs:15) behind a parameter dialog"
 [[item]]
 id = "TOOL-214-15"
 target = "Content-Aware Fill workspace: paint the sampling area, preview, rotate/scale/mirror, new layer"
-status = "partial"
+status = "done"
 issue = 214
-note = "Engine sampling auto, rect, custom (edit_menu_cmds.rs:324); generic dialog"
+note = "Content-Aware Fill dialog with live proxy preview, Sampling Brush painted on the image under it (dialog_brush.rs; green adds, ⌥ red excludes; sampleBrush param, edit_menu_cmds.rs paint_sampling), auto/rectangular/custom sampling, rotation/scale/mirror adaptation and current/new/duplicate output"
 
 [[item]]
 id = "TOOL-214-16"

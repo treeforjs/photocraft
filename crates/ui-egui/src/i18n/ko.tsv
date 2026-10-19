@@ -2736,6 +2736,8 @@ cameraRaw	Color	색상
 	Content-Aware Move Tool	내용 인식 이동 도구
 	TIFF Options	TIFF 옵션
 	Including layers will increase file size.	레이어를 포함하면 파일 크기가 커집니다.
+	Sampling Brush	샘플링 브러시
+	Paint where the fill may sample from (green); hold Alt to exclude areas (red).	채우기가 샘플링할 영역을 칠합니다(녹색). Alt 키를 누르면 영역을 제외합니다(빨간색).
 	Refine Edge Brush	가장자리 다듬기 브러시
 	Paint over hair and fur to refine them; hold Alt to erase strokes.	머리카락과 털 위를 칠해 다듬습니다. Alt 키를 누르면 획을 지웁니다.
 	Clear Strokes	획 지우기
