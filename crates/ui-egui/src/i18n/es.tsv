@@ -2220,6 +2220,14 @@ cameraRaw	Amount	Cantidad
 	Content-Aware Move Tool	Herramienta Mover según el contenido
 	TIFF Options	Opciones de TIFF
 	Including layers will increase file size.	Incluir las capas aumentará el tamaño del archivo.
+	Select and Mask	Selección y máscara
+	Onion Skin	Papel cebolla
+	Marching Ants	Hormigas en marcha
+	On Black	Sobre negro
+	On White	Sobre blanco
+	On Layers	Sobre capas
+	New Layer With Mask	Nueva capa con máscara
+	New Document With Mask	Nuevo documento con máscara
 	Artboard Tool	Herramienta Lienzo
 	Image Previews	Previsualizaciones de imagen
 	Adds a small thumbnail that file browsers can show.	Añade una pequeña miniatura que los exploradores de archivos pueden mostrar.

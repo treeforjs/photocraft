@@ -2576,6 +2576,14 @@ cameraRaw	Blending	Fusion
 	Content-Aware Move Tool	Outil Déplacement selon le contenu
 	TIFF Options	Options TIFF
 	Including layers will increase file size.	L'inclusion des calques augmentera la taille du fichier.
+	Select and Mask	Sélectionner et masquer
+	Onion Skin	Pelure d'oignon
+	Marching Ants	Fourmis
+	On Black	Sur fond noir
+	On White	Sur fond blanc
+	On Layers	Sur les calques
+	New Layer With Mask	Nouveau calque avec masque
+	New Document With Mask	Nouveau document avec masque
 	Artboard Tool	Outil Plan de travail
 	Image Previews	Aperçus d’image
 	Adds a small thumbnail that file browsers can show.	Ajoute une petite vignette que les explorateurs de fichiers peuvent afficher.

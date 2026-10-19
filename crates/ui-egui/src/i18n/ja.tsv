@@ -2131,6 +2131,13 @@ cameraRaw	Color	カラー
 	Content-Aware Move Tool	コンテンツに応じた移動ツール
 	TIFF Options	TIFF オプション
 	Including layers will increase file size.	レイヤーを含めるとファイルサイズが大きくなります。
+	Onion Skin	オニオンスキン
+	Marching Ants	点線
+	On Black	黒地
+	On White	白地
+	On Layers	レイヤー上
+	New Layer With Mask	新規レイヤー（マスクあり）
+	New Document With Mask	新規ドキュメント（マスクあり）
 	Artboard Tool	アートボードツール
 	Image Previews	画像プレビュー
 	Adds a small thumbnail that file browsers can show.	ファイルブラウザーで表示できる小さなサムネールを追加します。

@@ -2424,6 +2424,14 @@ cameraRaw	Roughness	Неровность
 	Content-Aware Move Tool	Перемещение с учётом содержимого
 	TIFF Options	Параметры TIFF
 	Including layers will increase file size.	Включение слоёв увеличит размер файла.
+	Select and Mask	Выделение и маска
+	Onion Skin	Калька
+	Marching Ants	Марширующие муравьи
+	On Black	На черном
+	On White	На белом
+	On Layers	На слоях
+	New Layer With Mask	Новый слой со слоем-маской
+	New Document With Mask	Новый документ со слоем-маской
 	Artboard Tool	Инструмент «Монтажная область»
 	Image Previews	Миниатюры изображения
 	Adds a small thumbnail that file browsers can show.	Добавляет небольшую миниатюру, которую могут показывать файловые менеджеры.

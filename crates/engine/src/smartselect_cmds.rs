@@ -149,17 +149,21 @@ fn refine_params(p: &Value) -> RefineParams {
     }
 }
 
+/// The Output To choices of Select and Mask, in Photoshop's order.
+pub const REFINE_OUTPUTS: [&str; 6] = ["selection", "layerMask", "newLayer", "newLayerWithMask", "newDocument", "newDocumentWithMask"];
+
 /// Select and Mask: refines the selection edge, then outputs to the selection, a layer mask on
-/// the active layer, or a new layer (with or without a mask). Decontaminating colours needs a
-/// new layer, so it upgrades `selection` / `layerMask` output to `newLayerWithMask` (as
-/// Photoshop does). New-layer outputs hide the source layer.
+/// the active layer, a new layer or a new document (either with or without a mask).
+/// Decontaminating colours needs new pixels, so it upgrades `selection` / `layerMask` output to
+/// `newLayerWithMask` (as Photoshop does). New-layer outputs hide the source layer; new-document
+/// outputs leave the source document untouched.
 fn refine_edge(s: &mut Session, p: &Value) -> Result<Value> {
     let params = refine_params(p);
     let decontaminate = b(p, "decontaminate", false);
     let amount = f(p, "amount", 100.0).clamp(0.0, 100.0);
     let mut output = p.get("output").and_then(Value::as_str).unwrap_or("selection").to_string();
-    if !matches!(output.as_str(), "selection" | "layerMask" | "newLayer" | "newLayerWithMask") {
-        return Err(bad("select.refineEdge", "output must be selection|layerMask|newLayer|newLayerWithMask"));
+    if !REFINE_OUTPUTS.contains(&output.as_str()) {
+        return Err(bad("select.refineEdge", "output must be selection|layerMask|newLayer|newLayerWithMask|newDocument|newDocumentWithMask"));
     }
     if decontaminate && matches!(output.as_str(), "selection" | "layerMask") {
         output = "newLayerWithMask".into();
@@ -199,12 +203,25 @@ fn refine_edge(s: &mut Session, p: &Value) -> Result<Value> {
             let empty = Region { bbox: Rect::EMPTY, mask: Vec::new() };
             let reg = region.as_ref().unwrap_or(&empty);
             let pixels = if decontaminate { matting::decontaminate(src, reg, params.radius, amount) } else { src.clone() };
-            let with_mask = output == "newLayerWithMask";
+            let with_mask = output.ends_with("WithMask");
             let (content, mask) = if with_mask {
                 (pixels, Some(LayerMask { surface: matting::region_surface(reg), ..LayerMask::reveal_all() }))
             } else {
                 (matting::masked_copy(&pixels, reg), None)
             };
+            if output.starts_with("newDocument") {
+                let mut doc = (*d.doc).clone();
+                doc.id = photocraft_doc::DocId::fresh();
+                doc.name = format!("{} copy", d.doc.name);
+                let mut layer = Layer::new(src_layer.name.clone(), LayerContent::Raster(content));
+                layer.mask = mask;
+                doc.layers = vec![layer];
+                doc.selection = None;
+                doc.channels.clear();
+                doc.quick_mask = None;
+                let index = s.add_document(doc, None);
+                return Ok(json!({ "output": output, "document": index, "selected": false }));
+            }
             let new_id = s.edit("Select and Mask", |doc, act| {
                 let mut layer = Layer::new(name, LayerContent::Raster(content));
                 layer.mask = mask;
@@ -258,7 +275,7 @@ pub fn specs() -> Vec<CommandSpec> {
             "select.refineEdge",
             "Refine Edge",
             [],
-            r##"{"radius":px=0,"smartRadius":bool=false,"smooth":0..100=0,"feather":px=0,"contrast":0..100=0,"shiftEdge":-100..100=0,"decontaminate":bool=false,"amount":0..100=100,"output":"selection|layerMask|newLayer|newLayerWithMask"="selection","sampleAllLayers":bool=false}"##,
+            r##"{"radius":px=0,"smartRadius":bool=false,"smooth":0..100=0,"feather":px=0,"contrast":0..100=0,"shiftEdge":-100..100=0,"decontaminate":bool=false,"amount":0..100=100,"output":"selection|layerMask|newLayer|newLayerWithMask|newDocument|newDocumentWithMask"="selection","sampleAllLayers":bool=false}"##,
             has_selection,
             refine_edge
         ),
@@ -456,6 +473,32 @@ mod tests {
                 v > 0.05 && v < 0.95
             })
             .count()
+    }
+
+    #[test]
+    fn refine_edge_outputs_new_documents_and_leaves_the_source_alone() {
+        for (output, masked) in [("newDocument", false), ("newDocumentWithMask", true)] {
+            let mut s = blurred_edge_selected();
+            let before = s.active().unwrap().doc.clone();
+            let r = s.execute("select.refineEdge", json!({"radius": 8, "output": output})).unwrap();
+            assert_eq!(r["output"], output);
+            assert_eq!(s.documents().len(), 2);
+            assert_eq!(s.active_index(), r["document"].as_u64().map(|i| i as usize));
+            let d = s.active().unwrap();
+            assert_eq!(d.doc.layer_count(), 1);
+            assert_eq!(d.doc.size, before.size);
+            assert!(d.doc.selection.is_none());
+            let l = &d.doc.layers[0];
+            assert_eq!(l.mask.is_some(), masked, "{output}");
+            let alpha = |x: i32| match &l.mask {
+                Some(m) => m.value(x, 20),
+                None => l.surface().unwrap().pixel(x, 20)[3],
+            };
+            assert!(alpha(5) > 0.99 && alpha(75) < 0.01 && alpha(40) > 0.05 && alpha(40) < 0.95, "{output}");
+            let src = &s.documents()[0].doc;
+            assert_eq!(src.layer_count(), before.layer_count());
+            assert!(src.layers[0].visible && src.selection.is_some(), "the source document is untouched");
+        }
     }
 
     #[test]

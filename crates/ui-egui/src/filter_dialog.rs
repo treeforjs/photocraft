@@ -174,6 +174,7 @@ pub const PREVIEWED: &[&str] = &[
     "layer.matting.colorDecontaminate",
     "layer.layerStyle.scaleEffects",
     "type.warpText",
+    "select.refineEdge",
 ];
 
 pub fn has_dialog(command: &str) -> bool {
@@ -401,6 +402,9 @@ pub fn body(ui: &mut egui::Ui, f: &mut Map<String, Value>) {
             None => return,
         },
     };
+    if cmd == crate::select_mask_ui::COMMAND {
+        crate::select_mask_ui::controls(ui, f);
+    }
     for p in parse_spec(&spec) {
         match p.kind {
             Kind::Range { min, max, default } => {
@@ -629,8 +633,13 @@ pub(crate) fn preview_document_authorized(
             }
         }
     }
+    let view = if command == crate::select_mask_ui::COMMAND { crate::select_mask_ui::take_view(&mut p) } else { None };
     s.execute(command, p).ok()?;
-    s.active().map(|d| (*d.doc).clone())
+    let mut out = s.active().map(|d| (*d.doc).clone())?;
+    if let Some((view, opacity)) = view {
+        crate::select_mask_ui::apply_view(&mut out, active, &view, opacity);
+    }
+    Some(out)
 }
 
 /// Cached preview state on the app.

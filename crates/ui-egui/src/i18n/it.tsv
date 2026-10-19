@@ -2216,6 +2216,14 @@ cameraRaw	Amount	Quantità
 	Drag or click polygon points · hold Alt during lasso for straight segments · {add} add · {sub} before drawing subtracts	Trascina o fai clic sui punti del poligono · tieni premuto Alt durante il lazo per segmenti dritti · {add} aggiunge · {sub} prima di disegnare sottrae
 	TIFF Options	Opzioni TIFF
 	Including layers will increase file size.	Includere i livelli aumenterà le dimensioni del file.
+	Select and Mask	Seleziona e maschera
+	Onion Skin	Onion skin
+	Marching Ants	Formiche in marcia
+	On Black	Su nero
+	On White	Su bianco
+	On Layers	Sui livelli
+	New Layer With Mask	Nuovo livello con maschera
+	New Document With Mask	Nuovo documento con maschera
 	Artboard Tool	Strumento Tavola da disegno
 	Image Previews	Anteprime immagine
 	Adds a small thumbnail that file browsers can show.	Aggiunge una piccola miniatura che i browser di file possono mostrare.
