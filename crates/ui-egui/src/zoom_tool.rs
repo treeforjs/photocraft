@@ -4,6 +4,9 @@
 //! zooms in, left zooms out, anchored at the point where the button went down. With it off, the
 //! drag draws a rectangle and the release zooms to fit it. A click (no drag) still steps the zoom
 //! in, or out with ⌥ (handled by the canvas).
+//!
+//! With Preferences › General › Animated Zoom on, holding the button down without moving zooms
+//! in continuously about the press point (out with ⌥) until it is released ([`animate`]).
 
 use egui::{Pos2, Rect, vec2};
 
@@ -29,6 +32,73 @@ struct ZoomDrag {
 
 fn id() -> egui::Id {
     egui::Id::new("pc-zoom-tool-drag")
+}
+
+/// Seconds the button stays down, unmoved, before Animated Zoom starts (a quicker release is a
+/// click, which steps the zoom once).
+pub const HOLD: f64 = 0.3;
+
+/// Animated Zoom speed: doublings (or halvings) per second.
+pub const RATE: f32 = 1.5;
+
+/// How far (points) the pointer may wander from the press point and still count as held.
+const STILL: f32 = 4.0;
+
+/// Set while Animated Zoom has zoomed during the current press, so its release neither steps nor
+/// fits a zoom rectangle.
+fn held_id() -> egui::Id {
+    egui::Id::new("pc-zoom-tool-held")
+}
+
+/// Animated Zoom for one frame: while the primary button is held down unmoved on the canvas for
+/// [`HOLD`] seconds, zoom about the press point by [`RATE`] doublings per second (halvings with
+/// `out`). Returns true when it zoomed. Costs nothing unless the button is down.
+pub fn animate(app: &PhotocraftApp, ctx: &egui::Context, view: &mut View, xf: &ViewXform, out: bool) -> bool {
+    let (pressed, down, origin, start, now, dt, at) = ctx.input(|i| {
+        (
+            i.pointer.primary_pressed(),
+            i.pointer.primary_down(),
+            i.pointer.press_origin(),
+            i.pointer.press_start_time(),
+            i.time,
+            i.stable_dt,
+            i.pointer.latest_pos(),
+        )
+    });
+    if pressed {
+        // A new press: whatever the last one did, its release has been handled.
+        ctx.data_mut(|d| d.remove_temp::<bool>(held_id()));
+    }
+    if !down {
+        return false;
+    }
+    let (Some(origin), Some(start)) = (origin, start) else { return false };
+    let still = at.is_none_or(|p| p.distance(origin) <= STILL);
+    if !app.session.prefs().general.animated_zoom || !xf.rect.contains(origin) || !still || now - start < HOLD {
+        return false;
+    }
+    // One frame never jumps more than a tenth of a second's worth (a stalled frame).
+    let dt = if dt.is_finite() { dt.clamp(0.0, 0.1) } else { 0.0 };
+    let step = RATE * dt * if out { -1.0 } else { 1.0 };
+    let zoom = crate::zoom_levels::clamp(view.zoom * step.exp2(), view.doc_size);
+    ctx.data_mut(|d| d.insert_temp(held_id(), true));
+    ctx.request_repaint();
+    if zoom == view.zoom {
+        return false;
+    }
+    let doc = xf.to_doc(origin);
+    anchor_view(view, xf, origin, doc, zoom, app.ppp);
+    // A scrubby drag egui began during the hold continues from here, not from its start.
+    if let Some(mut z) = ctx.data(|d| d.get_temp::<ZoomDrag>(id())) {
+        z.zoom0 = zoom;
+        ctx.data_mut(|d| d.insert_temp(id(), z));
+    }
+    true
+}
+
+/// Did Animated Zoom zoom during the press just released? Clears the mark.
+pub fn take_held(ctx: &egui::Context) -> bool {
+    ctx.data_mut(|d| d.remove_temp::<bool>(held_id())).unwrap_or(false)
 }
 
 /// The scrubby zoom for a horizontal drag of `dx` points from a press at zoom `zoom0`, on a
@@ -70,7 +140,8 @@ pub fn drag(app: &PhotocraftApp, ctx: &egui::Context, view: &mut View, xf: &View
     }
     if b.stopped {
         ctx.data_mut(|d| d.remove::<ZoomDrag>(id()));
-        if let Some(to) = z.rect_to {
+        let held = ctx.data(|d| d.get_temp::<bool>(held_id())).unwrap_or(false);
+        if let Some(to) = z.rect_to.filter(|_| !held) {
             zoom_to_rect(view, xf, Rect::from_two_pos(z.anchor, to), z.anchor, ctx.input(|i| i.modifiers.alt), app.ppp);
         }
     }
@@ -153,6 +224,47 @@ mod tests {
     fn press(h: &mut Harness<'static, PhotocraftApp>, p: Pos2, pressed: bool) {
         h.event(Event::PointerButton { pos: p, button: PointerButton::Primary, pressed, modifiers: Default::default() });
         h.step();
+    }
+
+    #[test]
+    fn animated_zoom_zooms_while_the_button_is_held_still() {
+        for scrubby in [true, false] {
+            for on in [true, false] {
+                let mut h = harness(scrubby);
+                h.state_mut().session.edit_prefs(|p| p.general.animated_zoom = on);
+                let p0 = h.state().last_canvas_rect.center() + vec2(-120.0, 40.0);
+                let doc0 = view_xf(&h).to_doc(p0);
+                let z0 = h.state().current_zoom();
+                h.event(Event::PointerMoved(p0));
+                h.step();
+                press(&mut h, p0, true);
+                let mut zs = Vec::new();
+                for _ in 0..90 {
+                    h.step();
+                    zs.push(h.state().current_zoom());
+                }
+                press(&mut h, p0, false);
+                h.run_steps(2);
+                let z1 = h.state().current_zoom();
+                if on {
+                    assert!(z1 > z0 * 1.5, "scrubby {scrubby}: holding zooms in: {z0} -> {z1}");
+                    assert!(zs.windows(2).all(|w| w[1] >= w[0]), "smoothly, never back: {zs:?}");
+                    assert_eq!(zs.last().copied(), Some(z1), "the release adds no click step");
+                    let s = view_xf(&h).to_screen(doc0[0] as f32, doc0[1] as f32);
+                    assert!(s.distance(p0) < 0.5, "about the press point: {s:?} vs {p0:?}");
+                } else {
+                    // Without Animated Zoom a hold does nothing (with Scrubby Zoom off, as before, its
+                    // release is a tiny zoom rectangle, which steps once).
+                    let step = crate::zoom_levels::step(z0, 1, h.state().ui.views[0].doc_size);
+                    assert!(z1 == z0 || (!scrubby && z1 == step), "scrubby {scrubby}: {z0} -> {z1}");
+                }
+                // A click afterwards still steps once.
+                press(&mut h, p0, true);
+                press(&mut h, p0, false);
+                h.run_steps(2);
+                assert_eq!(h.state().current_zoom(), crate::zoom_levels::step(z1, 1, h.state().ui.views[0].doc_size), "scrubby {scrubby}, on {on}");
+            }
+        }
     }
 
     #[test]
