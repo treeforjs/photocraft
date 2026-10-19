@@ -385,3 +385,38 @@ fn moving_an_artboard_past_the_canvas_grows_it() {
     s.undo();
     assert_eq!((doc(&s).size.width, doc(&s).size.height), (100, 80));
 }
+
+#[test]
+fn new_artboard_beside_takes_the_size_and_slides_past_boards() {
+    let mut s = session(8);
+    let a = s.execute("layer.new.artboard", json!({"rect": [300, 300, 100, 80], "background": "black"})).unwrap()["layer"].as_u64().unwrap();
+    // Right: same size and background, a gap away.
+    let r = s.execute("layer.new.artboard", json!({"beside": a, "side": "right"})).unwrap();
+    assert_eq!(r["rect"], json!([500, 300, 100, 80]));
+    let id = LayerId(r["layer"].as_u64().unwrap());
+    assert_eq!(doc(&s).layer(id).and_then(Layer::artboard).unwrap().background, ArtboardBackground::Black);
+    // Right again: that slot is taken, so it slides past the new board.
+    assert_eq!(s.execute("layer.new.artboard", json!({"beside": a, "side": "right"})).unwrap()["rect"], json!([700, 300, 100, 80]));
+    assert_eq!(s.execute("layer.new.artboard", json!({"beside": a, "side": "below"})).unwrap()["rect"], json!([300, 480, 100, 80]));
+    assert_eq!(s.execute("layer.new.artboard", json!({"beside": a, "side": "left"})).unwrap()["rect"], json!([100, 300, 100, 80]));
+    assert_eq!(s.execute("layer.new.artboard", json!({"beside": a, "side": "above"})).unwrap()["rect"], json!([300, 120, 100, 80]));
+    // Left of the left one would be off the canvas: refused, nothing added.
+    let n = doc(&s).artboards().len();
+    let left = doc(&s).artboards().into_iter().find(|b| b.2.rect.x0 == 100).unwrap().0;
+    assert!(s.execute("layer.new.artboard", json!({"beside": left.0, "side": "left"})).unwrap_err().to_string().contains("no room"));
+    assert!(s.execute("layer.new.artboard", json!({"beside": a, "side": "sideways"})).is_err());
+    assert!(s.execute("layer.new.artboard", json!({"beside": 999_999})).is_err());
+    assert_eq!(doc(&s).artboards().len(), n);
+}
+
+#[test]
+fn slot_beside_never_overflows() {
+    let mut d = Document::new("d", Size::new(10, 10), photocraft_color::ColorMode::Rgb, photocraft_color::SampleType::U8);
+    let far = Rect::new(i32::MAX - 50, 0, i32::MAX - 10, 40);
+    let mut g = Layer::group("b", vec![]);
+    set_artboard(&mut g, Artboard { rect: far, background: ArtboardBackground::White, preset: String::new() });
+    d.insert_above(None, g);
+    assert_eq!(slot_beside(&d, far, 40, 40, "right"), None);
+    assert_eq!(slot_beside(&d, far, i64::MAX, 40, "below"), None);
+    assert!(slot_beside(&d, far, 40, 40, "below").is_some());
+}

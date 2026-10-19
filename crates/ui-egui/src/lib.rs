@@ -22,6 +22,7 @@ pub mod adjust_ui;
 mod alt_grab;
 pub mod analysis_ui;
 pub mod appearance;
+pub mod artboard_tool;
 pub mod artboard_ui;
 pub mod auto_show;
 pub(crate) mod blend_preview;

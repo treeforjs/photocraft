@@ -143,7 +143,7 @@ id = "FILE-215-20"
 target = "Artboard tool with handles and + buttons, Duplicate Artboard beside, vector PDF pages"
 status = "partial"
 issue = 215
-note = "artboard_ui.rs:1 names/properties only; no tool, + buttons or duplicate"
+note = "Artboard tool (artboard_tool.rs, Move group): drag on the pasteboard draws a board, drag moves it with its contents, Alt-drag drags out a copy, eight handles resize it, + buttons add a same-size board beside it (layer.new.artboard beside/side); Layer > Duplicate places the copy beside (place_copy). Missing: vector PDF pages (artboards export as raster PDF pages)"
 
 [[item]]
 id = "FILE-215-21"

@@ -2138,6 +2138,7 @@ cameraRaw	Color	カラー
 	On Layers	レイヤー上
 	New Layer With Mask	新規レイヤー（マスクあり）
 	New Document With Mask	新規ドキュメント（マスクあり）
+	Artboard Tool	アートボードツール
 	Image Previews	画像プレビュー
 	Adds a small thumbnail that file browsers can show.	ファイルブラウザーで表示できる小さなサムネールを追加します。
 	Column Width (points)	列の幅（ポイント）
