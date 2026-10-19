@@ -11,7 +11,9 @@
 //! `--in-window-menus` (or `PHOTOCRAFT_IN_WINDOW_MENUS=1`) keeps the menus inside the window on
 //! macOS instead of the macOS menu bar (`mac_menu`).
 //!
-//! `--control <port>` (or `PHOTOCRAFT_CONTROL_PORT`) starts a localhost JSON-lines control server.
+//! `--control <port>` (or `PHOTOCRAFT_CONTROL_PORT`) starts a localhost JSON-lines control server;
+//! without it, Preferences › Integrations › Control Port (when not 0) does, with its token in
+//! `control.token` in the settings folder. Allow Agent Control off starts none.
 //! The first line must authenticate; subsequent request lines get reply lines.
 //! `{"id":1,"ok":true,"result":…}`. See `photocraft_ui_egui::control` for the methods.
 
@@ -20,6 +22,7 @@
 #![cfg_attr(all(windows, not(debug_assertions)), windows_subsystem = "windows")]
 #![deny(clippy::unwrap_used, clippy::expect_used, clippy::panic, clippy::unimplemented, clippy::todo, clippy::unreachable)]
 
+mod agent_control;
 mod app_dirs;
 mod app_icon;
 mod appearance;
@@ -235,8 +238,16 @@ fn main() -> eframe::Result {
         std::process::exit(1);
     }
 
+    // Preferences › Integrations: Allow Agent Control and the default Control Port.
+    let (control_port, port_from_prefs, warning) = agent_control::port(control_port, &agent_control::read(services::prefs_file().as_deref()));
+    if let Some(warning) = warning {
+        eprintln!("photocraft: {warning}");
+    }
     let control = if let Some(port) = control_port {
-        let (supplied, token_file) = photocraft_automation::security::token_inputs(control_token, control_token_file);
+        let (supplied, mut token_file) = photocraft_automation::security::token_inputs(control_token, control_token_file);
+        if port_from_prefs && supplied.is_none() && token_file.is_none() {
+            token_file = agent_control::default_token_file(services::config_dir());
+        }
         let token = match photocraft_automation::security::server_token(supplied.as_deref(), token_file.as_deref()) {
             Ok(token) => token,
             Err(e) => {

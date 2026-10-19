@@ -9,6 +9,8 @@ photocraft --control 7878 --control-token-file /private/path/photocraft-control.
 
 If the file does not exist, PhotoCraft creates it with a fresh 256-bit token. On Unix the new file is mode `0600`; on Windows, protect it with an appropriate user-only ACL. An existing file is reused. If neither a token nor token file is configured, PhotoCraft generates a token for that launch and writes it to standard error. `PHOTOCRAFT_CONTROL_TOKEN` and `PHOTOCRAFT_CONTROL_TOKEN_FILE` are the environment-variable equivalents.
 
+Without `--control`, Preferences › Integrations › Control Port starts the server on that port at every launch (0, the default, means only with `--control`); its token then lives in `control.token` in the settings folder unless a token or token file is given. With Allow Agent Control off no control server starts, even with `--control`. Both apply at the next launch.
+
 The first request on every TCP connection must authenticate. No other method is dispatched before this succeeds:
 
 ```json
