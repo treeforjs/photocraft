@@ -104,6 +104,23 @@ jobs:
           save-if: ${{ github.ref == 'refs/heads/main' }}
           cache-on-failure: true
 
+      # sccache caches compiled workspace and vendored crates by content hash. rust-cache above
+      # keeps only registry dependencies, so those crates were rebuilt on every run and were most
+      # of the build. Only main writes; PRs read main's entries, so every crate a PR leaves
+      # unchanged comes from the cache. sccache skips incremental builds, hence CARGO_INCREMENTAL=0.
+      # Set through GITHUB_ENV after rust-cache so its cache key stays put.
+      - uses: mozilla-actions/sccache-action@v0.0.11
+        if: runner.os == 'Linux'
+      - name: Use sccache
+        if: runner.os == 'Linux'
+        run: |
+          {
+            echo "SCCACHE_GHA_ENABLED=true"
+            echo "RUSTC_WRAPPER=sccache"
+            echo "SCCACHE_GHA_RW_MODE=${{ github.ref == 'refs/heads/main' && 'READ_WRITE' || 'READ_ONLY' }}"
+            echo "CARGO_INCREMENTAL=0"
+          } >> "$GITHUB_ENV"
+
       - name: Format
         if: runner.os == 'Linux'
         run: cargo fmt --all -- --check
@@ -157,6 +174,23 @@ jobs:
         with:
           shared-key: test
           save-if: false
+
+      # sccache caches compiled workspace and vendored crates by content hash. rust-cache above
+      # keeps only registry dependencies, so those crates were rebuilt on every run and were most
+      # of the build. Only main writes; PRs read main's entries, so every crate a PR leaves
+      # unchanged comes from the cache. sccache skips incremental builds, hence CARGO_INCREMENTAL=0.
+      # Set through GITHUB_ENV after rust-cache so its cache key stays put.
+      - uses: mozilla-actions/sccache-action@v0.0.11
+        if: runner.os == 'Linux'
+      - name: Use sccache
+        if: runner.os == 'Linux'
+        run: |
+          {
+            echo "SCCACHE_GHA_ENABLED=true"
+            echo "RUSTC_WRAPPER=sccache"
+            echo "SCCACHE_GHA_RW_MODE=${{ github.ref == 'refs/heads/main' && 'READ_WRITE' || 'READ_ONLY' }}"
+            echo "CARGO_INCREMENTAL=0"
+          } >> "$GITHUB_ENV"
 
       # The same tests built with the optional craft-fonts input (crates/text/build.rs), so the
       # Japanese font tests that skip without it run here. Keep the exact `--workspace --features
