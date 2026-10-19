@@ -2191,7 +2191,7 @@ mod tests {
         assert!(has_visible_fields(&values, "enhancedControls"));
         assert!(!prefs::is_hidden("enhancedControls.rotateViewWithTrackpad"));
         assert!(!prefs::is_hidden("enhancedControls.zoomWithTrackpadPinch"));
-        assert!(prefs::is_hidden("enhancedControls.touchGestures"));
+        assert!(!prefs::is_hidden("enhancedControls.touchGestures"));
         assert!(has_visible_fields(&values, "rawDefaults"));
         assert!(!prefs::is_hidden("rawDefaults.openInCameraRaw"));
         assert!(!prefs::is_hidden("rawDefaults.applyAutoTone"));

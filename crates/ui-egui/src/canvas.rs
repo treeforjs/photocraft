@@ -2492,6 +2492,23 @@ pub fn canvas_view(app: &mut PhotocraftApp, ui: &mut egui::Ui, idx: usize, rect:
         }
     }
 
+    // Two fingers on a touch screen pan, zoom about their centre and rotate, all at once.
+    if let Some(t) = crate::wheel_nav::touch(&ctx, app.session.prefs().enhanced_controls.touch_gestures).filter(|t| rect.contains(t.center)) {
+        let nz = crate::zoom_levels::clamp(view.zoom * t.zoom, view.doc_size);
+        if nz != view.zoom {
+            zoom_about(&mut view, &xf, t.center, nz, false, ppp);
+        }
+        let d = xf.unmap_vec(t.pan) / (view.zoom / ppp);
+        if d.x.is_finite() && d.y.is_finite() {
+            view.center[0] -= d.x;
+            view.center[1] -= d.y;
+        }
+        let next = view.rotation + t.rotate;
+        if t.rotate != 0.0 && next.is_finite() {
+            view.rotation = crate::rotate_view::wrap_deg(next);
+        }
+    }
+
     // Pen pressure/tilt for this frame's tool events (mouse = 1.0), unless Preferences › Tools ›
     // Use Tablet Pressure is off; the pen's eraser end selects the Eraser.
     app.stylus.use_pressure = app.session.prefs().tools.use_tablet_pressure;
