@@ -1186,6 +1186,7 @@ fn ensure_filter_preview(app: &mut PhotocraftApp, idx: usize, ctx: &egui::Contex
     // Worker sessions do not inherit channel selection; bind the actual target before dispatch.
     let params = photocraft_engine::channel_cmds::inject_target(&app.session, &cmd, params);
     let (cmd, params) = crate::smart_ui::confirm_command(&d.fields, cmd, params);
+    let params = if cmd == crate::select_mask_ui::COMMAND { crate::select_mask_ui::preview_params(&d.fields, params) } else { params };
     let st = app.session.documents().get(idx)?;
     let k = crate::smart_adjust_preview::factor(
         &st.doc,

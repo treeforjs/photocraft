@@ -2600,6 +2600,13 @@ cameraRaw	Roughness	Chropowatość
 	Content-Aware Move Tool	Narzędzie Przesunięcie z uwzględnieniem zawartości
 	TIFF Options	Opcje TIFF
 	Including layers will increase file size.	Dołączenie warstw zwiększy rozmiar pliku.
+	Onion Skin	Skórka cebuli
+	Marching Ants	Maszerujące mrówki
+	On Black	Na czarnym
+	On White	Na białym
+	On Layers	Na warstwach
+	New Layer With Mask	Nowa warstwa z maską
+	New Document With Mask	Nowy dokument z maską
 	Image Previews	Podglądy obrazu
 	Adds a small thumbnail that file browsers can show.	Dodaje małą miniaturę, którą mogą wyświetlać przeglądarki plików.
 	Column Width (points)	Szerokość kolumny (punkty)

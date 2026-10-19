@@ -2736,6 +2736,13 @@ cameraRaw	Color	색상
 	Content-Aware Move Tool	내용 인식 이동 도구
 	TIFF Options	TIFF 옵션
 	Including layers will increase file size.	레이어를 포함하면 파일 크기가 커집니다.
+	Onion Skin	어니언 스킨
+	Marching Ants	개미들의 행진
+	On Black	검정 바탕
+	On White	흰색 바탕
+	On Layers	레이어 위
+	New Layer With Mask	새 레이어(마스크 포함)
+	New Document With Mask	새 문서(마스크 포함)
 	Image Previews	이미지 미리 보기
 	Adds a small thumbnail that file browsers can show.	파일 브라우저에 표시할 수 있는 작은 썸네일을 추가합니다.
 	Columns	열

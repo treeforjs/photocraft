@@ -2184,6 +2184,14 @@
 	Content-Aware Move Tool	Inhaltsbasiert-verschieben-Werkzeug
 	TIFF Options	TIFF-Optionen
 	Including layers will increase file size.	Das Einbeziehen von Ebenen vergrößert die Datei.
+	Select and Mask	Auswählen und maskieren
+	Onion Skin	Zwiebelschichten
+	Marching Ants	Laufende Ameisen
+	On Black	Auf Schwarz
+	On White	Auf Weiß
+	On Layers	Auf Ebenen
+	New Layer With Mask	Neue Ebene mit Maske
+	New Document With Mask	Neues Dokument mit Maske
 	Image Previews	Bildvorschauen
 	Adds a small thumbnail that file browsers can show.	Fügt ein kleines Miniaturbild hinzu, das Dateibrowser anzeigen können.
 	Columns	Spalten

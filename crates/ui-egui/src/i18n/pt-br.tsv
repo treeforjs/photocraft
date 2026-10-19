@@ -2579,6 +2579,14 @@ cameraRaw	Whites	Brancos
 	Content-Aware Move Tool	Ferramenta Mover com reconhecimento de conteúdo
 	TIFF Options	Opções de TIFF
 	Including layers will increase file size.	Incluir as camadas aumentará o tamanho do arquivo.
+	Select and Mask	Selecionar e mascarar
+	Onion Skin	Papel de cebola
+	Marching Ants	Formigas marchando
+	On Black	Sobre preto
+	On White	Sobre branco
+	On Layers	Sobre camadas
+	New Layer With Mask	Nova camada com máscara
+	New Document With Mask	Novo documento com máscara
 	Image Previews	Visualizações de imagem
 	Adds a small thumbnail that file browsers can show.	Adiciona uma pequena miniatura que os navegadores de arquivos podem exibir.
 	Column Width (points)	Largura da coluna (pontos)
