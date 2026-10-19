@@ -1367,6 +1367,7 @@ pub fn status_bar(app: &mut PhotocraftApp, ui: &mut egui::Ui) {
 
 pub fn right_dock(app: &mut PhotocraftApp, ui: &mut egui::Ui) {
     let t = Tokens::get(ui.ctx());
+    crate::dock::auto_collapse(app, ui.ctx());
     let p = app.ui.panels.clone();
     if t.pro {
         dock_panels(app, ui, &p, &t);
@@ -1379,6 +1380,7 @@ pub fn right_dock(app: &mut PhotocraftApp, ui: &mut egui::Ui) {
             |ui| {
                 let r = ui.max_rect();
                 ui.painter().line_segment([r.left_top() - vec2(6.0, 8.0), r.left_bottom() + vec2(-6.0, 8.0)], Stroke::new(1.0, t.separator));
+                crate::dock::set_rail(ui.ctx(), r.expand2(vec2(6.0, 8.0)));
                 ui.spacing_mut().item_spacing.y = 4.0;
                 use crate::dock::Group;
                 let entries: [(&str, &str, Group); 5] = [

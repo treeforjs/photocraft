@@ -388,7 +388,51 @@ pub fn rail_click(app: &mut PhotocraftApp, g: Group, docked: bool) {
     } else {
         let collapse = !app.ui.dock.is_collapsed(g);
         app.ui.dock.set_collapsed(g, collapse);
+        if !collapse && !app.ui.dock.is_floating(g) {
+            // Opened from its icon: Auto-Collapse Iconic Panels may fold it back.
+            app.ui.rail_opened.retain(|x| *x != g);
+            app.ui.rail_opened.push(g);
+        }
     }
+}
+
+/// Preferences › Workspace › Auto-Collapse Iconic Panels: a group expanded from its rail icon
+/// collapses again at the next click anywhere outside the dock column, its floating groups and
+/// the rail (on the canvas, say), as Photoshop does. Groups the person expanded any other way stay
+/// open. Call before the dock is drawn.
+pub fn auto_collapse(app: &mut PhotocraftApp, ctx: &egui::Context) {
+    if app.ui.rail_opened.is_empty() {
+        return;
+    }
+    if !app.session.prefs().workspace.auto_collapse_icon_panels {
+        app.ui.rail_opened.clear();
+        return;
+    }
+    let Some(p) = ctx.input(|i| i.pointer.primary_pressed().then(|| i.pointer.press_origin()).flatten()) else { return };
+    let inside = column(ctx).into_iter().chain(rail(ctx)).chain(last_floating(ctx).into_iter().map(|(_, r)| r)).any(|r| r.contains(p));
+    if inside {
+        return;
+    }
+    for g in std::mem::take(&mut app.ui.rail_opened) {
+        if !app.ui.dock.is_floating(g) {
+            app.ui.dock.set_collapsed(g, true);
+        }
+    }
+}
+
+fn rail_id() -> egui::Id {
+    egui::Id::new("dock-rail-rect")
+}
+
+/// Record where the icon rail is drawn this frame (screen points).
+pub fn set_rail(ctx: &egui::Context, r: Rect) {
+    let frame = ctx.cumulative_frame_nr();
+    ctx.data_mut(|d| d.insert_temp(rail_id(), (frame, r)));
+}
+
+fn rail(ctx: &egui::Context) -> Option<Rect> {
+    let now = ctx.cumulative_frame_nr();
+    ctx.data(|d| d.get_temp::<(u64, Rect)>(rail_id())).filter(|(f, _)| now.saturating_sub(*f) <= 1).map(|(_, r)| r)
 }
 
 /// Per-group interactions collected while drawing, applied afterwards.

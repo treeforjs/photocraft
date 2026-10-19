@@ -868,7 +868,6 @@ pub const HIDDEN_UNTIL_IMPLEMENTED: &[&str] = &[
     "general.beepWhenDone",
     "general.animatedZoom",
     "general.zoomResizesWindows",
-    "workspace.autoCollapseIconPanels",
     "workspace.enableFloatingDocumentWindowDocking",
     "workspace.enableNarrowOptionsBar",
     "performance.cacheLevels",
