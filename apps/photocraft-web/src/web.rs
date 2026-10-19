@@ -349,6 +349,7 @@ fn services(inbox: Inbox) -> Services {
             }
             opts.tiff_layers = settings.tiff_layers;
             opts.maximize_compatibility = settings.maximize_compatibility;
+            opts.image_previews = settings.image_previews;
             opts.xmp = if settings.xmp_all { photocraft_io::XmpEmbed::All } else { photocraft_io::XmpEmbed::None };
             photocraft_io::export(doc, path, &opts).map(|r| (r.bytes, r.warnings)).map_err(|e| e.to_string())
         })),

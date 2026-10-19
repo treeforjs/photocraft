@@ -158,11 +158,20 @@ pub struct ExportOptions {
     /// PSD/PSB: write the real merged composite (Maximize Compatibility); `false` writes a
     /// white placeholder when the file carries layers. On by default.
     pub maximize_compatibility: bool,
+    /// PSD/PSB: embed a JPEG thumbnail (Image Previews). Off by default.
+    pub image_previews: bool,
 }
 
 impl Default for ExportOptions {
     fn default() -> Self {
-        ExportOptions { encode: EncodeOptions::default(), force_psb: false, tiff_layers: false, xmp: XmpEmbed::All, maximize_compatibility: true }
+        ExportOptions {
+            encode: EncodeOptions::default(),
+            force_psb: false,
+            tiff_layers: false,
+            xmp: XmpEmbed::All,
+            maximize_compatibility: true,
+            image_previews: false,
+        }
     }
 }
 
@@ -247,7 +256,12 @@ pub fn export(doc: &Document, name_or_ext: &str, opts: &ExportOptions) -> Result
         return Ok(ExportResult { bytes: photocraft_format::save_to_bytes(doc, &previews)?, warnings: Vec::new() });
     }
     if ext == "psd" || ext == "psb" {
-        let o = PsdExportOptions { force_psb: opts.force_psb || ext == "psb", maximize_compatibility: opts.maximize_compatibility, ..Default::default() };
+        let o = PsdExportOptions {
+            force_psb: opts.force_psb || ext == "psb",
+            maximize_compatibility: opts.maximize_compatibility,
+            thumbnail: opts.image_previews,
+            ..Default::default()
+        };
         let (mut file, mut warnings) = document_to_psd_with(doc, &o);
         if !doc.metadata.text.is_empty() {
             warnings.push("free-form text metadata is not supported by PSD/PSB; it will be dropped".into());
