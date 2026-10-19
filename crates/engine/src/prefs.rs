@@ -190,6 +190,9 @@ pub struct General {
     pub zoom_resizes_windows: bool,
     pub use_legacy_free_transform: bool,
     pub auto_show_home_screen: bool,
+    /// Help › Check for Updates…: look for a new version automatically (once a day, after
+    /// start), when the last check finished, and a version the user chose to skip.
+    pub updates: craft_update::AutoCheck,
 }
 
 impl Default for General {
@@ -206,6 +209,7 @@ impl Default for General {
             zoom_resizes_windows: false,
             use_legacy_free_transform: false,
             auto_show_home_screen: true,
+            updates: craft_update::AutoCheck::default(),
         }
     }
 }
@@ -887,6 +891,8 @@ pub fn is_hidden(path: &str) -> bool {
         || (!cfg!(target_os = "linux") && LINUX_ONLY.contains(&path))
         // The browser build has no control server.
         || (cfg!(target_arch = "wasm32") && path.starts_with("integrations."))
+        // The browser build has no updater: Help › Check for Updates opens the releases page.
+        || (cfg!(target_arch = "wasm32") && path == "general.updates")
 }
 
 /// Preferences that only do something on Linux; the dialog doesn't show them elsewhere. They

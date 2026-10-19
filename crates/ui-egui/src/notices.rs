@@ -34,6 +34,18 @@ pub struct Notice {
     /// and is reset while the pointer rests on the stack (issue #2022). `None` until first shown.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub shown_at: Option<f64>,
+    /// A button on the notice that runs a command (and dismisses the notice), such as the update
+    /// notice's "View Update" opening Help › Check for Updates….
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub action: Option<NoticeAction>,
+}
+
+/// A notice's button: its label (an English template, translated when drawn) and the command id
+/// it runs with no params.
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+pub struct NoticeAction {
+    pub label: String,
+    pub command: String,
 }
 
 impl Notice {
@@ -47,7 +59,16 @@ impl Notice {
 /// Show a notice (newest last); returns its id.
 pub fn post(app: &mut PhotocraftApp, title: impl Into<String>, lines: Vec<String>, error: bool, dismiss_pref: Option<&str>) -> u64 {
     let id = app.ui.alloc_id();
-    app.ui.notices.push(Notice { id, title: title.into(), lines, error, dismiss_pref: dismiss_pref.map(str::to_owned), args: Vec::new(), shown_at: None });
+    app.ui.notices.push(Notice {
+        id,
+        title: title.into(),
+        lines,
+        error,
+        dismiss_pref: dismiss_pref.map(str::to_owned),
+        args: Vec::new(),
+        shown_at: None,
+        action: None,
+    });
     cap_notices(app);
     id
 }
@@ -115,7 +136,7 @@ pub fn slow_cpu_refresh(app: &mut PhotocraftApp, doc: u64, ms: f64, reason: Opti
     post(app, tl!("Large document: redrawing on the CPU"), lines, false, None);
 }
 
-fn dismiss(app: &mut PhotocraftApp, id: u64) {
+pub(crate) fn dismiss(app: &mut PhotocraftApp, id: u64) {
     let dismiss_pref = app.ui.notices.iter().find(|notice| notice.id == id).and_then(|notice| notice.dismiss_pref.clone());
     app.ui.notices.retain(|notice| notice.id != id);
     if let Some(key) = dismiss_pref {
@@ -188,6 +209,7 @@ pub fn show(app: &mut PhotocraftApp, ctx: &egui::Context) {
     }
     let t = crate::theme::Tokens::get(ctx);
     let mut dismiss_id = None;
+    let mut run_action: Option<String> = None;
     // Clear the status bar (~24 px) and leave the dock's edge some air.
     let area = egui::Area::new(egui::Id::new("photocraft-notices"))
         .order(egui::Order::Foreground)
@@ -221,12 +243,24 @@ pub fn show(app: &mut PhotocraftApp, ctx: &egui::Context) {
                             let text = crate::i18n::fmt(tl!("…and {n} more"), &[("n", &(n.lines.len() - MAX_LINES).to_string())]);
                             ui.label(egui::RichText::new(text).color(t.text_faint));
                         }
+                        if let Some(action) = &n.action {
+                            ui.add_space(4.0);
+                            if crate::widgets::secondary_button(ui, &n.text(&action.label), 84.0).clicked() {
+                                dismiss_id = Some(n.id);
+                                run_action = Some(action.command.clone());
+                            }
+                        }
                     });
                 ui.add_space(6.0);
             }
         });
     if let Some(id) = dismiss_id {
         dismiss(app, id);
+    }
+    // Run next frame through the normal command path (`PhotocraftApp::run_pending_invoke`).
+    if let Some(command) = run_action {
+        app.pending_invoke = Some((command, serde_json::json!({})));
+        ctx.request_repaint();
     }
     let (auto_hide, duration) = {
         let i = &app.session.prefs().interface;

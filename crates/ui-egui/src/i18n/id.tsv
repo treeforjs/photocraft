@@ -2902,3 +2902,25 @@ theme	Warm	Hangat
 	This is everything that will be sent:	Inilah semua yang akan dikirim:
 	Opens a new issue on GitHub in your browser; you can still edit it there.	Membuka issue baru di GitHub di browser Anda; Anda masih dapat mengeditnya di sana.
 	Open on GitHub	Buka di GitHub
+
+# Help › Check for Updates… and Preferences › General › Check for updates automatically.
+	Check for Updates…	Periksa Pembaruan…
+	Checking for updates…	Memeriksa pembaruan…
+	PhotoCraft {version} is up to date.	PhotoCraft {version} sudah versi terbaru.
+	PhotoCraft {version} is available	PhotoCraft {version} tersedia
+	You have version {version}.	Versi Anda {version}.
+	The update is downloaded and verified. It installs when PhotoCraft quits.	Pembaruan sudah diunduh dan diverifikasi. Pembaruan akan dipasang saat PhotoCraft ditutup.
+	Couldn't check for updates: {error}	Tidak dapat memeriksa pembaruan: {error}
+	Downloading… {received} of {total} MB	Mengunduh… {received} dari {total} MB
+	Downloading… {received} MB	Mengunduh… {received} MB
+	Download and Install	Unduh dan Pasang
+	Skip This Version	Lewati Versi Ini
+	Later	Nanti
+	Open Release Page	Buka Halaman Rilis
+	Restart Now	Mulai Ulang Sekarang
+	Install When I Quit	Pasang Saat Keluar
+	Check Now	Periksa Sekarang
+	Check for updates automatically	Periksa pembaruan secara otomatis
+	Looks for a new version once a day, a few seconds after PhotoCraft starts.	Mencari versi baru sekali sehari, beberapa detik setelah PhotoCraft dimulai.
+	Open it to see what's new and install it.	Buka untuk melihat yang baru dan memasangnya.
+	View Update	Lihat Pembaruan

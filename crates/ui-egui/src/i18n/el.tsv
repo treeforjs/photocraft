@@ -3606,3 +3606,25 @@ theme	Warm	Ζεστό
 	This is everything that will be sent:	Αυτά είναι όλα όσα θα σταλούν:
 	Opens a new issue on GitHub in your browser; you can still edit it there.	Ανοίγει ένα νέο ζήτημα στο GitHub στο πρόγραμμα περιήγησης· μπορείτε ακόμη να το επεξεργαστείτε εκεί.
 	Open on GitHub	Άνοιγμα στο GitHub
+
+# Help › Check for Updates… and Preferences › General › Check for updates automatically.
+	Check for Updates…	Έλεγχος για ενημερώσεις…
+	Checking for updates…	Αναζήτηση ενημερώσεων…
+	PhotoCraft {version} is up to date.	Το PhotoCraft {version} είναι ενημερωμένο.
+	PhotoCraft {version} is available	Διατίθεται το PhotoCraft {version}
+	You have version {version}.	Έχετε την έκδοση {version}.
+	The update is downloaded and verified. It installs when PhotoCraft quits.	Η ενημέρωση λήφθηκε και επαληθεύτηκε. Θα εγκατασταθεί όταν κλείσει το PhotoCraft.
+	Couldn't check for updates: {error}	Δεν ήταν δυνατός ο έλεγχος για ενημερώσεις: {error}
+	Downloading… {received} of {total} MB	Λήψη… {received} από {total} MB
+	Downloading… {received} MB	Λήψη… {received} MB
+	Download and Install	Λήψη και εγκατάσταση
+	Skip This Version	Παράλειψη αυτής της έκδοσης
+	Later	Αργότερα
+	Open Release Page	Άνοιγμα σελίδας έκδοσης
+	Restart Now	Επανεκκίνηση τώρα
+	Install When I Quit	Εγκατάσταση κατά την έξοδο
+	Check Now	Έλεγχος τώρα
+	Check for updates automatically	Αυτόματος έλεγχος για ενημερώσεις
+	Looks for a new version once a day, a few seconds after PhotoCraft starts.	Αναζητά νέα έκδοση μία φορά την ημέρα, λίγα δευτερόλεπτα μετά την εκκίνηση του PhotoCraft.
+	Open it to see what's new and install it.	Ανοίξτε την για να δείτε τι νέο υπάρχει και να την εγκαταστήσετε.
+	View Update	Προβολή ενημέρωσης

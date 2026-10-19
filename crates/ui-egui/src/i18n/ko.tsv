@@ -3079,3 +3079,25 @@ theme	Warm	웜
 	This is everything that will be sent:	전송될 내용은 이것이 전부입니다:
 	Opens a new issue on GitHub in your browser; you can still edit it there.	브라우저에서 GitHub의 새 이슈를 엽니다. 거기서 계속 편집할 수 있습니다.
 	Open on GitHub	GitHub에서 열기
+
+# Help › Check for Updates… and Preferences › General › Check for updates automatically.
+	Check for Updates…	업데이트 확인…
+	Checking for updates…	업데이트 확인 중…
+	PhotoCraft {version} is up to date.	PhotoCraft {version}은(는) 최신 버전입니다.
+	PhotoCraft {version} is available	PhotoCraft {version}을(를) 사용할 수 있습니다
+	You have version {version}.	현재 버전은 {version}입니다.
+	The update is downloaded and verified. It installs when PhotoCraft quits.	업데이트를 다운로드하고 확인했습니다. PhotoCraft를 종료할 때 설치됩니다.
+	Couldn't check for updates: {error}	업데이트를 확인할 수 없습니다: {error}
+	Downloading… {received} of {total} MB	다운로드 중… {received}/{total}MB
+	Downloading… {received} MB	다운로드 중… {received}MB
+	Download and Install	다운로드 및 설치
+	Skip This Version	이 버전 건너뛰기
+	Later	나중에
+	Open Release Page	릴리스 페이지 열기
+	Restart Now	지금 다시 시작
+	Install When I Quit	종료할 때 설치
+	Check Now	지금 확인
+	Check for updates automatically	자동으로 업데이트 확인
+	Looks for a new version once a day, a few seconds after PhotoCraft starts.	하루에 한 번, PhotoCraft 시작 후 몇 초 뒤에 새 버전을 확인합니다.
+	Open it to see what's new and install it.	열어서 새로운 기능을 확인하고 설치하세요.
+	View Update	업데이트 보기

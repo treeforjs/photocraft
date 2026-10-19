@@ -2484,3 +2484,25 @@ theme	Warm	暖色
 	This is everything that will be sent:	以下是將會傳送的全部內容：
 	Opens a new issue on GitHub in your browser; you can still edit it there.	在瀏覽器中開啟 GitHub 新議題；你仍可在那裡編輯。
 	Open on GitHub	在 GitHub 上開啟
+
+# Help › Check for Updates… and Preferences › General › Check for updates automatically.
+	Check for Updates…	檢查更新…
+	Checking for updates…	正在檢查更新…
+	PhotoCraft {version} is up to date.	PhotoCraft {version} 已是最新版本。
+	PhotoCraft {version} is available	PhotoCraft {version} 已推出
+	You have version {version}.	你的版本是 {version}。
+	The update is downloaded and verified. It installs when PhotoCraft quits.	更新已下載並驗證，將在結束 PhotoCraft 時安裝。
+	Couldn't check for updates: {error}	無法檢查更新：{error}
+	Downloading… {received} of {total} MB	正在下載… {received} / {total} MB
+	Downloading… {received} MB	正在下載… {received} MB
+	Download and Install	下載並安裝
+	Skip This Version	略過此版本
+	Later	稍後
+	Open Release Page	開啟發行頁面
+	Restart Now	立即重新啟動
+	Install When I Quit	結束時安裝
+	Check Now	立即檢查
+	Check for updates automatically	自動檢查更新
+	Looks for a new version once a day, a few seconds after PhotoCraft starts.	每天檢查一次新版本，在 PhotoCraft 啟動幾秒後進行。
+	Open it to see what's new and install it.	開啟以查看新功能並安裝。
+	View Update	檢視更新

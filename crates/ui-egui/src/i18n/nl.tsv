@@ -3671,3 +3671,25 @@ theme	Warm	Warm
 	This is everything that will be sent:	Dit is alles wat wordt verzonden:
 	Opens a new issue on GitHub in your browser; you can still edit it there.	Opent een nieuwe issue op GitHub in je browser; je kunt die daar nog bewerken.
 	Open on GitHub	Openen op GitHub
+
+# Help › Check for Updates… and Preferences › General › Check for updates automatically.
+	Check for Updates…	Controleren op updates…
+	Checking for updates…	Zoeken naar updates…
+	PhotoCraft {version} is up to date.	PhotoCraft {version} is up-to-date.
+	PhotoCraft {version} is available	PhotoCraft {version} is beschikbaar
+	You have version {version}.	Je hebt versie {version}.
+	The update is downloaded and verified. It installs when PhotoCraft quits.	De update is gedownload en gecontroleerd. Hij wordt geïnstalleerd wanneer PhotoCraft afsluit.
+	Couldn't check for updates: {error}	Kan niet op updates controleren: {error}
+	Downloading… {received} of {total} MB	Downloaden… {received} van {total} MB
+	Downloading… {received} MB	Downloaden… {received} MB
+	Download and Install	Downloaden en installeren
+	Skip This Version	Deze versie overslaan
+	Later	Later
+	Open Release Page	Releasepagina openen
+	Restart Now	Nu herstarten
+	Install When I Quit	Installeren bij afsluiten
+	Check Now	Nu controleren
+	Check for updates automatically	Automatisch op updates controleren
+	Looks for a new version once a day, a few seconds after PhotoCraft starts.	Zoekt eenmaal per dag naar een nieuwe versie, enkele seconden nadat PhotoCraft is gestart.
+	Open it to see what's new and install it.	Open het om te zien wat er nieuw is en het te installeren.
+	View Update	Update bekijken

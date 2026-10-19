@@ -43,9 +43,9 @@ note = "release.yml:242-283 (freebsd job) + packaging/freebsd/package.sh; layout
 [[item]]
 id = "DIST-220-1"
 target = "Help > Check for Updates plus an opt-out periodic release-feed check on all desktops"
-status = "missing"
+status = "done"
 issue = 220
-note = "No update check in crates"
+note = "ui-egui updates_ui.rs on craft-update: Help > Check for Updates (help.checkUpdates; dialog with download progress, Skip This Version, Restart Now / Install When I Quit) and Preferences > General > Check for updates automatically (general.updates, daily, 10 s after start, quiet notice only); verified MSI/AppImage/deb/rpm installs on quit once UPDATE_SIGNING_KEY and CRAFT_UPDATE_PUBLIC_KEY are set (release.yml signs SHA256SUMS.txt), release page elsewhere and on the web; updates_ui_tests.rs (the_dialog_shows_the_new_version_and_a_download_button, a_background_check_shows_a_notice_not_a_modal, up_to_date_or_failed_background_checks_show_nothing, skipping_a_version_hides_it_until_a_newer_one, the_automatic_check_waits_for_the_start_delay_and_the_preference), engine update_check_preference_round_trips"
 
 [[item]]
 id = "DIST-220-2"

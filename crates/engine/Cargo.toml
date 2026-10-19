@@ -34,6 +34,9 @@ photocraft-plugins = { workspace = true }
 blake3 = { version = "1.8", default-features = false, features = ["pure"] }
 photocraft-codecs = { workspace = true }
 flate2 = { workspace = true }
+# Preferences › General › Check for updates automatically (`craft_update::AutoCheck`, data only:
+# the network and installers stay in the desktop app and ui-egui, behind `default-features = false`).
+craft-update = { workspace = true }
 
 [dev-dependencies]
 photocraft-affinity = { workspace = true, features = ["synth"] }

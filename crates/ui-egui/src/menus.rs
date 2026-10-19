@@ -78,6 +78,7 @@ pub const UI_COMMANDS: &[(&str, &str, &[&str], Option<&str>)] = &[
     ("edit.search", "Search…", &["Edit"], Some("Cmd+F")),
     ("help.github", "PhotoCraft on GitHub", &["Help"], None),
     ("help.reportIssue", "Report an Issue…", &["Help"], None),
+    ("help.checkUpdates", "Check for Updates…", &["Help"], None),
     ("help.systemInfo", "System Info…", &["Help"], None),
     ("help.about", "About PhotoCraft", &["Help"], None),
 ];
@@ -154,6 +155,10 @@ pub(crate) fn invoke_unguarded(app: &mut PhotocraftApp, ctx: &egui::Context, id:
     // Help › Report an Issue…: the report dialog (or, with params, the report itself).
     if id == "help.reportIssue" {
         return crate::bug_report::run(app, ctx, &params);
+    }
+    // Help › Check for Updates… (or, with `action`, one of its dialog's buttons).
+    if id == crate::updates_ui::COMMAND {
+        return crate::updates_ui::run(app, ctx, &params);
     }
     // Help › GitHub.
     if let Some(url) = crate::links::url_for(id) {
@@ -578,7 +583,7 @@ pub fn is_enabled(app: &PhotocraftApp, id: &str) -> bool {
         return e;
     }
     match id {
-        "file.open" | "file.exit" | "file.clearRecent" | "help.about" | "help.systemInfo" | "help.reportIssue" | "edit.search" => true,
+        "file.open" | "file.exit" | "file.clearRecent" | "help.about" | "help.systemInfo" | "help.reportIssue" | "help.checkUpdates" | "edit.search" => true,
         i if i.starts_with("file.openRecent.") => true,
         i if crate::links::url_for(i).is_some() => true,
         i if i.starts_with("window.theme.") => true,

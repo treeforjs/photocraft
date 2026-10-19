@@ -174,6 +174,7 @@ pub mod type_panels_ui;
 pub mod type_spell_menu;
 pub mod type_tool;
 mod type_transform;
+pub mod updates_ui;
 mod variables_ui;
 pub mod vector_ui;
 pub mod view_cmds;
@@ -509,6 +510,8 @@ pub struct PhotocraftApp {
     /// A UI command to run at the start of the next frame, where a context is at hand (the
     /// transform mode the "Rasterize?" prompt was answered for).
     pub(crate) pending_invoke: Option<(String, Value)>,
+    /// Help › Check for Updates… and the automatic check (see `updates_ui`).
+    pub(crate) updates: updates_ui::Updates,
     /// True only while a frame is processing synthetic automation input. It
     /// makes shortcut- and dialog-triggered commands pass the same policy as
     /// direct control calls.
@@ -666,6 +669,7 @@ impl PhotocraftApp {
             adjust_preview: None,
             synthetic: Vec::new(),
             pending_invoke: None,
+            updates: Default::default(),
             automation_input: false,
             channel_thumbs: None,
             channel_views: HashMap::new(),
@@ -1322,6 +1326,7 @@ impl eframe::App for PhotocraftApp {
         self.issue_screenshots(ctx);
         prefs_ui::tick(self, ctx);
         monitor_status::poll(self, ctx);
+        updates_ui::tick(self, ctx);
         // Control requests and persisted preferences can change the language in this frame.
         i18n::sync_context(ctx, &self.session.prefs().interface.language);
         // A window bigger than its display (1440 × 900 on 1366 × 768) runs under the taskbar:

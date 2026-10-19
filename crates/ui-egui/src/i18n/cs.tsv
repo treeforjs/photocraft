@@ -2507,3 +2507,25 @@ theme	Warm	Teplý
 	This is everything that will be sent:	Toto je vše, co bude odesláno:
 	Opens a new issue on GitHub in your browser; you can still edit it there.	Otevře nový problém na GitHubu v prohlížeči; tam jej ještě můžete upravit.
 	Open on GitHub	Otevřít na GitHubu
+
+# Help › Check for Updates… and Preferences › General › Check for updates automatically.
+	Check for Updates…	Vyhledat aktualizace…
+	Checking for updates…	Hledání aktualizací…
+	PhotoCraft {version} is up to date.	PhotoCraft {version} je aktuální.
+	PhotoCraft {version} is available	Je k dispozici PhotoCraft {version}
+	You have version {version}.	Máte verzi {version}.
+	The update is downloaded and verified. It installs when PhotoCraft quits.	Aktualizace je stažená a ověřená. Nainstaluje se při ukončení aplikace PhotoCraft.
+	Couldn't check for updates: {error}	Aktualizace nelze vyhledat: {error}
+	Downloading… {received} of {total} MB	Stahování… {received} z {total} MB
+	Downloading… {received} MB	Stahování… {received} MB
+	Download and Install	Stáhnout a nainstalovat
+	Skip This Version	Přeskočit tuto verzi
+	Later	Později
+	Open Release Page	Otevřít stránku vydání
+	Restart Now	Restartovat nyní
+	Install When I Quit	Nainstalovat při ukončení
+	Check Now	Vyhledat nyní
+	Check for updates automatically	Automaticky vyhledávat aktualizace
+	Looks for a new version once a day, a few seconds after PhotoCraft starts.	Jednou denně, několik sekund po spuštění aplikace PhotoCraft, vyhledá novou verzi.
+	Open it to see what's new and install it.	Otevřete ji, abyste viděli novinky a mohli ji nainstalovat.
+	View Update	Zobrazit aktualizaci
