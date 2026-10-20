@@ -32,7 +32,7 @@ pub struct FileMenuState {
     /// Documents with File › Generate › Image Assets on.
     pub image_assets: Vec<DocId>,
     /// Files this session generated, so later saves can refresh unchanged outputs safely.
-    pub(crate) asset_outputs: std::collections::BTreeMap<DocId, crate::export_files::OwnedOutputs>,
+    pub(crate) asset_outputs: std::collections::HashMap<DocId, crate::export_files::OwnedOutputs>,
     /// File › Print settings used last (Print One Copy repeats them).
     pub last_print: Option<Value>,
     /// Save for Web settings used last.
