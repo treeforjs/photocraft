@@ -645,10 +645,13 @@ mod tests {
 
     #[test]
     fn window_close_is_cancelled_while_work_is_unsaved() {
-        let mut app = app_with_docs(1);
-        make_dirty(&mut app, 0);
-        assert!(press_window_close(&mut app));
-        assert!(app.discard.is_some());
+        for custom_titlebar in [false, true] {
+            let mut app = app_with_docs(1);
+            app.custom_titlebar = custom_titlebar;
+            make_dirty(&mut app, 0);
+            assert!(press_window_close(&mut app), "unsaved work is protected with either frame");
+            assert!(app.discard.is_some());
+        }
     }
 
     #[test]

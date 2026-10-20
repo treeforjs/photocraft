@@ -167,6 +167,9 @@ jobs:
           curl -fsSL -o "$RUNNER_TEMP/nfpm.deb" \
             "https://github.com/goreleaser/nfpm/releases/download/v${NFPM_VERSION}/nfpm_${NFPM_VERSION}_${{ matrix.deb }}.deb"
           sudo dpkg -i "$RUNNER_TEMP/nfpm.deb"
+      - name: Install native window frame check tools
+        if: matrix.arch == 'x86_64'
+        run: sudo apt-get install -y --no-install-recommends weston xvfb scrot libegl1-mesa libgl1-mesa-dri fonts-cantarell
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
         with:
@@ -179,6 +182,16 @@ jobs:
           CRAFT_FONTS_DIR: ${{ github.workspace }}/craft-fonts
           CRAFT_FONTS_REQUIRED: "1"
         run: packaging/linux/package.sh
+      - name: Check the real Wayland window frame
+        if: matrix.arch == 'x86_64'
+        run: bash packaging/linux/check-window-frame.sh target/release/photocraft target/window-frame
+      - name: Retain native window frame diagnostics
+        if: always() && matrix.arch == 'x86_64'
+        uses: actions/upload-artifact@v4
+        with:
+          name: window-frame-linux-x86_64
+          path: target/window-frame/
+          if-no-files-found: warn
       - name: Check the packages
         run: |
           dpkg-deb --info dist/release/*.deb
@@ -317,6 +330,8 @@ jobs:
           title="PhotoCraft v$VERSION"
           cat >"$RUNNER_TEMP/release-notes.md" <<'NOTES'
           Windows and Linux packages for PhotoCraft.
+
+          Standard minimize, maximize and close controls now apply to Windows and Linux, including existing installations. The menu and workspace toolbar stays in the app, and closing still asks about unsaved documents.
 
           Windows: use the MSI installer, the portable ZIP, or Craftworks.
           Linux: use the AppImage, Debian/RPM package, tarball, or Craftworks.

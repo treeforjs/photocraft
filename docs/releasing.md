@@ -146,6 +146,18 @@ software rendering, with both automatic backend selection and forced OpenGL.
 Screenshots and logs are retained as CI artifacts. See the
 [Ubuntu guide](ubuntu.md) for installation and local smoke-test commands.
 
+The Linux x86_64 job also runs `packaging/linux/check-window-frame.sh` in a private nested
+Weston/Xvfb desktop. It forces Wayland and captures the full native window, including the
+standard minimize, maximize and close controls, as `window-frame-linux-x86_64`. Review that
+artifact before publishing. The check uses temporary settings and never opens the user's
+desktop or document library. Its prerequisites are Weston, Xvfb, scrot, Mesa EGL/GL and
+`fonts-cantarell`; its two arguments are the built executable and an output directory.
+
+Linux packages include the Cantarell fallback font's OFL notice under
+`share/licenses/photocraft/OFL-Cantarell.txt`, including inside the AppImage. The font comes
+from the locked `sctk-adwaita` dependency; no new font file is stored in this repository.
+The same directory retains `NOTICE`, including the window frame dependency's MIT license.
+
 Why these formats:
 
 - **AppImage** runs on any distribution without installing anything. The

@@ -65,6 +65,10 @@ mkdir -p "$STAGE/usr/share/icons"
 cp -R "$ROOT/assets/app-icon/hicolor" "$STAGE/usr/share/icons/"
 mkdir -p "$STAGE/usr/share/doc/photocraft"
 copy_docs "$STAGE/usr/share/doc/photocraft"
+# winit's Wayland frame embeds a Cantarell fallback through sctk-adwaita.
+# Keep its licence outside doc/, which AppImage assembly omits below.
+install -Dm644 "$ROOT/assets/fonts/OFL-Cantarell.txt" "$STAGE/usr/share/licenses/photocraft/OFL-Cantarell.txt"
+install -Dm644 "$ROOT/NOTICE" "$STAGE/usr/share/licenses/photocraft/NOTICE"
 # A checkout itself may have been created with umask 077; cp keeps those source
 # permissions even after resetting the packaging umask. Normalize only the copy.
 find "$STAGE/usr/share" -type d -exec chmod 755 {} +

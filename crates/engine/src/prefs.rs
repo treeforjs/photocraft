@@ -241,10 +241,6 @@ pub struct Interface {
     /// Move tool drags show only the layer's outline and an arrow, leaving its pixels in place
     /// until release. Off (the default), the pixels follow the pointer live inside the outline.
     pub show_bounding_box_when_dragging_layer: bool,
-    /// Windows and Linux: use the system's title bar and window buttons instead of PhotoCraft's
-    /// own one-row title bar (tiling window managers, desktops that draw their own decorations;
-    /// #1271, #1316). Read when the app starts. macOS always uses the system's.
-    pub system_title_bar: bool,
     /// Notices (the lower-right cards) hide themselves after
     /// [`Interface::notification_duration_seconds`] unless the pointer rests on them (#2022).
     pub notification_auto_hide: bool,
@@ -276,7 +272,6 @@ impl Default for Interface {
             show_menu_colors: true,
             show_tooltips: true,
             show_bounding_box_when_dragging_layer: false,
-            system_title_bar: false,
             notification_auto_hide: true,
             notification_duration_seconds: 6,
             animations: true,
