@@ -39,6 +39,8 @@ jobs:
           "$RUNNER_TEMP/actionlint" -color
       - name: shellcheck
         run: shellcheck packaging/*.sh packaging/*/*.sh packaging/linux/AppRun
+      - name: Update signing keys and signatures
+        run: bash packaging/check-update-key-test.sh
       - name: AppImage AppRun desktop integration
         run: bash packaging/linux/apprun-test.sh
       - name: Linux package staging and permissions

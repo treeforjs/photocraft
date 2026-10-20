@@ -1,9 +1,9 @@
 # Releasing PhotoCraft
 
 Every push to the `release` branch runs `.github/workflows/release.yml`. The workflow builds
-signed installers for macOS, Windows, Linux and the web, plus a FreeBSD tarball, then creates
-or updates a **draft** GitHub Release named `PhotoCraft v<version>`. Nobody sees a draft until a
-maintainer publishes it.
+Windows and Linux packages, signs their checksum list, then creates or updates a **draft**
+GitHub Release named `PhotoCraft v<version>`. Nobody sees a draft until a maintainer publishes it.
+The release pipeline has no macOS, FreeBSD, web or Flatpak build jobs.
 
 This document is the release recipe for this repository (`release-playbook.md` only points here).
 User-facing names say **PhotoCraft**. Files, binaries
@@ -21,11 +21,13 @@ and ids stay lowercase (`photocraft-<version>-<platform>-<arch>.<ext>`, `ai.stor
 
    Commit the change (`Cargo.toml` + `Cargo.lock`) through the normal review flow.
 2. **Merge `main` into `release`** (or fast-forward it) and push. The workflow starts by itself.
-3. **Wait for the draft.** After about 30 to 45 minutes (notarization is the slow part), the
+3. **Wait for the draft.** After the Windows/Linux builds and Ubuntu smoke checks pass, the
    Releases page has a draft `PhotoCraft v0.2.0`, tagged `v0.2.0` on the pushed commit, with
-   every artifact and `SHA256SUMS.txt`. The notes are generated from the merged PRs.
-4. **Check it.** Download an installer or two and look at the job summaries. Any
-   `::warning::` there means a signing secret was missing and that artifact is unsigned.
+   every artifact, `SHA256SUMS.txt` and `SHA256SUMS.txt.sig`. The notes describe the available
+   Windows/Linux packages; add the changes users should know about before publishing.
+4. **Check it.** Test the Windows portable ZIP and Linux AppImage in Craftworks, and inspect
+   the job summaries. Ed25519 checksum signing is required. Windows Authenticode certificates
+   are optional; warnings about those certificates do not affect Craftworks verification.
 5. **Add the scorecard deltas** to the draft's notes: what moved in
    [`docs/scorecard.md`](scorecard.md) since the previous release. Compare the summary table
    and the performance table of both tags (`git diff v<previous> v<this> -- docs/scorecard.md`)
@@ -42,79 +44,33 @@ After the draft is published, the workflow refuses to touch that version again, 
 `version` input (such as `0.2.0-rc.1`) overrides `Cargo.toml` for that run only. The jobs apply
 it with `cargo xtask version set` before building, so the binaries report it too. The run still
 needs the `release` environment, which only the `release` branch can use, so pick that branch
-in the dialog.
+in the dialog. A manual run on another branch never creates or updates a release; its builds
+remain subject to the environment's deployment branch policy.
 
 ## What gets built
 
 | Platform | Artifacts | Built on |
 |---|---|---|
-| macOS 11+ (universal: Apple silicon + Intel) | `photocraft-<v>-macos-universal.dmg`, `photocraft-cli-<v>-macos-universal.zip` | `macos-15` |
 | Windows 10+ x64 | `photocraft-<v>-windows-x64.msi`, `photocraft-<v>-windows-x64-portable.zip` | `windows-latest` |
 | Windows 10+ x86 (32-bit) | `photocraft-<v>-windows-x86.msi`, `photocraft-<v>-windows-x86-portable.zip` | `windows-latest` |
-| Linux x86_64 | `photocraft-<v>-linux-x86_64.{AppImage,AppImage.zsync,deb,rpm,tar.gz,flatpak}` | `ubuntu-22.04` (Flatpak: `ubuntu-24.04`) |
-| Linux aarch64 | `photocraft-<v>-linux-aarch64.{AppImage,AppImage.zsync,deb,rpm,tar.gz,flatpak}` | `ubuntu-22.04-arm` (Flatpak: `ubuntu-24.04-arm`) |
-| FreeBSD 14 x86_64 | `photocraft-<v>-freebsd-x86_64.tar.gz` | FreeBSD 14.3 VM on `ubuntu-latest` |
-| Web | `photocraft-web-<v>.zip` (static site; see [`packaging/web/README.md`](../packaging/web/README.md)) | `ubuntu-latest` |
+| Windows ARM64 | `photocraft-<v>-windows-arm64.msi`, `photocraft-<v>-windows-arm64-portable.zip` | Cross-compiled on `windows-latest` |
+| Linux x86_64 | `photocraft-<v>-linux-x86_64.{AppImage,AppImage.zsync,deb,rpm,tar.gz}` | `ubuntu-22.04` |
+| Linux aarch64 | `photocraft-<v>-linux-aarch64.{AppImage,AppImage.zsync,deb,rpm,tar.gz}` | `ubuntu-22.04-arm` |
 
 Every binary reports its version, the commit and the build date: `photocraft --version`,
 `photocraft-cli --version`, and *Help › About PhotoCraft*. CI sets `PHOTOCRAFT_BUILD_SHA` and
 `PHOTOCRAFT_BUILD_DATE`, and `crates/engine/src/build_info.rs` reads them at compile time. A plain
 `cargo build` doesn't set them and reports `0.2.0 (dev build)`.
 
-Every desktop build job (macOS, Windows, Linux, FreeBSD) also checks out [craft-fonts](https://github.com/storytold/craft-fonts)
+Each Windows/Linux build checks out [craft-fonts](https://github.com/storytold/craft-fonts)
 at the commit in `CRAFT_FONTS_REF` (top of `release.yml`) and builds with `CRAFT_FONTS_DIR` and
-`CRAFT_FONTS_REQUIRED=1`, so desktop releases embed its Japanese fonts (the web build embeds none: see
-`docs/development.md` › Fonts) and fail rather than ship without them. The packages carry each font's licence as
-`OFL-<family>.txt` (`copy_font_licences` in `packaging/env.sh`; the portable zip on Windows;
-`Contents/Resources/Licenses` in the macOS app). Bump the pin deliberately, together with the one
-in `ci.yml`. Build option: `docs/development.md` › Fonts.
-
-### macOS
-
-`packaging/macos/package.sh` builds `aarch64-apple-darwin` and `x86_64-apple-darwin` with
-`MACOSX_DEPLOYMENT_TARGET=11.0`, joins them with `lipo`, and assembles `PhotoCraft.app`:
-
-- `Info.plist` is generated from `Info.plist.in`. The bundle id is `ai.storyteller.photocraft`.
-  The plist sets `LSMinimumSystemVersion` 11.0, `NSHighResolutionCapable`, and document types:
-  `.pcraft` (Owner), plus PSD/PSB and the image formats PhotoCraft reads (Alternate, so it never
-  takes over Preview's defaults). The icon is `assets/app-icon/photocraft.icns`.
-- **Signing** goes inside-out with the hardened runtime and a secure timestamp. The executable
-  is signed first, then the bundle. There's no `--deep` on the final signature. The
-  entitlements (`entitlements.plist`) are deliberately empty.
-- **Notarization:** the app is zipped and sent with `xcrun notarytool submit --wait`, then the
-  ticket is stapled to the app. The app goes on a DMG (`hdiutil`, with an `Applications` link
-  to drag onto). The DMG is signed, notarized and stapled too. The script checks the results
-  with `codesign --verify --strict`, `stapler validate` and `spctl -a -vvv`.
-  Its Finder window (background, icon size and positions) comes from
-  [`packaging/macos/dmg/`](../packaging/macos/dmg/README.md), and its volume is named `PhotoCraft`
-  without the version, which the window's background needs; the DMG file name keeps the version.
-- **CLI:** the universal `photocraft-cli` is signed with the same Developer ID, the hardened
-  runtime and a secure timestamp (identifier `ai.storyteller.photocraft-cli`), zipped, and the zip
-  is sent to `notarytool`. Only `.app`, `.dmg` and `.pkg` can hold a stapled ticket, not a bare
-  Mach-O, so Gatekeeper looks the CLI's ticket up online the first time a downloaded
-  (quarantined) copy runs. Offline, that first run can be refused until the Mac is online again.
-- **Verification:** `packaging/macos/verify.sh` checks the artifacts as users download them. It
-  unpacks the CLI zip and requires, for the binary inside, `codesign --verify --strict`, both
-  architectures, the hardened runtime flag, a `Developer ID Application` authority from
-  `APPLE_TEAM_ID`, a timestamp, and `spctl --assess --type install` reporting
-  `source=Notarized Developer ID` (the same online lookup Gatekeeper does). For the DMG it runs
-  `codesign --verify`, `stapler validate` and `spctl --type open`. The release workflow runs it
-  as its own step after packaging. With signing secrets it fails the job on any miss; without
-  them it only checks signature integrity and warns, like `package.sh`. Run it locally after a
-  build: `packaging/macos/verify.sh --arch aarch64`.
-
-Locally, without certificates, the script signs ad-hoc (`codesign -s -`) and skips notarization.
-That's enough to check the bundle and the DMG on your own Mac:
-
-```sh
-packaging/macos/package.sh                    # universal; needs both rustup targets
-packaging/macos/package.sh --arch aarch64     # quicker, host-only
-open dist/release/photocraft-*-macos-*.dmg
-```
+`CRAFT_FONTS_REQUIRED=1`, so releases embed its Japanese fonts and fail rather than ship without
+them. The packages carry each font's licence as `OFL-<family>.txt`. Bump the pin deliberately,
+together with the one in `ci.yml`. Build option: `docs/development.md` → Fonts.
 
 ### Windows
 
-`packaging/windows/package.ps1 -Arch x64|x86` builds with `-C target-feature=+crt-static`.
+`packaging/windows/package.ps1 -Arch x64|x86|arm64` builds with `-C target-feature=+crt-static`.
 The static C runtime means neither the MSI nor the portable zip needs the Visual C++
 redistributable, which matters for a standalone installer and costs only about 100 KB. The flag
 goes in `CARGO_TARGET_<TRIPLE>_RUSTFLAGS`, so host build scripts aren't affected.
@@ -190,6 +146,18 @@ software rendering, with both automatic backend selection and forced OpenGL.
 Screenshots and logs are retained as CI artifacts. See the
 [Ubuntu guide](ubuntu.md) for installation and local smoke-test commands.
 
+The Linux x86_64 job also runs `packaging/linux/check-window-frame.sh` in a private nested
+Weston/Xvfb desktop. It forces Wayland and captures the full native window, including the
+standard minimize, maximize and close controls, as `window-frame-linux-x86_64`. Review that
+artifact before publishing. The check uses temporary settings and never opens the user's
+desktop or document library. Its prerequisites are Weston, Xvfb, scrot, Mesa EGL/GL and
+`fonts-cantarell`; its two arguments are the built executable and an output directory.
+
+Linux packages include the Cantarell fallback font's OFL notice under
+`share/licenses/photocraft/OFL-Cantarell.txt`, including inside the AppImage. The font comes
+from the locked `sctk-adwaita` dependency; no new font file is stored in this repository.
+The same directory retains `NOTICE`, including the window frame dependency's MIT license.
+
 Why these formats:
 
 - **AppImage** runs on any distribution without installing anything. The
@@ -216,29 +184,10 @@ Why these formats:
   (`nfpm.yaml`). It doesn't need cargo-deb and cargo-generate-rpm metadata in our crates, and
   it can build both formats on Ubuntu.
 - **.tar.gz** is for people who manage their own `/opt` or `~/.local`.
-- **Flatpak bundle** (`.flatpak`) is a single file that installs into Flatpak, sandboxed and
-  updatable by installing a newer bundle, for people who prefer Flatpak to AppImage.
-  `packaging/linux/flatpak-bundle.sh` repackages the job's `.tar.gz` with
-  `packaging/linux/flatpak/ai.storyteller.photocraft.bundle.yml` on the freedesktop 26.08
-  runtime. It does no Rust build and needs no network inside `flatpak-builder`, so the bundle
-  holds the same binaries as the other formats. A separate `flatpak` job per architecture
-  (`ubuntu-24.04` and `ubuntu-24.04-arm`, for flatpak-builder 1.4) downloads the Linux job's
-  artifact, runs the script, installs the bundle and runs `photocraft-cli --version` inside the
-  sandbox as a smoke test. The bundle names Flathub as its runtime repo, so users install
-  it with:
-
-  ```sh
-  flatpak install --user photocraft-<v>-linux-x86_64.flatpak   # pulls org.freedesktop.Platform//26.08 from Flathub if missing
-  flatpak run ai.storyteller.photocraft
-  ```
-
-  Sandbox permissions (justified in the manifest): Wayland with X11 fallback, IPC (X11
-  shared memory), `dri` for the GPU, and read/write access to Pictures and Documents. Every
-  other file goes through the file-chooser and document portals. There's no network, so the
-  `--control` server is only reachable from inside the sandbox until the user runs
-  `flatpak override --user --share=network ai.storyteller.photocraft`. Host fonts are read from
-  `/run/host/fonts` and `/run/host/user-fonts`. Locally (on Linux, with `flatpak` and
-  `flatpak-builder`): `packaging/linux/package.sh --formats tar && packaging/linux/flatpak-bundle.sh`.
+- **Flatpak bundle** is available as a separate local packaging option, outside the release
+  workflow. `packaging/linux/flatpak-bundle.sh` repackages the Linux `.tar.gz` using
+  `packaging/linux/flatpak/ai.storyteller.photocraft.bundle.yml`. See that script for the
+  freedesktop runtime and build requirements. It is not needed by Craftworks.
 - **Flathub**: `packaging/linux/flatpak/ai.storyteller.photocraft.yml` builds from source and
   is ready for a Flathub submission (it keeps the same runtime and `finish-args` as the bundle
   manifest, which packaging-lint checks). CI doesn't build it. A real build needs vendored crate
@@ -259,60 +208,22 @@ one is missing, prints the package to install and exits with status 1 instead of
 Locally (on Linux): install [nfpm](https://nfpm.goreleaser.com/install/), then
 `packaging/linux/package.sh` (or `--formats "deb tar"`).
 
-### FreeBSD
+### Other local packaging
 
-GitHub has no FreeBSD runners, so the `freebsd` job runs `packaging/freebsd/package.sh` in a
-FreeBSD 14.3 VM (`vmactions/freebsd-vm`, pinned by commit), with the same packages as the
-FreeBSD CI workflow (`.github/workflows/freebsd.yml`) plus `bash`. The script builds both
-binaries with `CARGO_BUILD_JOBS=4` (more runs the 12 GB VM out of memory) and writes
-`photocraft-<v>-freebsd-x86_64.tar.gz`. FreeBSD's `uname -m` says `amd64`; the file name uses
-`x86_64` like the other artifacts. The tarball is a `/usr/local`-style tree: `bin/photocraft`,
-`bin/photocraft-cli`, and under `share/` the same desktop entry, MIME type, AppStream metainfo
-and hicolor icons as Linux, plus the licences, `NOTICE` and `ATTRIBUTION.md` in
-`share/doc/photocraft/`. Users install it with:
-
-```sh
-pkg install libxkbcommon wayland libX11 libXcursor libXrandr libXi libxcb mesa-libs vulkan-loader gtk3 fontconfig freetype2 alsa-lib
-tar -xzf photocraft-<v>-freebsd-x86_64.tar.gz --strip-components 1 -C /usr/local
-```
-
-The job signs nothing, so it runs outside the `release` environment and gets no secrets. The
-version, build date and commit reach the VM through the action's `envs:` (by name, never
-templated into the script), and the build happens in `/var/tmp` so only `dist/` is copied back
-out of the VM. The binaries aren't signed: FreeBSD has no code-signing scheme for loose
-binaries, so check the tarball against `SHA256SUMS.txt`.
-
-The FreeBSD CI workflow runs the same script after its build and test (on pushes to `main`, and
-on PRs that touch `packaging/freebsd/`, `freebsd.yml` or `release.yml`), so the release job
-isn't the first place it runs. Locally, on any OS, `packaging/freebsd/package.sh --dry-run` stages the tree from stub binaries
-and lists the tarball, which checks the layout without a FreeBSD machine.
-
-### Web
-
-`packaging/web/package.sh` runs `trunk build --release` (see `apps/photocraft-web/Trunk.toml`)
-and zips `dist/web` together with sample `_headers` and `.htaccess` files and the hosting guide.
-The site only uses relative URLs, so it works under any path and in an iframe. The wasm builds
-with the size-optimized `wasm-release` Cargo profile (set in `apps/photocraft-web/index.html`),
-and the script fails if any `.wasm` exceeds 24 MiB, below Cloudflare's 25 MiB per-file limit.
-[`packaging/web/README.md`](../packaging/web/README.md) covers MIME types, compression,
-caching, the iframe snippet and the `?webgl` / `?cpu` flags.
+Existing scripts under `packaging/macos/`, `packaging/freebsd/` and `packaging/web/` remain
+available for local development, but do not run when cutting a Windows/Linux release.
+Their separate CI workflows are unchanged.
 
 ## Secrets
 
-All secrets live in the repository's **`release` environment** (*Settings → Environments →
-release*). Restrict its deployment branches to `release`. Every job in `release.yml` that
-signs or publishes declares `environment: release` (the Flatpak and FreeBSD jobs sign nothing
-and don't), so only pushes to that branch, or manual runs on it, can read the secrets. Each secret is optional. If one is missing, that platform's artifacts are unsigned and
-the run shows a `::warning::`.
+The **`release` environment** (*Settings → Environments → release*) holds the signing
+secrets. Restrict its deployment branches to `release`. The initial version job validates the
+Ed25519 key pair before the Windows/Linux builds start. A missing, invalid or mismatched
+`UPDATE_SIGNING_KEY` or `CRAFT_UPDATE_PUBLIC_KEY` stops the release; Windows Authenticode
+certificates remain optional. Linux needs no certificate or private key in its build job.
 
 | Secret | Used for |
 |---|---|
-| `APPLE_CERTIFICATE` | base64 `.p12` with "Developer ID Application: Learning Machines LLC (DJ6XS33FX8)" |
-| `APPLE_CERTIFICATE_PASSWORD` | password for that `.p12` |
-| `KEYCHAIN_PASSWORD` | password for the temporary CI keychain (random if unset) |
-| `APPLE_ID` | Apple ID used by `notarytool` |
-| `APPLE_PASSWORD` | app-specific password for that Apple ID |
-| `APPLE_TEAM_ID` | `DJ6XS33FX8` |
 | `WINDOWS_CERTIFICATE` | base64 `.pfx` code-signing certificate |
 | `WINDOWS_CERTIFICATE_PASSWORD` | password for that `.pfx` |
 | `AZURE_TENANT_ID`, `AZURE_CLIENT_ID`, `AZURE_CLIENT_SECRET` | service principal for Azure Trusted Signing (an alternative to the `.pfx`) |
@@ -334,17 +245,18 @@ and installs it when the app quits. The one-time key setup is in craftworks'
 - `UPDATE_SIGNING_KEY` (secret, `release` environment): the draft-release job signs
   `SHA256SUMS.txt` into `SHA256SUMS.txt.sig` and uploads it with the other files.
 - `CRAFT_UPDATE_PUBLIC_KEY` (a *repository* variable, *Settings → Secrets and variables →
-  Actions → Variables*, not secret): the macOS, Windows and Linux build jobs embed it. It must be
+  Actions → Variables*, not secret): the Windows and Linux build jobs embed it. It must be
   a repository variable rather than a `release`-environment one because the Linux job runs
   without that environment.
 
-Without the key the release still builds (with a warning) and the app still tells people about
-a new version, but it only offers the release page instead of installing.
+The public variable accepts base64 Ed25519 SubjectPublicKeyInfo DER (44 bytes) or raw public
+key bytes (32 bytes). Both forms must match the private key. Use the same public key in
+Craftworks so it can verify these packages. The workflow validates the pair again, signs the
+complete checksum list and verifies the signature before uploading any release assets.
 
-On macOS, `packaging/macos/import-cert.sh` decodes the `.p12` into a temporary keychain
-(`security create-keychain`, then `security import`, then `set-key-partition-list` so codesign
-can use the key without a prompt). It exports the identity's SHA-1 as `MACOS_SIGN_IDENTITY`.
-The keychain is deleted at the end of the job.
+Generate and store production keys outside the repository; see the linked one-time setup.
+`bash packaging/check-update-key-test.sh` exercises validation and signing with temporary
+throwaway keys, including malformed keys, mismatches and tampered checksum files.
 
 ## Icons
 

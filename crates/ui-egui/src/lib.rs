@@ -467,8 +467,8 @@ pub struct PhotocraftApp {
     styled: bool,
     /// Whether the window uses an integrated (transparent) macOS title bar.
     pub integrated_titlebar: bool,
-    /// Windows and Linux: the window has no OS decorations and the app's top bar is the title bar
-    /// (caption buttons, window dragging and edge resizing, `titlebar`).
+    /// Optional host caption mode: the app draws its own window buttons and resize edges.
+    /// The desktop app leaves this off and uses the standard native frame.
     pub custom_titlebar: bool,
     /// Last window title sent to the OS (`ViewportCommand::Title`, see `panels::sync_window_title`):
     /// sent again only when it changes, so idle frames don't spam the backend.
