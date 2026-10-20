@@ -374,7 +374,7 @@ a driver process crash is detected by the startup marker on the next launch.
 
 ### Camera Raw dialog
 
-On the desktop the dialog is a window of its own (title bar, moved and resized like any window), as Adobe Camera Raw is; the main window is dimmed and takes no input while it is open, and closing the window is Cancel. Where the platform has no extra windows (the web build) it is drawn over the main window.
+On the desktop the dialog is a window of its own (title bar, moved and resized like any window); the main window is dimmed and takes no input while it is open, and closing the window is Cancel. Where the platform has no extra windows (the web build) it is drawn over the main window.
 
 **Screenshots:** `ui.screenshot` captures the main window only, and eframe cannot capture an
 immediate viewport, so while Camera Raw has its own window the PNG shows the dimmed main window,
@@ -400,7 +400,7 @@ keeps the dialog open for correction. Nothing else writes document history.
 
 **Opening a raw file.** An interactive open (File › Open, Open Recent, drag and drop, the
 command line) of a camera raw developed from its sensor data shows this dialog first, titled
-"Camera Raw (name)", with **Open** and **Cancel**, as Photoshop opens raws in Adobe Camera Raw.
+"Camera Raw (name)", with **Open** and **Cancel**.
 `ui.inspect.cameraRaw.openingRaw` is then `{name, path}`. Commit (Open) re-develops the raw when
 Temperature, Tint or Exposure changed (as-shot white-balance gains and develop exposure on the
 sensor data; without an as-shot white balance, or without the file's bytes, they stay RGB
