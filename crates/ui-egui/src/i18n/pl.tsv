@@ -173,7 +173,6 @@
 	Camera Raw…	Camera Raw…
 	Raw Defaults…	Domyślne ustawienia Raw…
 	Integrations…	Integracje…
-	AI Integrations…	Integracje AI…
 	Install Plug-in…	Zainstaluj wtyczkę…
 	Language Options	Opcje językowe
 	Settings…	Ustawienia…
@@ -2925,7 +2924,6 @@ cameraRaw	Roughness	Chropowatość
 	Convert to Profile	Konwertuj na profil
 	Camera Raw	Camera Raw
 	Raw Defaults	Domyślne ustawienia Raw
-	AI Integrations	Integracje AI
 	Install Plug-in	Zainstaluj wtyczkę
 	Color Table	Tablica kolorów
 	Shadows/Highlights	Cienie/światła
@@ -3216,7 +3214,6 @@ cameraRaw	Roughness	Chropowatość
 # About ▸ Contributors / Models (credits)
 	About	O programie
 	Contributors	Współtwórcy
-	Models	Modele
 	Sort	Sortuj
 	Username	Nazwa użytkownika
 	Display name	Nazwa wyświetlana
@@ -3238,7 +3235,6 @@ cameraRaw	Roughness	Chropowatość
 	Last	Ostatni
 	Contributors: {contributors} · Commits: {commits}	Współtwórcy: {contributors} · Commity: {commits}
 	No contributor data was built into this copy.	Ta kopia nie zawiera danych o współtwórcach.
-	No model credits were built into this copy.	Ta kopia nie zawiera informacji o modelach.
 	Company	Firma
 	Version	Wersja
 	% of all commits	% wszystkich commitów

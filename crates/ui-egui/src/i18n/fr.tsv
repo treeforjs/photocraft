@@ -175,7 +175,6 @@
 	Camera Raw…	Camera Raw…
 	Raw Defaults…	Valeurs Raw par défaut…
 	Integrations…	Intégrations…
-	AI Integrations…	Intégrations d'IA…
 	Install Plug-in…	Installer une extension…
 	Language Options	Options de langue
 	Settings…	Paramètres…
@@ -2610,7 +2609,6 @@ cameraRaw	Blending	Fusion
 # About ▸ Contributors / Models (credits, craftrules standards/contributors.md)
 	About	À propos
 	Contributors	Contributeurs
-	Models	Modèles
 	Sort	Trier
 	Username	Nom d'utilisateur
 	Display name	Nom affiché
@@ -2632,7 +2630,6 @@ cameraRaw	Blending	Fusion
 	Last	Dernier
 	Contributors: {contributors} · Commits: {commits}	Contributeurs : {contributors} · Commits : {commits}
 	No contributor data was built into this copy.	Aucune donnée de contributeurs n'est incluse dans cette copie.
-	No model credits were built into this copy.	Aucun crédit de modèle n'est inclus dans cette copie.
 	Company	Société
 	Version	Version
 	% of all commits	% de tous les commits

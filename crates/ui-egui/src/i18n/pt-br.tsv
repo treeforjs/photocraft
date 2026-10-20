@@ -172,7 +172,6 @@
 	Camera Raw…	Camera Raw…
 	Raw Defaults…	Padrões de Raw…
 	Integrations…	Integrações…
-	AI Integrations…	Integrações de IA…
 	Install Plug-in…	Instalar plug-in…
 	Language Options	Opções de idioma
 	Settings…	Configurações…
@@ -2618,7 +2617,6 @@ cameraRaw	Whites	Brancos
 # About ▸ Contributors / Models (credits, craftrules standards/contributors.md)
 	About	Sobre
 	Contributors	Colaboradores
-	Models	Modelos
 	Sort	Ordenar
 	Username	Nome de usuário
 	Display name	Nome de exibição
@@ -2640,7 +2638,6 @@ cameraRaw	Whites	Brancos
 	Last	Último
 	Contributors: {contributors} · Commits: {commits}	Colaboradores: {contributors} · Commits: {commits}
 	No contributor data was built into this copy.	Esta cópia não inclui dados de colaboradores.
-	No model credits were built into this copy.	Esta cópia não inclui créditos de modelos.
 	Company	Empresa
 	Version	Versão
 	% of all commits	% de todos os commits

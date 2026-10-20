@@ -175,7 +175,6 @@
 	Camera Raw…	Camera Raw…
 	Raw Defaults…	RAW の既定値…
 	Integrations…	連携…
-	AI Integrations…	AI 連携…
 	Install Plug-in…	プラグインをインストール…
 	Language Options	言語オプション
 	Settings…	設定…
@@ -2163,7 +2162,6 @@ cameraRaw	Color	カラー
 # About ▸ Contributors / Models (credits, craftrules standards/contributors.md)
 	About	バージョン情報
 	Contributors	コントリビューター
-	Models	モデル
 	Sort	並べ替え
 	Username	ユーザー名
 	Display name	表示名
@@ -2185,7 +2183,6 @@ cameraRaw	Color	カラー
 	Last	最後
 	Contributors: {contributors} · Commits: {commits}	コントリビューター: {contributors} · コミット: {commits}
 	No contributor data was built into this copy.	このコピーにはコントリビューターのデータが含まれていません。
-	No model credits were built into this copy.	このコピーにはモデルのクレジットが含まれていません。
 	Company	会社
 	Model	モデル
 	Version	バージョン
@@ -3054,7 +3051,6 @@ fontWeight	Italic	斜体
 	3D	3D
 	3D…	3D…
 	ACES	ACES
-	AI Integrations	AI 連携
 	Accurate	高精度
 	Actual Color	実際のカラー
 	Add Pins	ピンを追加

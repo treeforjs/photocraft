@@ -1,4 +1,4 @@
-//! Filter › Camera Raw Filter…: a large dialog like Adobe Camera Raw's (preview on the left,
+//! Filter › Camera Raw Filter…: a large raw-development dialog (preview on the left,
 //! edit panels on the right: Light, Color, Effects, Curve, Color Mixer, Color Grading, Detail).
 //!
 //! The preview runs [`photocraft_algo::camera_raw::develop`] on a CPU proxy of the layer
@@ -165,7 +165,7 @@ enum Target {
 }
 
 /// A raw file opened interactively, shown in Camera Raw before it is kept (as Photoshop opens
-/// raws in Adobe Camera Raw first). The document is already developed with the defaults; Open
+/// raw files in a separate editor first). The document is already developed with the defaults; Open
 /// re-develops it when Temperature, Tint or Exposure changed (those act on the sensor data, see
 /// [`photocraft_io::raw::import_raw_tuned`]) and applies the other settings as one Camera Raw
 /// step, then marks the document unmodified. Cancel closes it.
@@ -863,7 +863,7 @@ pub fn show(app: &mut PhotocraftApp, ctx: &egui::Context) {
         let (r, _) = ui.allocate_exact_size(main.size(), Sense::click_and_drag());
         ui.painter().rect_filled(r, 0.0, Tokens::get(ui.ctx()).scrim);
     });
-    // A window of its own (title bar, moved and resized like any window), like Adobe Camera Raw.
+    // A window of its own (title bar, moved and resized like any window).
     let builder = egui::ViewportBuilder::default().with_title(window_title).with_inner_size([1360.0, 900.0]).with_min_inner_size([900.0, 600.0]);
     let mut close = false;
     ctx.show_viewport_immediate(egui::ViewportId::from_hash_of("camera-raw-window"), builder, |ui, class| {

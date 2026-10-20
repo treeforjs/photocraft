@@ -175,7 +175,6 @@
 	Camera Raw…	Camera Raw…
 	Raw Defaults…	RAW-Standardwerte…
 	Integrations…	Integrationen…
-	AI Integrations…	KI-Integrationen…
 	Install Plug-in…	Plug-in installieren…
 	Language Options	Sprachoptionen
 	Settings…	Einstellungen…
@@ -2224,7 +2223,6 @@
 # About ▸ Contributors / Models (credits, craftrules standards/contributors.md)
 	About	Über
 	Contributors	Mitwirkende
-	Models	Modelle
 	Sort	Sortieren
 	Username	Benutzername
 	Display name	Anzeigename
@@ -2246,7 +2244,6 @@
 	Last	Letzter
 	Contributors: {contributors} · Commits: {commits}	Mitwirkende: {contributors} · Commits: {commits}
 	No contributor data was built into this copy.	In diese Kopie wurden keine Mitwirkendendaten eingebaut.
-	No model credits were built into this copy.	In diese Kopie wurden keine Modellnennungen eingebaut.
 	Company	Firma
 	Version	Version
 	% of all commits	% aller Commits

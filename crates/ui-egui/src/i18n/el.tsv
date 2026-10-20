@@ -1413,7 +1413,6 @@
 	Zigzag	Ζιγκ ζαγκ
 	Wetness	Υγρασία
 	Contributors	Συντελεστές
-	Models	Μοντέλα
 	Username	Όνομα χρήστη
 	Display name	Εμφανιζόμενο όνομα
 	Real name	Πραγματικό όνομα
@@ -1434,7 +1433,6 @@
 	Last	Τελευταίο
 	Contributors: {contributors} · Commits: {commits}	Συντελεστές: {contributors} · Commits: {commits}
 	No contributor data was built into this copy.	Αυτή η έκδοση δεν περιλαμβάνει δεδομένα συντελεστών.
-	No model credits were built into this copy.	Αυτή η έκδοση δεν περιλαμβάνει στοιχεία αναγνώρισης μοντέλων.
 	Company	Εταιρεία
 	% of all commits	% του συνόλου των commits
 	Lines +/−	Γραμμές +/−
@@ -1678,7 +1676,6 @@
 	Enhanced Controls…	Προηγμένα χειριστήρια…
 	Raw Defaults…	Προεπιλογές RAW…
 	Integrations…	Ενσωματώσεις…
-	AI Integrations…	Ενσωματώσεις ΤΝ…
 	Install Plug-in…	Εγκατάσταση προσθέτου…
 	Language Options	Επιλογές γλώσσας
 	Settings…	Ρυθμίσεις…
@@ -1925,7 +1922,6 @@
 	4-up	Τέσσερα παράθυρα
 	6-up	Έξι παράθυρα
 	@{login}: {prs} PRs, {commits} commits, +{added} / −{deleted} lines (Δ {delta}), +{binAdded} / −{binDeleted} binary assets, {first} – {last}	@{login}: {prs} PR, {commits} commits, +{added} / −{deleted} γραμμές (Δ {delta}), +{binAdded} / −{binDeleted} δυαδικά αρχεία, {first} – {last}
-	AI Integrations	Ενσωματώσεις τεχνητής νοημοσύνης
 	Absolute	Απόλυτο
 	Absolute Colorimetric	Απόλυτη χρωματομετρική απόδοση
 	Action	Ενέργεια

@@ -100,7 +100,7 @@ distances at selected pixels. The parallel path needs an additional four bytes p
 see [measurements, correctness and limits](selection-distance-performance.md).
 
 **Bottom line.** Two days after 0.2.0 we had merged ~96 PRs and closed ~48 issues, but **real
-Photoshop parity is still well below 50%**. The biggest gaps are AI, missing tools, professional
+Photoshop parity is still well below 50%**. The biggest gaps are missing tools, professional
 workflow depth and the plug-in ecosystem. Most fixes since 0.2.0 have passed our tests but have
 **not yet been validated by users**, and this week proved our tests miss what users hit:
 on first public use they found broken basics (text selection offset, 214 shortcut failures, panels
@@ -127,10 +127,9 @@ Confidence: moderate — the next users of 0.2.x will move these numbers either 
 | Painting | Brush model and Brush Settings panel near Photoshop; .abr/.grd import; persistent presets; pen pressure/tilt on Windows, web, macOS and X11 | medium | Native Wayland pen input open (#79; a pen opens the window through Xwayland meanwhile); X11 pressure confirmed by a user, macOS not yet verified on tablet hardware. |
 | Text / typography | Engine works; caret placement and size editing fixed; OpenType features, text-on-path editing, composer parity partial | medium-low | Measure with the Photoshop-authored set. |
 | Colour management | Colour-managed canvas (document → monitor), embedded CMYK profiles, linear EXR/HDR, 16-bit float canvas | medium-high | Monitor profile follows only at launch. |
-| Performance | 14k+ px on the GPU at ~⅓ the memory; adjustment preview 285 ms → 4–9 ms; font-size edits 297 ms → 4.6 ms; 2026-10-07: 30 MP TIFF open (banded, parallel strip/tile decode) Deflate 345 → 32 ms, LZW 428 → 43 ms, BigTIFF and every IFD readable; 2026-10-09: 4.2 MP Indexed Color, 256 colours, full-resolution CPU preview p50 3018 → 1061 ms (Ryzen AI 7 350, three measured runs; GPU upload excluded) | medium-high on rasters | Complex layout documents still laggy (#125/#128); >16384 px GPU tiling in progress (#49). Native Indexed Color previews run on one background worker with stale-result rejection; large palettes can still take about a second to compute. Web previews remain synchronous. |
+| Performance | 14k+ px on the GPU at ~⅓ the memory; adjustment preview 285 ms → 4–9 ms; font-size edits 297 ms → 4.6 ms; 2026-10-07: 30 MP TIFF open (banded, parallel strip/tile decode) Deflate 345 → 32 ms, LZW 428 → 43 ms, BigTIFF and every IFD readable; 2026-10-09: 4.2 MP Indexed Color, 256 colours, full-resolution CPU preview p50 3018 → 1061 ms (three measured runs on developer hardware; GPU upload excluded) | medium-high on rasters | Complex layout documents still laggy (#125/#128); >16384 px GPU tiling in progress (#49). Native Indexed Color previews run on one background worker with stale-result rejection; large palettes can still take about a second to compute. Web previews remain synchronous. |
 | Stability | Never-crash lint series, crash guard, `panic_hunt` fuzzing in the gate | medium-high | No field crash data yet. |
 | Camera RAW | DNG, CR2, Sony ARW (lossless + compressed), Nikon NEF (lossless + lossy compressed), RW2, uncompressed ORF; 2026-10-09: uncompressed Fujifilm RAF, Bayer and X-Trans (edge-directed X-Trans demosaic; 26 MP X-Trans develop 306 ms on 12 cores) | medium | CR3, compressed RAF, Nikon "lossy after split" and calibrated colour for non-DNG cameras (no Fuji colour calibration: neutral fallback) still open (#50). |
-| AI / generative | none | ~0% | Deferred by decision (#41). |
 | Ecosystem | Sandboxed WebAssembly plug-ins instead of .8BF; no ExtendScript/UXP/.atn; no Adobe Fonts/Libraries/cloud docs | low | By design for 8BF; scripting compatibility open. |
 | Platforms | macOS (notarized), Windows, Linux (AppImage/deb/rpm/Flatpak bundle), web | medium-high | Flathub later (#173); Windows signing material pending. |
 | Localisation | 2026-10-07: 10 UI languages; menu, `tl!`, blend mode, preference and brush-section coverage enforced by tests; live switching and scoped Preferences previews | medium | Engine errors/status messages still partly English; CJK web fonts, browser-locale detection, and RTL remain open. |
@@ -189,7 +188,7 @@ unchanged.
 5. **Complex-document performance** (#125/#128) and GPU tiling beyond the texture limit (#49).
 6. **Recurring visual QA** (`cargo run -p photocraft-engine --example designer_psd`) and fast
    turnaround on user reports (OS, document size, layer count, screenshot).
-7. Later / needs decisions: generative AI backend (#41), scripting compatibility (ExtendScript /
+7. Later / needs decisions: scripting compatibility (ExtendScript /
    UXP / .atn), Flathub (#173), Wayland pen pressure (#79).
 
 ## Current focus (infrastructure before the long tail)
@@ -228,6 +227,6 @@ Each milestone has a **definition of done (DoD)** and must leave `main` green on
 | **M7** | Adjust + filters | 16 adjustment layers, first 30 filters, schema-generated dialogs + live preview, actions record/replay | Golden tests at 8/16/32f; action replay determinism |
 | **M8** | PSD v2 | adjustment layers, fill layers, lfx2 effects (descriptor parser), text (EngineData) preserve+render, smart objects, vector masks | Composite-oracle pass rate ≥90% on corpus |
 | **M9** | Text, vector, styles | parley text layers, shapes/pen/paths, all 10 layer effects on GPU | Visual goldens; PSD text round-trip |
-| **M10** | Smart features | `ml` (ort native / ort-web on the web), Select Subject/Object/Sky, Remove BG, Remove tool, content-aware fill, healing, AI denoise, RAW develop | Quality benchmarks on a public dataset; timing budgets |
+| **M10** | Smart features | Select Subject/Object/Sky, Remove BG, Remove tool, content-aware fill, healing, noise reduction, RAW develop | Quality benchmarks on a public dataset; timing budgets |
 | **M11** | Automation + formats | MCP server, batch, scripting, remaining formats (JP2, DICOM, DPX…), C2PA | An agent completes 10 scripted edit tasks via MCP |
 | **M12** | Pro parity | CMYK/Lab UI, print, HDR display, photomerge/HDR merge, timeline, layer comps, artboards, symmetry, neural filters | `xtask parity` ≥ 90% of Photoshop menu checklist |

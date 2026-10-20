@@ -171,7 +171,6 @@
 	Camera Raw…	Camera Raw…
 	Raw Defaults…	Valores predeterminados de RAW…
 	Integrations…	Integraciones…
-	AI Integrations…	Integraciones de IA…
 	Install Plug-in…	Instalar complemento…
 	Language Options	Opciones de idioma
 	Settings…	Configuración…
@@ -2254,7 +2253,6 @@ cameraRaw	Amount	Cantidad
 # About ▸ Contributors / Models (credits, craftrules standards/contributors.md)
 	About	Acerca de
 	Contributors	Colaboradores
-	Models	Modelos
 	Sort	Ordenar
 	Username	Nombre de usuario
 	Display name	Nombre visible
@@ -2276,7 +2274,6 @@ cameraRaw	Amount	Cantidad
 	Last	Último
 	Contributors: {contributors} · Commits: {commits}	Colaboradores: {contributors} · Commits: {commits}
 	No contributor data was built into this copy.	Esta copia no incluye datos de colaboradores.
-	No model credits were built into this copy.	Esta copia no incluye créditos de modelos.
 	Company	Empresa
 	Version	Versión
 	% of all commits	% de todos los commits

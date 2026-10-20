@@ -7,7 +7,7 @@ The release pipeline has no macOS, FreeBSD, web or Flatpak build jobs.
 
 This document is the release recipe for this repository (`release-playbook.md` only points here).
 User-facing names say **PhotoCraft**. Files, binaries
-and ids stay lowercase (`photocraft-<version>-<platform>-<arch>.<ext>`, `ai.storyteller.photocraft`).
+and ids stay lowercase (`photocraft-<version>-<platform>-<arch>.<ext>`, `io.github.treeforjs.photocraft`).
 
 ## Cutting a release
 
@@ -80,7 +80,7 @@ goes in `CARGO_TARGET_<TRIPLE>_RUSTFLAGS`, so host build scripts aren't affected
   (build dependency `0.1`). They only do this when targeting Windows. Elsewhere each
   script is a no-op, even if `PHOTOCRAFT_REQUIRE_WINRES` is set, and the web build
   doesn't touch that crate. Both set ProductName to PhotoCraft, CompanyName to
-  Learning Machines LLC and the same copyright line. The GUI description is
+  Craft contributors and the same copyright line. The GUI description is
   "PhotoCraft image editor" (`photocraft.exe`). The CLI description is
   "PhotoCraft command-line interface", with OriginalFilename `photocraft-cli.exe`
   and InternalName `photocraft-cli`. Version strings are the Cargo package version,
@@ -129,7 +129,7 @@ Locally on Windows: `dotnet tool install -g wix --version 5.0.2`,
 ### Linux
 
 `packaging/linux/package.sh` stages one FHS tree and makes every format from it. The tree
-holds both binaries, `ai.storyteller.photocraft.desktop`, hicolor icons from 16 px to 512 px
+holds both binaries, `io.github.treeforjs.photocraft.desktop`, hicolor icons from 16 px to 512 px
 plus a scalable SVG, AppStream metainfo, and a shared-mime-info file for `.pcraft`, `.psb` and
 `.qoi`.
 
@@ -170,12 +170,12 @@ Why these formats:
   Wayland the dock icon comes from the compositor resolving the window's app_id against an
   *installed* `.desktop` file, which an AppImage alone never provides — without this every
   AppImage run shows the generic Wayland logo (#593). Best effort: it installs
-  `~/.local/share/applications/ai.storyteller.photocraft.desktop` with `Exec` rewritten to
+  `~/.local/share/applications/io.github.treeforjs.photocraft.desktop` with `Exec` rewritten to
   the AppImage's path (`TryExec` dropped, the binary isn't on the host PATH) and the
   hicolor icons beside it, rewriting only when the content changed, and any failure leaves
   the launch untouched. `PHOTOCRAFT_NO_DESKTOP_INTEGRATION=1` opts out; to uninstall, `rm
-  ~/.local/share/applications/ai.storyteller.photocraft.desktop` and `find
-  ~/.local/share/icons/hicolor -name 'ai.storyteller.photocraft*' -delete`. The script is
+  ~/.local/share/applications/io.github.treeforjs.photocraft.desktop` and `find
+  ~/.local/share/icons/hicolor -name 'io.github.treeforjs.photocraft*' -delete`. The script is
   covered by `packaging/linux/apprun-test.sh` in the packaging-lint workflow.
 - **.deb** covers Debian, Ubuntu, Mint, Pop!_OS and elementary. **.rpm** covers Fedora, RHEL
   and its clones, and openSUSE. Both integrate with the menu, MIME and icon caches (the
@@ -186,9 +186,9 @@ Why these formats:
 - **.tar.gz** is for people who manage their own `/opt` or `~/.local`.
 - **Flatpak bundle** is available as a separate local packaging option, outside the release
   workflow. `packaging/linux/flatpak-bundle.sh` repackages the Linux `.tar.gz` using
-  `packaging/linux/flatpak/ai.storyteller.photocraft.bundle.yml`. See that script for the
+  `packaging/linux/flatpak/io.github.treeforjs.photocraft.bundle.yml`. See that script for the
   freedesktop runtime and build requirements. It is not needed by Craftworks.
-- **Flathub**: `packaging/linux/flatpak/ai.storyteller.photocraft.yml` builds from source and
+- **Flathub**: `packaging/linux/flatpak/io.github.treeforjs.photocraft.yml` builds from source and
   is ready for a Flathub submission (it keeps the same runtime and `finish-args` as the bundle
   manifest, which packaging-lint checks). CI doesn't build it. A real build needs vendored crate
   sources (`cargo-sources.json` from `flatpak-cargo-generator.py`) and adds 20+ minutes per
@@ -272,3 +272,11 @@ The outputs are committed, so packaging never needs those tools.
 workflows or the icons. It runs actionlint, shellcheck, a PowerShell parse, xmllint,
 `desktop-file-validate`, `appstreamcli validate`, and a YAML check that the two Flatpak
 manifests agree on the runtime and permissions.
+
+## Installed identity migration
+
+The desktop and package identity is `io.github.treeforjs.photocraft`. The Windows MSI UpgradeCode remains unchanged, so existing MSI installations upgrade in place. The preference and document paths are unchanged. Linux package upgrades replace the old desktop resources. AppImage startup removes a legacy shortcut only when its name, icon and executable identify this exact AppImage; it preserves shortcuts to other installations. Existing Flatpak installations use a different application ID and need a separate install of the new ID; their data is not removed automatically.
+
+## Generated export files
+
+Render Video writes beneath the selected output folder and refuses existing destinations. Image Assets accepts relative subfolders such as `icons/logo.png`, rejects parent paths, device names and escaping symlinks, and never overwrites an unrelated file. It can refresh an output during the same session only while the existing bytes still match that session's last generated image. Outputs from earlier sessions, or files edited outside PhotoCraft, need a fresh output folder or explicit user removal before regeneration. A failed asset export after saving appears as a warning; the saved document remains saved.

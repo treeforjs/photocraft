@@ -1161,6 +1161,7 @@ impl PhotocraftApp {
     /// Record a written save of document `doc` as it was at `revision`: its name, path and saved
     /// state (unless a copy), the status, script events and the warnings.
     pub(crate) fn saved(&mut self, doc: DocId, revision: u64, path: &str, warnings: &[String], copy: bool) {
+        let mut warnings = warnings.to_vec();
         self.ui.status = format!("Saved {path}");
         if !copy {
             // A background save may finish while another document is active (or after its
@@ -1176,12 +1177,24 @@ impl PhotocraftApp {
                     && let Some(r) = photocraft_engine::automate_cmds::document_saved(&mut app.session, i)
                 {
                     app.ui.status = format!("Saved {path}; {} image assets in {}", r["files"].as_array().map_or(0, Vec::len), r["dir"].as_str().unwrap_or(""));
+                    if let Some(errors) = r["errors"].as_array() {
+                        for error in errors {
+                            warnings.push(format!(
+                                "Image Assets: {}: {}",
+                                error["asset"].as_str().unwrap_or("output"),
+                                error["error"].as_str().unwrap_or("export failed")
+                            ));
+                        }
+                        if !errors.is_empty() {
+                            app.ui.status.push_str(&format!("; {} image asset exports failed (see notice)", errors.len()));
+                        }
+                    }
                 }
                 Ok(())
             });
         }
         self.ui.status_error = false;
-        notices::io_warnings(self, &format!("Saved {}", file_open::display_name(path)), warnings);
+        notices::io_warnings(self, &format!("Saved {}", file_open::display_name(path)), &warnings);
         self.sync_views();
     }
 

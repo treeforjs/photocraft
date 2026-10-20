@@ -8,7 +8,7 @@ set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$HERE/../.." && pwd)"
-APP_ID=ai.storyteller.photocraft
+APP_ID=io.github.treeforjs.photocraft
 
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
@@ -30,6 +30,13 @@ export HOME="$TMP/home"
 export XDG_DATA_HOME="$HOME/.local/share"
 mkdir -p "$HOME"
 
+# A shortcut from the old identity to this same AppImage is migrated; a different
+# installation's shortcut must remain untouched.
+mkdir -p "$XDG_DATA_HOME/applications"
+LEGACY_ID=ai.storyteller.photocraft
+LEGACY_DESKTOP="$XDG_DATA_HOME/applications/$LEGACY_ID.desktop"
+printf '[Desktop Entry]\nName=PhotoCraft\nIcon=%s\nExec="%s" %%F\n' "$LEGACY_ID" "$(readlink -f "$APPIMAGE")" >"$LEGACY_DESKTOP"
+
 fail() {
   echo "FAIL: $*" >&2
   exit 1
@@ -41,6 +48,7 @@ out="$("$APPDIR/AppRun" open file.png)" || fail "AppRun exited non-zero"
 
 DESKTOP="$XDG_DATA_HOME/applications/$APP_ID.desktop"
 [ -f "$DESKTOP" ] || fail "desktop entry not installed"
+[ ! -e "$LEGACY_DESKTOP" ] || fail "owned legacy shortcut was not migrated"
 
 # 2. Exec rewritten to the AppImage (quoted, spaces intact), TryExec dropped,
 #    everything else preserved from the packaged entry.
@@ -66,10 +74,12 @@ after="$(stat -c %i "$DESKTOP")"
 [ "$before" = "$after" ] || fail "desktop entry rewritten although unchanged"
 
 # 5. Moving the AppImage refreshes Exec.
+printf '[Desktop Entry]\nName=PhotoCraft\nIcon=%s\nExec="/another/installation.AppImage" %%F\n' "$LEGACY_ID" >"$LEGACY_DESKTOP"
 mv "$APPIMAGE" "$TMP/moved.AppImage"
 export APPIMAGE="$TMP/moved.AppImage"
 "$APPDIR/AppRun" >/dev/null || fail "launch after move exited non-zero"
 grep -Fxq "Exec=\"$(readlink -f "$APPIMAGE")\" %F" "$DESKTOP" || fail "Exec not refreshed after move"
+grep -Fxq 'Exec="/another/installation.AppImage" %F' "$LEGACY_DESKTOP" || fail "another installation legacy shortcut changed"
 
 # 6. Opt-out installs nothing.
 rm -rf "$XDG_DATA_HOME"

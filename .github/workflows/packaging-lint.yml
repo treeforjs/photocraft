@@ -58,15 +58,15 @@ jobs:
       - name: XML, desktop entry, AppStream, Flatpak manifest
         run: |
           xmllint --noout packaging/windows/photocraft.wxs packaging/windows/photocraft.en-us.wxl packaging/macos/*.plist* packaging/linux/*.xml*
-          desktop-file-validate packaging/linux/ai.storyteller.photocraft.desktop
-          sed -e 's/@VERSION@/0.0.0/' -e 's/@DATE@/2026-01-01/' packaging/linux/ai.storyteller.photocraft.metainfo.xml.in >"$RUNNER_TEMP/ai.storyteller.photocraft.metainfo.xml"
-          appstreamcli validate --no-net --explain "$RUNNER_TEMP/ai.storyteller.photocraft.metainfo.xml"
+          desktop-file-validate packaging/linux/io.github.treeforjs.photocraft.desktop
+          sed -e 's/@VERSION@/0.0.0/' -e 's/@DATE@/2026-01-01/' packaging/linux/io.github.treeforjs.photocraft.metainfo.xml.in >"$RUNNER_TEMP/io.github.treeforjs.photocraft.metainfo.xml"
+          appstreamcli validate --no-net --explain "$RUNNER_TEMP/io.github.treeforjs.photocraft.metainfo.xml"
           python3 - <<'EOF'
           import yaml
-          src = yaml.safe_load(open("packaging/linux/flatpak/ai.storyteller.photocraft.yml"))
-          bundle = yaml.safe_load(open("packaging/linux/flatpak/ai.storyteller.photocraft.bundle.yml"))
+          src = yaml.safe_load(open("packaging/linux/flatpak/io.github.treeforjs.photocraft.yml"))
+          bundle = yaml.safe_load(open("packaging/linux/flatpak/io.github.treeforjs.photocraft.bundle.yml"))
           for m in (src, bundle):
-              assert m["id"] == "ai.storyteller.photocraft" and m["command"] == "photocraft", m["id"]
+              assert m["id"] == "io.github.treeforjs.photocraft" and m["command"] == "photocraft", m["id"]
           for key in ("runtime", "runtime-version", "sdk", "finish-args"):
               assert src[key] == bundle[key], f"Flatpak manifests disagree on {key}: {src[key]} vs {bundle[key]}"
           print("Flatpak manifests ok")

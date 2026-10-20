@@ -168,7 +168,6 @@
 	Camera Raw…	Camera Raw…
 	Raw Defaults…	Default Raw…
 	Integrations…	Integrasi…
-	AI Integrations…	Integrasi AI…
 	Install Plug-in…	Pasang Plug-in…
 	Language Options	Opsi Bahasa
 	Settings…	Pengaturan…
@@ -2597,7 +2596,6 @@ cameraRaw	Blending	Pembauran
 # About ▸ Contributors / Models (credits, craftrules standards/contributors.md)
 	About	Tentang
 	Contributors	Kontributor
-	Models	Model
 	Sort	Urutkan
 	Username	Nama pengguna
 	Display name	Nama tampilan
@@ -2619,7 +2617,6 @@ cameraRaw	Blending	Pembauran
 	Last	Terakhir
 	Contributors: {contributors} · Commits: {commits}	Kontributor: {contributors} · Commit: {commits}
 	No contributor data was built into this copy.	Salinan ini tidak memuat data kontributor.
-	No model credits were built into this copy.	Salinan ini tidak memuat kredit model.
 	Company	Perusahaan
 	Version	Versi
 	% of all commits	% dari semua commit

@@ -179,7 +179,6 @@
 	Camera Raw…	Camera Raw…
 	Raw Defaults…	Výchozí nastavení Raw…
 	Integrations…	Integrace…
-	AI Integrations…	Integrace AI…
 	Install Plug-in…	Instalovat zásuvný modul…
 	Language Options	Jazykové možnosti
 	Settings…	Nastavení…
@@ -2184,7 +2183,6 @@ cameraRaw	Color	Barvy
 # About ▸ Contributors / Models (credits, craftrules standards/contributors.md)
 	About	O aplikaci
 	Contributors	Přispěvatelé
-	Models	Modely
 	Sort	Řadit
 	Username	Uživatelské jméno
 	Display name	Zobrazované jméno
@@ -2206,7 +2204,6 @@ cameraRaw	Color	Barvy
 	Last	Poslední
 	Contributors: {contributors} · Commits: {commits}	Přispěvatelé: {contributors} · Commity: {commits}
 	No contributor data was built into this copy.	Tato kopie neobsahuje údaje o přispěvatelích.
-	No model credits were built into this copy.	Tato kopie neobsahuje údaje o modelech.
 	Company	Společnost
 	Model	Model
 	Version	Verze

@@ -285,7 +285,7 @@ pub enum LayerContent {
 - **History stores transactions.** Because tiles are `Arc`-shared, "before" states cost only the tiles that actually changed. Undo means swapping `Arc`s, so no pixel copies are made.
 - **Each state remembers its targeted layers** (the active layer and the layer selection, as they were when the state was created: when the document was opened, or right after the step that made it). Selecting layers is not a step and doesn't change any state's target, but undo and redo target the restored state's layers again, as Photoshop does.
 - **Brush strokes** accumulate into one transaction per stroke. Tiles are published incrementally with damage regions, so the viewport updates live.
-- **Snapshots for readers.** After each committed op the engine publishes a new `Arc<DocSnapshot>` through `arc-swap`. The UI, background jobs (filters, AI inference, export) and autosave read snapshots without locks.
+- **Snapshots for readers.** After each committed op the engine publishes a new `Arc<DocSnapshot>` through `arc-swap`. The UI, background jobs (filters, export) and autosave read snapshots without locks.
 - **Background jobs** compute from snapshot N and commit as a transaction. If the doc changed meanwhile, the job rebases, meaning it re-targets the same layer id if it still exists, or reports a conflict.
 - **History features:** a history panel, a memory cap with oldest-first eviction, and named snapshots. The history brush comes later, reading tiles from a past state.
 
@@ -419,7 +419,7 @@ psd/src/
      ▲                         │  spawns
      │ events (damage, progress)│
      │                         ▼
-     │                  Job pool (rayon): filters, AI, export, autosave — read snapshots, return transactions
+     │                  Job pool (rayon): filters, export, autosave — read snapshots, return transactions
      │
  Render (UI thread or dedicated): Viewport::render_gpu(snapshot) into toolkit texture
 ```

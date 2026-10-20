@@ -1,6 +1,6 @@
-# AGENTS.md: guide for AI agents and contributors
+# AGENTS.md: contributor guide
 
-PhotoCraft is an open-source, native, Photoshop-comparable image editor written in **Rust only** (no JavaScript or TypeScript). **No Tauri, Electron or webview shells:** the desktop app is native egui/eframe on wgpu, and the web build is the same Rust compiled to WebAssembly (trunk + wasm-bindgen). Never add Tauri (or any webview/JS UI framework) as a dependency, build step or packaging target. The product name is always written **PhotoCraft** (`{Function}Craft` in PascalCase) in user-facing text: UI, window titles, About, installers, release names, docs prose. Machine names stay lowercase: crates (`photocraft-*`), binaries, file names, ids (`ai.storyteller.photocraft`; these reverse-DNS identifiers are wired into packaging and must not change). The goal is 1:1 Photoshop parity (same menus, shortcuts, behaviour and file fidelity) with better performance, and every feature drivable by agents. Read this file first, then `docs/`.
+PhotoCraft is an open-source, native, Photoshop-comparable image editor written in **Rust only** (no JavaScript or TypeScript). **No Tauri, Electron or webview shells:** the desktop app is native egui/eframe on wgpu, and the web build is the same Rust compiled to WebAssembly (trunk + wasm-bindgen). Never add Tauri (or any webview/JS UI framework) as a dependency, build step or packaging target. The product name is always written **PhotoCraft** (`{Function}Craft` in PascalCase) in user-facing text: UI, window titles, About, installers, release names, docs prose. Machine names stay lowercase: crates (`photocraft-*`), binaries, file names, ids (`io.github.treeforjs.photocraft`; preserve compatibility aliases when migrating installed identities). The goal is 1:1 Photoshop parity (same menus, shortcuts, behaviour and file fidelity) with better performance, and every feature drivable by agents. Read this file first, then `docs/`.
 
 ## 1. Orientation (5 minutes)
 
@@ -133,7 +133,7 @@ If the field has a PSD equivalent, map it in `crates/io` too, and keep unknown P
 
 ## Contributor credits (About window)
 
-- About ▸ Contributors/Models are compiled into the binary from `contributors/contributors.json`
+- About ▸ Contributors is compiled into the binary from `contributors/contributors.json`
   (commit stats; generated, never hand-edit) and `contributors/people.toml` (names people chose for
   themselves). See `docs/contributors.md`.
 - **Agents working for a contributor:** when you prepare a PR, check whether your human's GitHub

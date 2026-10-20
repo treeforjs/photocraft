@@ -1722,7 +1722,6 @@
 	32-bit Preview Options…	Параметри 32-бітного перегляду…
 	90° Clockwise	90° за годинниковою стрілкою
 	90° Counter Clockwise	90° проти годинникової стрілки
-	AI Integrations…	Інтеграції ШІ…
 	Again	Повторити
 	Transform Again on a Copy	Повторити трансформацію на копії
 	Anamorphic 2:1 (2)	Анаморфний 2:1 (2)
@@ -2436,7 +2435,6 @@ cameraRaw	Roughness	Шорсткість
 # About ▸ Contributors / Models (credits, craftrules standards/contributors.md)
 	About	Про програму
 	Contributors	Учасники
-	Models	Моделі
 	Sort	Сортування
 	Username	Ім'я користувача
 	Display name	Відображуване ім'я
@@ -2458,7 +2456,6 @@ cameraRaw	Roughness	Шорсткість
 	Last	Останній
 	Contributors: {contributors} · Commits: {commits}	Учасники: {contributors} · Коміти: {commits}
 	No contributor data was built into this copy.	У цю копію не вбудовано дані про учасників.
-	No model credits were built into this copy.	У цю копію не вбудовано дані про використані моделі.
 	Company	Компанія
 	Version	Версія
 	% of all commits	% усіх комітів
@@ -3088,7 +3085,6 @@ cameraRaw	Masking	Маскування
 	Convert to Profile	Перетворити на профіль
 	Camera Raw	Camera Raw
 	Raw Defaults	Типові параметри Raw
-	AI Integrations	Інтеграції ШІ
 	Install Plug-in	Установити плагін
 	Color Table	Таблиця кольорів
 	Shadows/Highlights	Тіні/світлі ділянки

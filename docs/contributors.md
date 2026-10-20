@@ -1,8 +1,6 @@
 # Contributors in the About window
 
-**About ▸ Contributors** credits everyone who contributed to PhotoCraft, and **About ▸ Models** credits
-the AI models named in `Co-Authored-By` trailers. This page is the local copy of the decision (the standard it follows was written in the upstream
-maintainers' private standards repository, which is not part of this fork).
+**About ▸ Contributors** credits the people who contributed to PhotoCraft.
 
 ## Decision
 
@@ -23,7 +21,7 @@ maintainers' private standards repository, which is not part of this fork).
 ## In PhotoCraft
 
 - The About window is `DialogKind::About` in `crates/ui-egui/src/dialogs.rs` (Help ▸ About PhotoCraft).
-  Its tab is the dialog field `tab` (`about`, `contributors`, `models`), so agents can switch it with
+  Its tab is the dialog field `tab` (`about`, `contributors`), so automation can switch it with
   `ui.dialog.set`. Labels are translated like the rest of the shell (`tl!` + `crates/ui-egui/src/i18n/*.tsv`).
 
 ## Credit yourself

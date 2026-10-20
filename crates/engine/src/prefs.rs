@@ -57,7 +57,7 @@ choice!(
 choice!(TypeUnit { Points = "points", Pixels = "pixels", Millimeters = "mm" } default Points);
 choice!(PointSize { PostScript = "postScript", Traditional = "traditional" } default PostScript);
 choice!(Interpolation { BicubicAutomatic = "bicubicAutomatic", Nearest = "nearestNeighbor", Bilinear = "bilinear", Bicubic = "bicubic", BicubicSmoother = "bicubicSmoother", BicubicSharper = "bicubicSharper", PreserveDetails = "preserveDetails" } default BicubicAutomatic);
-choice!(ColorPicker { Adobe = "adobe", System = "system" } default Adobe);
+choice!(ColorPicker { Standard = "standard" | "adobe", System = "system" } default Standard);
 choice!(Theme { CraftLight = "light", Warm = "warm" | "paper" | "cream", Dim = "dim" | "proMedium", Craft = "dark" | "pro", HighContrast = "highContrast", Studio = "studio", StudioLight = "studioLight", Classic = "classic", SolarizedDark = "solarizedDark", Adwaita = "adwaita", AdwaitaDark = "adwaitaDark" } default Craft);
 choice!(AppearanceMode { Auto = "auto", Dark = "dark", Light = "light" } default Auto);
 choice!(DarkTheme { Dim = "dim" | "proMedium", Craft = "dark" | "pro", HighContrast = "highContrast", Studio = "studio", SolarizedDark = "solarizedDark", AdwaitaDark = "adwaitaDark" } default Craft);
@@ -198,7 +198,7 @@ pub struct General {
 impl Default for General {
     fn default() -> Self {
         Self {
-            color_picker: ColorPicker::Adobe,
+            color_picker: ColorPicker::Standard,
             image_interpolation: Interpolation::BicubicAutomatic,
             beep_when_done: false,
             export_clipboard: true,

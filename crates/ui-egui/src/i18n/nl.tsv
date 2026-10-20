@@ -167,7 +167,6 @@
 	Camera Raw…	Camera Raw…
 	Raw Defaults…	Raw-standaardwaarden…
 	Integrations…	Integraties…
-	AI Integrations…	AI-integraties…
 	Install Plug-in…	Plug-in installeren…
 	Language Options	Taalopties
 	Settings…	Instellingen…
@@ -2207,7 +2206,6 @@
 	Use tablet pressure to change pen width	Tabletdruk gebruiken om penbreedte te wijzigen
 	About	Over
 	Contributors	Bijdragers
-	Models	Modellen
 	Sort	Sorteren
 	Username	Gebruikersnaam
 	Display name	Weergavenaam
@@ -2229,7 +2227,6 @@
 	Last	Laatste
 	Contributors: {contributors} · Commits: {commits}	Bijdragers: {contributors} · Commits: {commits}
 	No contributor data was built into this copy.	Er zijn geen bijdragersgegevens in deze versie ingebouwd.
-	No model credits were built into this copy.	Er zijn geen modelvermeldingen in deze versie ingebouwd.
 	Company	Bedrijf
 	Version	Versie
 	% of all commits	% van alle commits
@@ -3126,7 +3123,6 @@ cameraRaw	Color	Kleur
 	Spot:	Steunkleur:
 	Technology Previews…	Technologievoorbeelden…
 	3D…	3D…
-	AI Integrations	AI-integraties
 	Add Noise	Ruis toevoegen
 	Add Pins	Spelden toevoegen
 	Add a mask  (from the selection; ⌥ inverts)	Een masker toevoegen  (vanuit de selectie; ⌥ keert om)

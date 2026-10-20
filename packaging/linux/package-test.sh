@@ -42,8 +42,8 @@ awk '
   substr($1, 1, 1) == "-" && substr($1, 8, 1) != "r" { print "file not world-readable: " $0; bad = 1 }
   END { exit bad }
 ' "$TMP/contents"
-for path in bin/photocraft bin/photocraft-cli share/applications/ai.storyteller.photocraft.desktop \
-  share/metainfo/ai.storyteller.photocraft.metainfo.xml share/icons/hicolor/256x256/apps/ai.storyteller.photocraft.png \
+for path in bin/photocraft bin/photocraft-cli share/applications/io.github.treeforjs.photocraft.desktop \
+  share/metainfo/io.github.treeforjs.photocraft.metainfo.xml share/icons/hicolor/256x256/apps/io.github.treeforjs.photocraft.png \
   share/licenses/photocraft/OFL-Cantarell.txt share/licenses/photocraft/NOTICE; do
   grep -Fq "/$path" "$TMP/paths"
 done
@@ -94,7 +94,7 @@ cat >"$TMP/appimagetool" <<'TOOL'
 set -euo pipefail
 appdir="${@: -2:1}"
 output="${@: -1}"
-for asset in ai.storyteller.photocraft.desktop ai.storyteller.photocraft.png; do
+for asset in io.github.treeforjs.photocraft.desktop io.github.treeforjs.photocraft.png; do
   [ "$(stat -c %a "$appdir/$asset")" = 644 ] || { echo "private AppDir asset: $asset" >&2; exit 1; }
 done
 test -s "$appdir/usr/share/licenses/photocraft/OFL-Cantarell.txt"

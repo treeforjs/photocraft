@@ -117,6 +117,48 @@ fn render_video_to_animated_gif() {
 }
 
 #[test]
+fn render_video_confines_imported_document_names_and_never_clobbers() {
+    for format in ["gif", "png"] {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path().join("output");
+        let mut s = session();
+        s.edit("imported name", |doc, _| {
+            doc.name = "../victim.pcraft".into();
+            Ok(())
+        })
+        .unwrap();
+        let outside_name = if format == "gif" { "victim.gif" } else { "victim_0000.png" };
+        std::fs::write(dir.path().join(outside_name), b"outside").unwrap();
+        let p = json!({"dir": root.to_str().unwrap(), "format": format});
+        s.execute("file.export.renderVideo", p.clone()).unwrap();
+        assert_eq!(std::fs::read(dir.path().join(outside_name)).unwrap(), b"outside");
+        let files: Vec<_> = std::fs::read_dir(&root).unwrap().map(|e| e.unwrap().path()).collect();
+        assert_eq!(files.len(), 1);
+        let before = std::fs::read(&files[0]).unwrap();
+        assert!(s.execute("file.export.renderVideo", p).is_err());
+        assert_eq!(std::fs::read(&files[0]).unwrap(), before);
+    }
+}
+
+#[test]
+fn failed_video_sequence_rolls_back_only_its_new_frames() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut s = session();
+    s.execute("layer.videoLayers.newBlankVideoLayer", json!({})).unwrap();
+    s.execute("layer.videoLayers.duplicateFrame", json!({})).unwrap();
+    s.edit("name", |doc, _| {
+        doc.name = "clip.pcraft".into();
+        Ok(())
+    })
+    .unwrap();
+    let existing = dir.path().join("clip_0001.png");
+    std::fs::write(&existing, b"previous work").unwrap();
+    assert!(s.execute("file.export.renderVideo", json!({"dir": dir.path().to_str().unwrap(), "format": "png"})).is_err());
+    assert!(!dir.path().join("clip_0000.png").exists());
+    assert_eq!(std::fs::read(existing).unwrap(), b"previous work");
+}
+
+#[test]
 fn inspect_reports_video_layer() {
     let dir = tmpdir("vinsp");
     write_png(&format!("{dir}/a.png"), 6, 4, "#ff0000");

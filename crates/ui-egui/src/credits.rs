@@ -1,5 +1,5 @@
 //! The About window's credits: every contributor (GitHub login always; display and real names only
-//! with recorded consent) and the AI models that helped. The tables are baked into the binary by
+//! with recorded consent). The tables are baked into the binary by
 //! build.rs from contributors/contributors.json (craftrules standards/contributors.md); nothing is
 //! read at run time. UI strings go through `tl!` (column abbreviations like `+LOC` stay as they are).
 
@@ -23,16 +23,6 @@ pub struct Contributor {
     /// ISO 8601 UTC; empty for someone credited only through a merged PR.
     pub first_commit: &'static str,
     pub last_commit: &'static str,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct Model {
-    pub company: &'static str,
-    pub model: &'static str,
-    pub version: &'static str,
-    pub commits: u64,
-    pub lines_added: u64,
-    pub lines_deleted: u64,
 }
 
 include!(concat!(env!("OUT_DIR"), "/credits.rs"));
@@ -236,8 +226,7 @@ impl Default for View {
 }
 
 /// Height of the Contributors list (grab bag or table, header included), the same on both views so
-/// switching between them doesn't resize the window. The Models table is as tall as its rows, up
-/// to this.
+/// switching between them does not resize the window.
 const LIST_HEIGHT: f32 = 340.0;
 const TABLE_HEADER_H: f32 = 24.0;
 const TABLE_ROW_H: f32 = 22.0;
@@ -314,14 +303,6 @@ fn contributors_in(app: &mut PhotocraftApp, ui: &mut egui::Ui, contributors: &[C
         });
     }
     ui.data_mut(|d| d.insert_temp(id, v));
-}
-
-/// Height of a table showing all `rows` (header included), up to [`LIST_HEIGHT`].
-fn table_height(ui: &egui::Ui, rows: usize) -> f32 {
-    // Each row, and the header, is followed by the row gap.
-    let gap = ui.spacing().item_spacing.y;
-    let body = rows as f32 * (TABLE_ROW_H + gap) + gap;
-    (TABLE_HEADER_H + body).min(LIST_HEIGHT)
 }
 
 /// A contributor's name, linking to their GitHub profile. Routes through [`crate::links::open`]
@@ -478,68 +459,6 @@ fn header_cell(ui: &mut egui::Ui, t: &crate::theme::Tokens, label: &str, numeric
     let line = egui::Rect::from_min_max(egui::pos2(rect.left(), rect.bottom() - 1.0), rect.max);
     ui.painter().rect_filled(line, 0.0, t.separator);
     resp
-}
-
-/// About ▸ Models: AI models credited in Co-Authored-By trailers.
-pub fn models_ui(ui: &mut egui::Ui) {
-    models_in(ui, MODELS, TOTAL_COMMITS);
-}
-
-/// Share of all commits, whole percent; a model with any commits never reads "0%".
-fn percent(commits: u64, total: u64) -> String {
-    let p = 100.0 * commits as f64 / total.max(1) as f64;
-    if commits > 0 && p < 0.5 { "<1%".into() } else { format!("{:.0}%", p.min(100.0)) }
-}
-
-/// The Models table's cells for `m`, column by column; counts are the last three.
-fn model_cells(m: &Model, total: u64) -> [String; 6] {
-    [
-        m.company.to_string(),
-        m.model.to_string(),
-        m.version.to_string(),
-        group(m.commits),
-        percent(m.commits, total),
-        format!("+{} / −{}", group(m.lines_added), group(m.lines_deleted)),
-    ]
-}
-
-/// [`models_ui`] over a given list (tests pass their own).
-fn models_in(ui: &mut egui::Ui, models: &[Model], total_commits: u64) {
-    if models.is_empty() {
-        ui.label(tl!("No model credits were built into this copy."));
-        return;
-    }
-    let t = crate::theme::Tokens::get(ui.ctx());
-    // Counted against every commit, or the busiest model's if the total somehow trails it.
-    let total = total_commits.max(models.iter().map(|m| m.commits).max().unwrap_or(0));
-    let heads = [tl!("Company"), tl!("Model"), tl!("Version"), tl!("Commits"), tl!("% of all commits"), tl!("Lines +/−")];
-    let rows: Vec<[String; 6]> = models.iter().map(|m| model_cells(m, total)).collect();
-    // The model name takes the spare width.
-    let widths: Vec<Option<f32>> =
-        (0..heads.len()).map(|i| (i != 1).then(|| column_width(ui, heads[i], rows.iter().filter_map(|r| r.get(i)).map(String::as_str)))).collect();
-    let numeric = |i: usize| i >= 3;
-    credits_table(
-        ui,
-        "credits_models",
-        &widths,
-        NAME_MIN_W,
-        table_height(ui, rows.len()),
-        |mut header| {
-            for (i, h) in heads.iter().enumerate() {
-                header.col(|ui| {
-                    header_cell(ui, &t, h, numeric(i), None);
-                });
-            }
-        },
-        |body| {
-            body.rows(TABLE_ROW_H, rows.len(), |mut row| {
-                let Some(cells) = rows.get(row.index()) else { return };
-                for (i, text) in cells.iter().enumerate() {
-                    row.col(|ui| cell(ui, numeric(i), text));
-                }
-            });
-        },
-    );
 }
 
 #[cfg(test)]

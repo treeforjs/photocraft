@@ -68,7 +68,7 @@ Right-click with a Marquee, Lasso, Polygonal Lasso, Magic Wand or Object Selecti
 | Filter | Last Filter | `filter.lastFilter` |
 | Fade | Fade… | `edit.fade` |
 
-Photoshop's Generative Fill and Delete and Fill Selection rows are left out: PhotoCraft has no such commands. With nothing selected the menu offers Select All, Reselect, Color Range… and Load Selection… (`NO_SELECTION_MENU`). Adobe-adjacent sources document Color Range there; the other rows are **inferred** until a dated capture confirms them.
+Unsupported selection actions are left out. With nothing selected the menu offers Select All, Reselect, Color Range… and Load Selection… (`NO_SELECTION_MENU`). Public sources document Color Range there; the other rows are **inferred** until a dated capture confirms them.
 
 ## Panel and workspace matrix
 

@@ -386,6 +386,55 @@ fn image_assets_are_generated_now_and_on_save() {
 }
 
 #[test]
+fn generated_assets_refuse_traversal_and_preserve_unrelated_files() {
+    let dir = tempfile::tempdir().unwrap();
+    let root = dir.path().join("assets");
+    std::fs::create_dir(&root).unwrap();
+    std::fs::write(dir.path().join("victim.png"), b"outside").unwrap();
+    std::fs::write(root.join("existing.png"), b"unrelated").unwrap();
+    let mut s = session(8);
+    let id = s.active().unwrap().active_layer.unwrap();
+    s.execute("layer.renameLayer", json!({"layer": id.0, "name": "../victim.png, existing.png, icons/valid.png"})).unwrap();
+    let r = s.execute("file.generate.imageAssets", json!({"dir": root.to_str().unwrap()})).unwrap();
+    assert_eq!(r["files"].as_array().unwrap().len(), 1, "{r}");
+    assert_eq!(r["errors"].as_array().unwrap().len(), 2, "{r}");
+    assert!(root.join("icons/valid.png").is_file());
+    assert_eq!(std::fs::read(dir.path().join("victim.png")).unwrap(), b"outside");
+    assert_eq!(std::fs::read(root.join("existing.png")).unwrap(), b"unrelated");
+
+    let mut doc = (*s.active().unwrap().doc).clone();
+    doc.layer_mut(id).unwrap().name = "escaped.webp".into();
+    doc.layers.push(Layer::new("default ../", LayerContent::Group(photocraft_doc::Group { children: vec![], expanded: false, artboard: None })));
+    let (files, errors) = generate_assets(&doc, root.to_str().unwrap());
+    assert!(files.is_empty());
+    assert_eq!(errors.len(), 1);
+    assert!(!dir.path().join("escaped.webp").exists());
+}
+
+#[test]
+fn image_assets_regenerate_owned_files_but_report_external_changes_after_save() {
+    let dir = tempfile::tempdir().unwrap();
+    let saved = dir.path().join("doc.pcraft");
+    let mut s = session(8);
+    s.active_mut().unwrap().path = Some(saved.to_string_lossy().into_owned());
+    let id = s.active().unwrap().active_layer.unwrap();
+    s.execute("layer.renameLayer", json!({"layer": id.0, "name": "icon.webp"})).unwrap();
+    let first = s.execute("file.generate.imageAssets", json!({"on": true})).unwrap();
+    assert!(first["errors"].as_array().unwrap().is_empty(), "{first}");
+    let again = crate::automate_cmds::document_saved(&mut s, 0).unwrap();
+    assert_eq!(again["files"].as_array().unwrap().len(), 1, "{again}");
+    let output = dir.path().join("doc-assets/icon.webp");
+    std::fs::write(&output, b"user edited this").unwrap();
+    let warnings = crate::automate_cmds::document_saved(&mut s, 0).unwrap();
+    assert!(warnings["files"].as_array().unwrap().is_empty(), "{warnings}");
+    assert_eq!(warnings["errors"].as_array().unwrap().len(), 1, "{warnings}");
+    assert_eq!(std::fs::read(&output).unwrap(), b"user edited this");
+    // A fresh ownership map also refuses an old generated output on a later session.
+    let (_, errors) = generate_assets(&s.active().unwrap().doc, dir.path().join("doc-assets").to_str().unwrap());
+    assert_eq!(errors.len(), 1);
+}
+
+#[test]
 fn web_settings_from_params() {
     let st = WebSettings::from_params(&json!({"preset": "GIF 32 No Dither", "matte": "none", "webSnap": 50}), "x").unwrap();
     assert_eq!((st.format, st.colors, st.dither, st.matte), (WebFormat::Gif, 32, Dither::None, None));

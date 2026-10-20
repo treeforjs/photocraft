@@ -491,8 +491,8 @@ mod tests {
     #[test]
     fn xwayland_command_matches_how_photocraft_was_installed() {
         // Flatpak: WAYLAND_DISPLAY doesn't reach the sandbox's socket choice; flatpak's flags do.
-        let flatpak = xwayland_command(Some("ai.storyteller.photocraft"), None, false);
-        assert_eq!(flatpak.as_deref(), Some("flatpak run --nosocket=wayland --socket=x11 ai.storyteller.photocraft"));
+        let flatpak = xwayland_command(Some("io.github.treeforjs.photocraft"), None, false);
+        assert_eq!(flatpak.as_deref(), Some("flatpak run --nosocket=wayland --socket=x11 io.github.treeforjs.photocraft"));
         // AppImage: its own path, quoted for the shell (spaces, quotes).
         let appimage = xwayland_command(None, Some("/home/me/My Apps/it's.AppImage"), true);
         assert_eq!(appimage.as_deref(), Some(r"WAYLAND_DISPLAY= '/home/me/My Apps/it'\''s.AppImage'"));

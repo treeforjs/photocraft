@@ -18,13 +18,13 @@
      xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
   <Package
       Name="PhotoCraft"
-      Manufacturer="Learning Machines LLC"
+      Manufacturer="Craft contributors"
       Version="$(var.Version)"
       UpgradeCode="D9660F32-2D0A-4ABE-B73D-17BE25F1542C"
       Scope="perMachine"
       Compressed="yes"
       Language="1033">
-    <SummaryInformation Description="PhotoCraft image editor" Manufacturer="Learning Machines LLC" />
+    <SummaryInformation Description="PhotoCraft image editor" Manufacturer="Craft contributors" />
     <!-- Same-version upgrades let successive pre-releases of one X.Y.Z replace each other
          (MSI versions are numeric, so 1.2.3-rc.1 and 1.2.3-rc.2 are both 1.2.3). -->
     <MajorUpgrade AllowSameVersionUpgrades="yes"

@@ -114,19 +114,5 @@ fn generate(json: &Value, people: &toml::Table) -> String {
         );
     }
     let _ = writeln!(o, "];");
-    let _ = writeln!(o, "pub static MODELS: &[Model] = &[");
-    for m in rows(json, "models") {
-        let _ = writeln!(
-            o,
-            "    Model {{ company: {}, model: {}, version: {}, commits: {}, lines_added: {}, lines_deleted: {} }},",
-            s(&m, "company"),
-            s(&m, "model"),
-            s(&m, "version"),
-            n(&m, "commits"),
-            n(&m, "lines_added"),
-            n(&m, "lines_deleted"),
-        );
-    }
-    let _ = writeln!(o, "];");
     o
 }

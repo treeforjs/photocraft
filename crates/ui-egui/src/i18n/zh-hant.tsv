@@ -179,7 +179,6 @@
 	Camera Raw…	Camera Raw…
 	Raw Defaults…	Raw 預設值…
 	Integrations…	整合…
-	AI Integrations…	AI 整合…
 	Install Plug-in…	安裝增效模組…
 	Language Options	語言選項
 	Settings…	設定…
@@ -2161,7 +2160,6 @@ cameraRaw	Blending	混合
 # About ▸ Contributors / Models (credits, craftrules standards/contributors.md)
 	About	關於
 	Contributors	貢獻者
-	Models	模型
 	Sort	排序
 	Username	使用者名稱
 	Display name	顯示名稱
@@ -2183,7 +2181,6 @@ cameraRaw	Blending	混合
 	Last	最近
 	Contributors: {contributors} · Commits: {commits}	貢獻者：{contributors} · 提交：{commits}
 	No contributor data was built into this copy.	此副本未內建貢獻者資料。
-	No model credits were built into this copy.	此副本未內建模型致謝。
 	Company	公司
 	Model	模型
 	Version	版本

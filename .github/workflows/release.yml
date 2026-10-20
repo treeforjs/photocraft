@@ -197,7 +197,7 @@ jobs:
           dpkg-deb --info dist/release/*.deb
           dpkg-deb --contents dist/release/*.deb | grep -E 'usr/bin/photocraft$|metainfo|applications'
           ldd target/release/photocraft
-          python3 -c "import yaml; m = yaml.safe_load(open('packaging/linux/flatpak/ai.storyteller.photocraft.yml')); assert m['id'] == 'ai.storyteller.photocraft'"
+          python3 -c "import yaml; m = yaml.safe_load(open('packaging/linux/flatpak/io.github.treeforjs.photocraft.yml')); assert m['id'] == 'io.github.treeforjs.photocraft'"
           for appimage in dist/release/*.AppImage; do
             chmod +x "$appimage"
             APPIMAGE_EXTRACT_AND_RUN=1 "$appimage" --version
@@ -235,8 +235,8 @@ jobs:
       - name: Install the released Debian package
         run: |
           apt-get install -y --no-install-recommends ./dist/linux/*.deb
-          desktop-file-validate /usr/share/applications/ai.storyteller.photocraft.desktop
-          test -r /usr/share/icons/hicolor/256x256/apps/ai.storyteller.photocraft.png
+          desktop-file-validate /usr/share/applications/io.github.treeforjs.photocraft.desktop
+          test -r /usr/share/icons/hicolor/256x256/apps/io.github.treeforjs.photocraft.png
           photocraft --version
           photocraft-cli --version
       - name: Render and save as an ordinary desktop user
@@ -330,6 +330,8 @@ jobs:
           title="PhotoCraft v$VERSION"
           cat >"$RUNNER_TEMP/release-notes.md" <<'NOTES'
           Windows and Linux packages for PhotoCraft.
+
+          Generated image assets and video exports stay beneath their selected folders and preserve unrelated existing files. Download verification includes stricter signing-key checks and the large-download fix. The About window keeps contributor credits.
 
           Standard minimize, maximize and close controls now apply to Windows and Linux, including existing installations. The menu and workspace toolbar stays in the app, and closing still asks about unsaved documents.
 

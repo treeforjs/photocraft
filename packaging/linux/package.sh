@@ -20,7 +20,7 @@ umask 022
 # shellcheck source=../env.sh
 . "$(dirname "${BASH_SOURCE[0]}")/../env.sh"
 HERE="$ROOT/packaging/linux"
-APP_ID=ai.storyteller.photocraft
+APP_ID=io.github.treeforjs.photocraft
 
 SKIP_BUILD=0
 FORMATS="appimage deb rpm tar"
@@ -39,7 +39,7 @@ case "$ARCH" in
   aarch64 | arm64) ARCH=aarch64; DEB_ARCH=arm64 ;;
   *) echo "unsupported architecture $ARCH" >&2; exit 2 ;;
 esac
-export PHOTOCRAFT_MAINTAINER="${PHOTOCRAFT_MAINTAINER:-PhotoCraft maintainers <photocraft@storyteller.ai>}"
+export PHOTOCRAFT_MAINTAINER="${PHOTOCRAFT_MAINTAINER:-Craft contributors <noreply@github.com>}"
 BASENAME="photocraft-$VERSION-linux-$ARCH"
 
 echo "==> PhotoCraft $VERSION for Linux $ARCH ($FORMATS)"
