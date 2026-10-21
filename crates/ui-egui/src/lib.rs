@@ -1193,8 +1193,10 @@ impl PhotocraftApp {
                 Ok(())
             });
         }
-        self.ui.status_error = false;
+        let saved_status = self.ui.status.clone();
         notices::io_warnings(self, &format!("Saved {}", file_open::display_name(path)), &warnings);
+        self.ui.status = saved_status;
+        self.ui.status_error = false;
         self.sync_views();
     }
 

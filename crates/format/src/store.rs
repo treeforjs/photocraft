@@ -180,11 +180,7 @@ struct LoadFetch<'a> {
 
 impl LoadFetch<'_> {
     fn account(&mut self, n: usize) -> Result<()> {
-        self.total += n as u64;
-        if self.total > self.opts.max_total_bytes {
-            return Err(FormatError::LimitExceeded(format!("bundle expands beyond {} bytes", self.opts.max_total_bytes)));
-        }
-        Ok(())
+        crate::limits::account(&mut self.total, n, self.opts.max_total_bytes)
     }
 }
 
@@ -211,7 +207,10 @@ impl Fetch for LoadFetch<'_> {
             return Err(FormatError::corrupt(format!("invalid blob hash `{hash}`")));
         }
         let path = blob_path(hash);
-        let z = self.src.get(&path, self.opts.max_blob_bytes)?;
+        // The limit describes decoded bytes. Allow zstd framing for an incompressible
+        // blob exactly at that boundary, just as the tile loader does.
+        let compressed_limit = self.opts.max_blob_bytes.saturating_add(self.opts.max_blob_bytes / 8).saturating_add(4096);
+        let z = self.src.get(&path, compressed_limit)?;
         // Blob length is not in the manifest; the frame header bounds it and
         // we cap at max_blob_bytes.
         let mut dec = ruzstd::decoding::StreamingDecoder::new(&z[..]).map_err(|e| FormatError::corrupt(format!("{path}: zstd: {e}")))?;
@@ -269,10 +268,21 @@ struct Collect<'c> {
     tiles: BTreeMap<Hash, (Arc<Tile>, SampleType)>,
     blobs: BTreeMap<Hash, Arc<Vec<u8>>>,
     hash_cache: Option<&'c mut HashMap<usize, (Weak<Tile>, Hash)>>,
+    limits: LoadOptions,
+    expanded: u64,
+    budget_error: Option<FormatError>,
 }
 
 impl Sink for Collect<'_> {
     fn tile(&mut self, format: PixelFormat, tile: &Arc<Tile>) -> Hash {
+        // Loading allocates every referenced tile, even when content hashes repeat.
+        if self.budget_error.is_some() {
+            return String::new();
+        }
+        if let Err(error) = crate::limits::account(&mut self.expanded, tile.bytes().len(), self.limits.max_total_bytes) {
+            self.budget_error = Some(error);
+            return String::new();
+        }
         let key = Arc::as_ptr(tile) as usize;
         if let Some(cache) = self.hash_cache.as_deref_mut()
             && let Some((w, h)) = cache.get(&key)
@@ -297,7 +307,21 @@ impl Sink for Collect<'_> {
     }
 
     fn blob(&mut self, data: &Arc<Vec<u8>>) -> Hash {
+        if self.budget_error.is_some() {
+            return String::new();
+        }
+        if data.len() > self.limits.max_blob_bytes {
+            self.budget_error = Some(FormatError::LimitExceeded(format!("blob exceeds {} bytes", self.limits.max_blob_bytes)));
+            return String::new();
+        }
         let h = hash_bytes(data);
+        // The loader caches blobs by hash, so shared blobs count only once.
+        if !self.blobs.contains_key(&h)
+            && let Err(error) = crate::limits::account(&mut self.expanded, data.len(), self.limits.max_total_bytes)
+        {
+            self.budget_error = Some(error);
+            return String::new();
+        }
         self.blobs.entry(h.clone()).or_insert_with(|| data.clone());
         h
     }
@@ -336,11 +360,18 @@ pub struct PcraftWriter {
     compressed: HashMap<String, Arc<Vec<u8>>>,
     verified_directory: Option<DirectoryVerificationCache>,
     reverify_budget: u64,
+    save_limits: LoadOptions,
 }
 
 impl Default for PcraftWriter {
     fn default() -> Self {
-        Self { hash_cache: HashMap::new(), compressed: HashMap::new(), verified_directory: None, reverify_budget: DEFAULT_REVERIFY_BUDGET }
+        Self {
+            hash_cache: HashMap::new(),
+            compressed: HashMap::new(),
+            verified_directory: None,
+            reverify_budget: DEFAULT_REVERIFY_BUDGET,
+            save_limits: LoadOptions::default(),
+        }
     }
 }
 
@@ -500,11 +531,26 @@ impl PcraftWriter {
         self.reverify_budget = bytes;
     }
 
+    /// Restrict saves to smaller reopen budgets. Values never exceed the normal loader
+    /// limits; `preserve_ids` does not affect saving. Useful for stricter hosts and tests.
+    pub fn set_save_limits(&mut self, limits: LoadOptions) {
+        let normal = LoadOptions::default();
+        self.save_limits = LoadOptions {
+            max_manifest_bytes: limits.max_manifest_bytes.min(normal.max_manifest_bytes),
+            max_blob_bytes: limits.max_blob_bytes.min(normal.max_blob_bytes),
+            max_total_bytes: limits.max_total_bytes.min(normal.max_total_bytes),
+            preserve_ids: normal.preserve_ids,
+        };
+    }
+
     fn prepare(&mut self, doc: &Document, opts: &SaveOptions) -> Result<Prepared> {
         self.hash_cache.retain(|_, (w, _)| w.strong_count() > 0);
         convert::check_nesting(&doc.layers)?;
-        let mut c = Collect { hash_cache: Some(&mut self.hash_cache), ..Default::default() };
+        let mut c = Collect { hash_cache: Some(&mut self.hash_cache), limits: self.save_limits, ..Default::default() };
         let document = convert::doc_m(doc, &mut c);
+        if let Some(error) = c.budget_error.take() {
+            return Err(error);
+        }
         let mut previews = Vec::new();
         if let Some(t) = &opts.thumbnail {
             previews.push((THUMB, png(t)?));
@@ -525,7 +571,15 @@ impl PcraftWriter {
             crate::finite::Problem::NonFinite { path } => FormatError::NonFinite { path },
             crate::finite::Problem::Other(m) => FormatError::Unsupported(format!("manifest: {m}")),
         })?;
-        let manifest = serde_json::to_vec_pretty(&manifest)?;
+        let mut encoded = crate::limits::ManifestBuffer::new(self.save_limits.max_manifest_bytes);
+        if let Err(error) = serde_json::to_writer_pretty(&mut encoded, &manifest) {
+            return Err(if encoded.exceeded {
+                FormatError::LimitExceeded(format!("manifest exceeds {} bytes", self.save_limits.max_manifest_bytes))
+            } else {
+                error.into()
+            });
+        }
+        let manifest = encoded.bytes;
         check_manifest_depth(&manifest)?;
         let stats = SaveStats { tiles_total: c.tiles.len(), blobs_total: c.blobs.len(), manifest_bytes: manifest.len(), ..Default::default() };
         let mut objects = BTreeMap::new();

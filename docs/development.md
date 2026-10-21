@@ -161,6 +161,16 @@ At startup the desktop lists recovery metadata, then decodes one document at a t
 
 `photocraft-io` routes `.pcraft` through this crate in `import`/`export`, detecting it by magic or by extension.
 
+Normal `.pcraft` saves enforce the same default limits as reopening: a 256 MiB manifest,
+1 GiB per decoded blob and 16 GiB of decoded tiles/blobs in total. Repeated tile references
+count separately because the loader allocates them separately; blobs shared by hash count
+once. Manifest serialization stops at its limit. Budget failures occur before replacing a ZIP
+or modifying a directory bundle, so the previous file and the document's unsaved state remain
+intact. `PcraftWriter::set_save_limits` can restrict these budgets for a host or small boundary
+tests; it cannot raise them above normal reopening limits. Compressed blob reads allow zstd
+framing overhead while preserving the decoded byte cap.
+
+
 ## MCP (agents)
 
 `photocraft-cli mcp` serves MCP on stdio using `crates/automation`, which is built on `rmcp`:

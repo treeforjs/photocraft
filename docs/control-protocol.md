@@ -331,11 +331,13 @@ The desktop and headless TCP listeners currently enforce:
 
 An oversized line, excess connection, unauthenticated request, or unauthorized filesystem path is
 rejected before command dispatch or file effects. The headless JSON-lines stdio server also
-enforces the request and reply byte ceilings; MCP over stdio (`photocraft-cli mcp`) does not
-cap request bytes, because the MCP SDK reads its own request lines (only MCP tool results are
-checked). A TCP connection is closed after an oversized
-line; on stdio an oversized or non-UTF-8 line gets one error reply (`id: null`), the rest of that
-line is skipped without being dispatched, and the session and its open documents keep serving. MCP tool results are checked as encoded JSON,
+enforces the request and reply byte ceilings. MCP over stdio (`photocraft-cli mcp`) also
+bounds each encoded request line to 1 MiB, including its newline, before parsing or forwarding
+it to the SDK. Oversized MCP frames are discarded without retaining their body and receive
+`-32600` / `id: null`; malformed JSON or non-UTF-8 frames receive `-32700` / `id: null`.
+The next line can still be handled. A TCP connection is closed after an oversized
+line; on JSON-lines stdio an oversized or non-UTF-8 line gets one error reply (`id: null`),
+the rest of that line is skipped without being dispatched, and the session and its open documents keep serving. MCP tool results are checked as encoded JSON,
 including the text/image content envelope, and the MCP bridge bounds incoming desktop replies.
 A `batch` or `command_batch` stops at the first step whose result no longer fits the reply budget
 (that step may have run; later ones do not). MCP charges each result at its size escaped inside
@@ -505,3 +507,14 @@ Missing actions, recursive calls and nesting beyond 16 levels fail visibly; a ch
 the parent before its next step. Every nested command retains the normal automation permission check.
 Existing recordings containing expanded commands remain unchanged; remove those steps and record
 the named call again if desired.
+
+### Printing destinations
+
+`file.print` and `file.printOneCopy` can render a PDF on desktop platforms. Windows currently
+supports **Print to PDF**, with an explicit `output` path; `send` defaults to false when that
+path is supplied. Physical Windows printing is unavailable: a non-dry request to send to a
+printer returns an actionable error before rendering or changing output files. Open the saved
+PDF in a PDF viewer to print it. The Windows Print dialog explains this and asks for the PDF
+path, including for Print One Copy. A dry run may render a temporary PDF and returns
+`physicalPrinting:false`, `command:null` and an explanatory `note`; it never claims a CUPS
+command can run on Windows. Supported Unix desktops retain the CUPS dispatch path.

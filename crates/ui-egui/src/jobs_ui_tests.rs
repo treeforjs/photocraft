@@ -40,6 +40,38 @@ fn saved_document_stays_saved_when_image_asset_regeneration_is_refused() {
     assert_eq!(std::fs::read(assets.join("existing.png")).unwrap(), b"previous work");
 }
 
+#[test]
+fn rejected_native_save_keeps_previous_file_path_and_dirty_revision() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("existing.pcraft");
+    std::fs::write(&path, b"previous saved work").unwrap();
+    let mut session = photocraft_engine::Session::new();
+    session.execute("file.new", json!({"width":8,"height":8})).unwrap();
+    session.execute("layer.new.layer", json!({})).unwrap();
+    let previous_saved_revision = session.active().unwrap().saved_revision;
+    assert!(session.active().unwrap().is_dirty());
+    let written = Arc::new(AtomicBool::new(false));
+    let called = written.clone();
+    let mut app = PhotocraftApp::new(session, crate::Services::default());
+    app.services.export = Some(Box::new(|doc, _, _| {
+        let mut writer = photocraft_format::PcraftWriter::new();
+        writer.set_save_limits(photocraft_format::LoadOptions { max_manifest_bytes: 1, ..Default::default() });
+        writer.save_zip(doc, &Default::default()).map(|(bytes, _)| (bytes, Vec::new())).map_err(|error| error.to_string())
+    }));
+    app.services.write = Some(Box::new(move |path, bytes| {
+        called.store(true, Ordering::SeqCst);
+        std::fs::write(path, bytes).map_err(|error| error.to_string())
+    }));
+    let error = app.write_document(path.to_string_lossy().into_owned(), &Default::default(), false).unwrap_err();
+    assert!(error.contains("limit exceeded"), "{error}");
+    assert!(!written.load(Ordering::SeqCst));
+    assert_eq!(std::fs::read(path).unwrap(), b"previous saved work");
+    let state = app.session.active().unwrap();
+    assert!(state.path.is_none());
+    assert_eq!(state.saved_revision, previous_saved_revision);
+    assert!(state.is_dirty());
+}
+
 fn app_harness() -> Harness<'static, PhotocraftApp> {
     let mut h = Harness::builder().with_size(vec2(1280.0, 800.0)).with_max_steps(8).build_eframe(|cc| {
         PhotocraftApp::setup_context(&cc.egui_ctx, Default::default());

@@ -2,6 +2,10 @@
 use super::*;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 
+#[path = "request_line.rs"]
+mod request_line;
+use request_line::{RequestLine, read_request_line};
+
 impl PhotocraftMcp {
     /// Serve a JSON-lines stream. A malformed line receives -32700/id:null; the next line
     /// is still handled. A single writer serializes parse errors and SDK responses.
@@ -14,13 +18,29 @@ impl PhotocraftMcp {
         let (service_out, from_service) = tokio::io::duplex(1 << 20);
         let (errors, mut error_rx) = tokio::sync::mpsc::channel::<String>(16);
         let reader = tokio::spawn(async move {
-            let mut lines = BufReader::new(input).lines();
-            while let Some(line) = lines.next_line().await? {
-                if line.trim().is_empty() {
+            let mut input = BufReader::new(input);
+            loop {
+                let line = match read_request_line(&mut input, crate::security::MAX_REQUEST_BYTES).await? {
+                    RequestLine::Eof => break,
+                    RequestLine::TooLong => {
+                        let reply = json!({"jsonrpc":"2.0", "id":null, "error":{"code":-32600, "message":"request line exceeds the 1 MiB limit"}});
+                        if errors.send(reply.to_string()).await.is_err() {
+                            break;
+                        }
+                        continue;
+                    }
+                    RequestLine::Line(line) => line,
+                };
+                if line.iter().all(u8::is_ascii_whitespace) {
                     continue;
                 }
-                match serde_json::from_str::<Value>(&line) {
-                    Ok(_) => to_service.write_all(format!("{line}\n").as_bytes()).await?,
+                match serde_json::from_slice::<Value>(&line) {
+                    Ok(_) => {
+                        to_service.write_all(&line).await?;
+                        if !line.ends_with(b"\n") {
+                            to_service.write_all(b"\n").await?;
+                        }
+                    }
                     Err(e) => {
                         let reply = json!({"jsonrpc":"2.0", "id":null, "error":{"code":-32700, "message":format!("parse error: {e}")}});
                         if errors.send(reply.to_string()).await.is_err() {

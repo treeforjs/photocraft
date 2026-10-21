@@ -55,7 +55,7 @@ pub fn invoke(app: &mut PhotocraftApp, ctx: &egui::Context, id: &str, params: &V
             app.session.active()?;
             json!({"dialog": open_print(app)})
         }
-        "file.printOneCopy" if app.session.file_menu.last_print.is_none() => {
+        "file.printOneCopy" if app.session.file_menu.last_print.is_none() || !photocraft_engine::print_cmds::physical_printing_available() => {
             app.session.active()?;
             json!({"dialog": open_print(app)})
         }
@@ -142,7 +142,7 @@ pub fn ok_label(f: &Map<String, Value>) -> Option<&'static str> {
     if f.contains_key("__web") {
         Some(tl!("Save…"))
     } else if f.contains_key("__print") {
-        Some(tl!("Print"))
+        Some(if photocraft_engine::print_cmds::physical_printing_available() { tl!("Print") } else { tl!("Save as PDF") })
     } else {
         None
     }
@@ -562,7 +562,8 @@ fn download_for_web(app: &mut PhotocraftApp, mut p: Value) -> Result<Value, Stri
 pub fn open_print(app: &mut PhotocraftApp) -> u64 {
     let mut f = Map::new();
     f.insert("__print".into(), json!(true));
-    f.insert("__label".into(), json!("PhotoCraft Print Settings"));
+    let physical = photocraft_engine::print_cmds::physical_printing_available();
+    f.insert("__label".into(), json!(if physical { "PhotoCraft Print Settings" } else { "PhotoCraft Print to PDF" }));
     if let Some(Value::Object(m)) = app.session.file_menu.last_print.clone() {
         f.extend(m);
     }
@@ -588,6 +589,9 @@ pub fn open_print(app: &mut PhotocraftApp) -> u64 {
         ("output", json!("")),
     ] {
         f.entry(k.to_string()).or_insert(v);
+    }
+    if !physical {
+        f.insert("send".into(), json!(false));
     }
     app.ui.open_dialog(DialogKind::Command, f)
 }
@@ -663,15 +667,21 @@ fn print_body(app: &mut PhotocraftApp, ui: &mut egui::Ui, f: &mut Map<String, Va
                 ui.add_space(4.0);
                 ui.label(egui::RichText::new(s).font(crate::theme::semibold(12.0)).color(t.text));
             };
-            head(ui, tl!("Printer Setup"));
-            ui.horizontal(|ui| {
-                ui.label(egui::RichText::new(tl!("Printer")).color(t.text_dim));
-                let mut pr = s(f, "printer", "");
-                if ui.add(egui::TextEdit::singleline(&mut pr).hint_text(tl!("Default printer")).desired_width(180.0)).changed() {
-                    f.insert("printer".into(), json!(pr));
-                }
-            });
-            number(ui, f, "copies", tl!("Copies"), 1.0..=999.0, "", 1.0);
+            let physical = photocraft_engine::print_cmds::physical_printing_available();
+            if !physical {
+                ui.label("Physical printing is unavailable in this build. Save a PDF, then print it from a PDF viewer.");
+            }
+            head(ui, if physical { tl!("Printer Setup") } else { tl!("Save as PDF") });
+            if physical {
+                ui.horizontal(|ui| {
+                    ui.label(egui::RichText::new(tl!("Printer")).color(t.text_dim));
+                    let mut pr = s(f, "printer", "");
+                    if ui.add(egui::TextEdit::singleline(&mut pr).hint_text(tl!("Default printer")).desired_width(180.0)).changed() {
+                        f.insert("printer".into(), json!(pr));
+                    }
+                });
+                number(ui, f, "copies", tl!("Copies"), 1.0..=999.0, "", 1.0);
+            }
             ui.horizontal(|ui| {
                 let papers: Vec<(&str, &str)> = photocraft_engine::print_cmds::PAPERS.iter().map(|p| (p.0, p.0)).collect();
                 dropdown_str(ui, "print-paper", f, "paper", &papers, 110.0);
@@ -746,7 +756,8 @@ fn print_body(app: &mut PhotocraftApp, ui: &mut egui::Ui, f: &mut Map<String, Va
             });
             head(ui, tl!("Save as PDF"));
             let mut out = s(f, "output", "");
-            if ui.add(egui::TextEdit::singleline(&mut out).hint_text(tl!("(print to the printer)")).desired_width(300.0)).changed() {
+            let hint = if physical { tl!("(print to the printer)") } else { "Choose an output PDF path" };
+            if ui.add(egui::TextEdit::singleline(&mut out).hint_text(hint).desired_width(300.0)).changed() {
                 f.insert("output".into(), json!(out));
             }
         });
@@ -754,6 +765,9 @@ fn print_body(app: &mut PhotocraftApp, ui: &mut egui::Ui, f: &mut Map<String, Va
 }
 
 fn print_confirm(app: &mut PhotocraftApp, f: &Map<String, Value>) -> Result<Value, String> {
+    if !photocraft_engine::print_cmds::physical_printing_available() && s(f, "output", "").is_empty() {
+        return Err("Choose an output PDF path. Physical printing is unavailable in this build.".into());
+    }
     let r = app.run("file.print", params(f))?;
     app.ui.status = if r["sent"] == json!(true) {
         format!("Sent to the printer ({})", r["spooler"].as_str().unwrap_or(""))
@@ -894,6 +908,22 @@ mod tests {
                 assert!(!app.file_dialog_open());
             }
         }
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn windows_print_dialog_is_explicit_pdf_only_and_requires_a_destination() {
+        let (mut app, ctx) = app();
+        let reply = crate::menus::invoke(&mut app, &ctx, "file.print", json!({})).unwrap();
+        let id = reply["dialog"].as_u64().unwrap();
+        let fields = app.ui.dialog_mut(id).unwrap().fields.clone();
+        assert_eq!(fields["send"], false);
+        assert_eq!(fields["__label"], "PhotoCraft Print to PDF");
+        assert!(print_confirm(&mut app, &fields).unwrap_err().contains("output PDF path"));
+        app.session.file_menu.last_print = Some(json!({"paper":"a4","send":true}));
+        let reply = crate::menus::invoke(&mut app, &ctx, "file.printOneCopy", json!({})).unwrap();
+        let id = reply["dialog"].as_u64().unwrap();
+        assert_eq!(app.ui.dialog_mut(id).unwrap().fields["send"], false);
     }
 
     #[test]

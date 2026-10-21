@@ -145,3 +145,36 @@ async fn video_export_progress_ping_cancel_and_scoped_cleanup() {
     tokio::time::timeout(Duration::from_secs(5), server).await.unwrap().unwrap().unwrap();
     std::fs::remove_dir_all(root).unwrap();
 }
+
+#[tokio::test(flavor = "multi_thread")]
+async fn oversized_and_non_utf8_requests_do_not_reach_the_service_and_next_request_recovers() {
+    let (mut input, server_in) = tokio::io::duplex(8192);
+    let (server_out, output) = tokio::io::duplex(8192);
+    let server = tokio::spawn(PhotocraftMcp::headless().serve_io(server_in, server_out));
+    let mut lines = BufReader::new(output).lines();
+    let init = json!({"jsonrpc":"2.0", "id":1, "method":"initialize", "params":{"protocolVersion":"2025-06-18", "capabilities":{}, "clientInfo":{"name":"test", "version":"1"}}});
+    input.write_all(format!("{init}\n").as_bytes()).await.unwrap();
+    lines.next_line().await.unwrap().unwrap();
+    input.write_all(b"{\"jsonrpc\":\"2.0\",\"method\":\"notifications/initialized\"}\n").await.unwrap();
+    // A complete valid JSON request one byte over the encoded-line budget must be
+    // rejected before rmcp parses or dispatches it, even when input arrives in chunks.
+    let mut large = json!({"jsonrpc":"2.0", "id":2, "method":"ping", "params":{"padding":""}}).to_string();
+    let count = photocraft_automation::security::MAX_REQUEST_BYTES - large.len();
+    large = large.replacen("\"padding\":\"\"", &format!("\"padding\":\"{}\"", "x".repeat(count)), 1);
+    assert_eq!(large.len() + 1, photocraft_automation::security::MAX_REQUEST_BYTES + 1);
+    input.write_all(format!("{large}\n").as_bytes()).await.unwrap();
+    let reply: Value =
+        serde_json::from_str(&tokio::time::timeout(std::time::Duration::from_secs(5), lines.next_line()).await.unwrap().unwrap().unwrap()).unwrap();
+    assert_eq!(reply["id"], Value::Null);
+    assert_eq!(reply["error"]["code"], -32600);
+    input.write_all(b"\xff\n").await.unwrap();
+    let reply: Value = serde_json::from_str(&lines.next_line().await.unwrap().unwrap()).unwrap();
+    assert_eq!(reply["error"]["code"], -32700);
+    input.write_all(b"{\"jsonrpc\":\"2.0\",\"id\":3,\"method\":\"ping\"}\n").await.unwrap();
+    let reply: Value =
+        serde_json::from_str(&tokio::time::timeout(std::time::Duration::from_secs(5), lines.next_line()).await.unwrap().unwrap().unwrap()).unwrap();
+    assert_eq!(reply["id"], 3);
+    assert!(reply.get("result").is_some());
+    drop(input);
+    tokio::time::timeout(std::time::Duration::from_secs(5), server).await.unwrap().unwrap().unwrap();
+}
