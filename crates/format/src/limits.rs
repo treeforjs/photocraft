@@ -29,7 +29,13 @@ impl Write for ManifestBuffer {
             self.exceeded = true;
             return Err(io::Error::new(io::ErrorKind::InvalidData, "manifest exceeds its reopen limit"));
         }
-        self.bytes.try_reserve_exact(bytes.len()).map_err(io::Error::other)?;
+        // JSON emits many tiny writes. Grow geometrically within the cap rather than
+        // reallocating for every token, while keeping spare capacity bounded too.
+        let required = self.bytes.len() + bytes.len();
+        if required > self.bytes.capacity() {
+            let capacity = self.bytes.capacity().max(1).saturating_mul(2).min(self.limit).max(required);
+            self.bytes.try_reserve_exact(capacity - self.bytes.len()).map_err(io::Error::other)?;
+        }
         self.bytes.extend_from_slice(bytes);
         Ok(bytes.len())
     }
@@ -60,5 +66,20 @@ mod tests {
         assert!(out.exceeded);
         assert_eq!(out.bytes, b"12345678");
         assert!(ManifestBuffer::new(0).write_all(b"x").is_err());
+    }
+
+    #[test]
+    fn tiny_serialization_writes_have_bounded_amortized_growth() {
+        let mut out = ManifestBuffer::new(16_384);
+        let mut reallocations = 0;
+        for _ in 0..16_384 {
+            let before = out.bytes.capacity();
+            out.write_all(b"x").unwrap();
+            reallocations += usize::from(before != out.bytes.capacity());
+            assert!(out.bytes.capacity() <= 16_384);
+        }
+        assert!(reallocations < 64, "tiny writes must not cause one allocation per token");
+        assert_eq!(out.bytes.len(), 16_384);
+        assert!(out.write_all(b"x").is_err());
     }
 }

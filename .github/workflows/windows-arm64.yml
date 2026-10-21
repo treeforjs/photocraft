@@ -1,7 +1,7 @@
 # Windows on ARM: package the ARM64 release the way release.yml does (cross-compiled on an x64
 # runner, unsigned here), then install that MSI on a Windows 11 ARM64 runner, check the installed
-# binaries are ARM64, run the CLI natively, and uninstall. (A native ARM64 `cargo test` job is left
-# out for now: PdfCraft saw an intermittent access violation in egui UI tests there.)
+# binaries are ARM64, run the CLI natively, and uninstall. Focused print tests and offscreen
+# light/dark Print to PDF captures also run natively; the complete ARM64 UI suite stays separate.
 name: Windows ARM64
 
 # Nightly on main (dependency and runner-image drift shows up within a day), and on PRs that
@@ -11,6 +11,10 @@ on:
     paths:
       - .github/workflows/windows-arm64.yml
       - packaging/windows/**
+      - crates/engine/src/print_cmds/**
+      - crates/engine/src/print_cmds.rs
+      - crates/ui-egui/src/file_ui.rs
+      - crates/ui-egui/examples/snapshot.rs
   schedule:
     - cron: "41 4 * * *"
   workflow_dispatch:
@@ -55,6 +59,37 @@ jobs:
           path: dist/arm64/*
           if-no-files-found: error
           retention-days: 7
+      - name: Build ARM64 print checks with the release cache
+        timeout-minutes: 45
+        shell: pwsh
+        env:
+          CARGO_TARGET_AARCH64_PC_WINDOWS_MSVC_RUSTFLAGS: -C target-feature=+crt-static
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $bundle = Join-Path $env:RUNNER_TEMP 'windows-print-validation'
+          New-Item -ItemType Directory -Path $bundle | Out-Null
+          $specs = @(
+            @{ Package = 'photocraft-engine'; Target = 'photocraft_engine'; Name = 'engine-print-tests.exe'; Args = @('test', '--lib', '--no-run') },
+            @{ Package = 'photocraft-ui-egui'; Target = 'photocraft_ui_egui'; Name = 'ui-print-tests.exe'; Args = @('test', '--lib', '--no-run') },
+            @{ Package = 'photocraft-ui-egui'; Target = 'snapshot'; Name = 'snapshot.exe'; Args = @('build', '--example', 'snapshot') }
+          )
+          foreach ($spec in $specs) {
+            $cargoArgs = $spec.Args + @('--release', '--locked', '--target', 'aarch64-pc-windows-msvc', '-p', $spec.Package, '-j', '2', '--message-format=json')
+            $messages = @(& cargo @cargoArgs)
+            if ($LASTEXITCODE -ne 0) { throw "ARM64 $($spec.Name) build failed: $LASTEXITCODE" }
+            $artifacts = @($messages | ForEach-Object { $_ | ConvertFrom-Json } | Where-Object {
+              $_.reason -eq 'compiler-artifact' -and $_.target.name -eq $spec.Target -and $_.executable
+            })
+            if ($artifacts.Count -ne 1) { throw "Expected one executable for $($spec.Target), found $($artifacts.Count)" }
+            Copy-Item -LiteralPath $artifacts[0].executable -Destination (Join-Path $bundle $spec.Name)
+          }
+          $env:GITHUB_SHA | Set-Content -LiteralPath (Join-Path $bundle 'source.txt')
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-print-validation-arm64
+          path: ${{ runner.temp }}/windows-print-validation/*
+          if-no-files-found: error
+          retention-days: 3
 
   install:
     name: install and run on ARM64
@@ -62,6 +97,7 @@ jobs:
     runs-on: windows-11-arm
     timeout-minutes: 30
     steps:
+      - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with:
           name: photocraft-windows-arm64
@@ -91,3 +127,24 @@ jobs:
           if ($p.ExitCode -ne 0) { throw "msiexec /x exited $($p.ExitCode)" }
           if (Test-Path (Join-Path $dir 'photocraft.exe')) { throw 'uninstall left photocraft.exe behind' }
           Write-Output 'ok uninstalled'
+      - uses: actions/download-artifact@v4
+        with:
+          name: windows-print-validation-arm64
+          path: ${{ runner.temp }}/windows-print-validation
+      - name: Check Windows PDF printing and capture both appearances
+        timeout-minutes: 12
+        shell: pwsh
+        run: >-
+          ./packaging/windows/check-print-dialog.ps1
+          -Bundle (Join-Path $env:RUNNER_TEMP 'windows-print-validation')
+          -OutputDirectory (Join-Path $env:RUNNER_TEMP 'windows-print-dialog')
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: windows-print-dialog-arm64
+          path: |
+            ${{ runner.temp }}/windows-print-dialog/*.png
+            ${{ runner.temp }}/windows-print-dialog/*.log
+            ${{ runner.temp }}/windows-print-dialog/*.json
+          if-no-files-found: error
+          retention-days: 7
