@@ -18,6 +18,9 @@ jobs:
     if: github.event_name == 'push' && github.repository_owner == 'treeforjs'
     runs-on: ubuntu-latest
     timeout-minutes: 6
+    # Private draft visibility requires push access; this short job still issues fixed GETs only.
+    permissions:
+      contents: write
     environment: release
     steps:
       - name: Verify actual signed checksum bytes and unchanged draft metadata
@@ -376,7 +379,7 @@ jobs:
               def __init__(self, token):
                   require(isinstance(token, str) and 0 < len(token) <= 4096 and
                           all(0x21 <= ord(character) <= 0x7e for character in token),
-                          "A valid read-only workflow token is required.")
+                          "A valid workflow token is required.")
                   self.token = token
                   self.deadline = time.monotonic() + RUN_SECONDS
                   self.remaining = TRANSFER_BUDGET
