@@ -162,7 +162,7 @@ cp "$WORK/bin/photocraft-cli" "$CLI_DIR/"
 copy_docs "$CLI_DIR"
 # Same Developer ID and hardened runtime as the app, with an explicit reverse-DNS identifier
 # (codesign would otherwise use the bare file name).
-sign --options runtime --identifier ai.storyteller.photocraft-cli "$CLI_DIR/photocraft-cli"
+sign --options runtime --identifier io.github.treeforjs.photocraft-cli "$CLI_DIR/photocraft-cli"
 codesign --verify --strict --verbose=2 "$CLI_DIR/photocraft-cli"
 rm -f "$CLI_ZIP"
 ditto -c -k --keepParent "$CLI_DIR" "$CLI_ZIP"

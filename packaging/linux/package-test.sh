@@ -9,11 +9,12 @@ trap 'rm -rf "$TMP"' EXIT
 
 # Model a checkout cloned under umask 077, without changing the real checkout.
 FIXTURE="$TMP/checkout"
-mkdir -p "$FIXTURE/packaging" "$FIXTURE/assets/app-icon"
+mkdir -p "$FIXTURE/packaging" "$FIXTURE/assets/app-icon" "$FIXTURE/assets/fonts"
 cp -R "$HERE" "$FIXTURE/packaging/linux"
 cp "$HERE/../env.sh" "$FIXTURE/packaging/env.sh"
 cp -R "$ROOT/assets/app-icon/hicolor" "$FIXTURE/assets/app-icon/"
-cp "$ROOT/Cargo.toml" "$ROOT/README.md" "$ROOT/LICENSE-MIT" "$ROOT/LICENSE-APACHE" "$FIXTURE/"
+cp "$ROOT/assets/fonts/OFL-Cantarell.txt" "$FIXTURE/assets/fonts/"
+cp "$ROOT/Cargo.toml" "$ROOT/README.md" "$ROOT/LICENSE-MIT" "$ROOT/LICENSE-APACHE" "$ROOT/NOTICE" "$FIXTURE/"
 find "$FIXTURE" -type d -exec chmod 700 {} +
 find "$FIXTURE" -type f -exec chmod 600 {} +
 PACKAGE="$FIXTURE/packaging/linux/package.sh"
@@ -41,10 +42,17 @@ awk '
   substr($1, 1, 1) == "-" && substr($1, 8, 1) != "r" { print "file not world-readable: " $0; bad = 1 }
   END { exit bad }
 ' "$TMP/contents"
-for path in bin/photocraft bin/photocraft-cli share/applications/ai.storyteller.photocraft.desktop \
-  share/metainfo/ai.storyteller.photocraft.metainfo.xml share/icons/hicolor/256x256/apps/ai.storyteller.photocraft.png; do
+for path in bin/photocraft bin/photocraft-cli share/applications/io.github.treeforjs.photocraft.desktop \
+  share/metainfo/io.github.treeforjs.photocraft.metainfo.xml share/icons/hicolor/256x256/apps/io.github.treeforjs.photocraft.png \
+  share/licenses/photocraft/OFL-Cantarell.txt share/licenses/photocraft/NOTICE; do
   grep -Fq "/$path" "$TMP/paths"
 done
+license_path="$(grep -F '/share/licenses/photocraft/OFL-Cantarell.txt' "$TMP/paths")"
+tar -xOzf "${archive[0]}" "$license_path" >"$TMP/cantarell-license"
+cmp "$ROOT/assets/fonts/OFL-Cantarell.txt" "$TMP/cantarell-license"
+notice_path="$(grep -F '/share/licenses/photocraft/NOTICE' "$TMP/paths")"
+tar -xOzf "${archive[0]}" "$notice_path" >"$TMP/package-notice"
+cmp "$ROOT/NOTICE" "$TMP/package-notice"
 echo "Linux package staging and permissions ok"
 
 if command -v nfpm >/dev/null && command -v readelf >/dev/null && command -v dpkg-deb >/dev/null; then
@@ -86,9 +94,13 @@ cat >"$TMP/appimagetool" <<'TOOL'
 set -euo pipefail
 appdir="${@: -2:1}"
 output="${@: -1}"
-for asset in ai.storyteller.photocraft.desktop ai.storyteller.photocraft.png; do
+for asset in io.github.treeforjs.photocraft.desktop io.github.treeforjs.photocraft.png; do
   [ "$(stat -c %a "$appdir/$asset")" = 644 ] || { echo "private AppDir asset: $asset" >&2; exit 1; }
 done
+test -s "$appdir/usr/share/licenses/photocraft/OFL-Cantarell.txt"
+grep -Fq 'SIL OPEN FONT LICENSE Version 1.1' "$appdir/usr/share/licenses/photocraft/OFL-Cantarell.txt"
+cmp "$ROOT/NOTICE" "$appdir/usr/share/licenses/photocraft/NOTICE"
+test ! -d "$appdir/usr/share/doc"
 printf 'test AppImage\n' >"$output"
 printf 'test zsync\n' >"$output.zsync"
 TOOL

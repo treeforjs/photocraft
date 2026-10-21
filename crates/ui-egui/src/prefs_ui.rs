@@ -1284,9 +1284,7 @@ fn section_fields(ui: &mut egui::Ui, section: &str, obj: &mut Map<String, Value>
                 Value::Bool(b) => {
                     ui.label("");
                     let mut b = *b;
-                    if (path == "interface.systemTitleBar" && cfg!(all(not(target_arch = "wasm32"), not(target_os = "macos"))))
-                        || path == "integrations.allowAgentControl"
-                    {
+                    if path == "integrations.allowAgentControl" {
                         ui.vertical(|ui| {
                             crate::widgets::checkbox(ui, &mut b, &label);
                             ui.label(RichText::new(tl!("Applies at next launch.")).color(t.text_dim));
@@ -2366,46 +2364,24 @@ mod tests {
         assert_eq!(restarted.session.prefs().interface.ui_font_size, prefs::UiFontSize::Large);
     }
 
-    #[cfg(all(not(target_arch = "wasm32"), not(target_os = "macos")))]
     #[test]
-    fn system_title_bar_explains_next_launch_and_preserves_apply_and_cancel() {
+    fn old_custom_caption_preferences_keep_other_settings_without_an_obsolete_checkbox() {
         use egui_kittest::{Harness, kittest::Queryable};
-
-        let (mut app, store) = app_with_store();
-        app.run("prefs.set", json!({"values": {"interface.language": "en"}})).unwrap();
-        app.custom_titlebar = true;
-        let id = open_preferences(&mut app, "interface");
-        let mut h = Harness::builder().with_size(vec2(1280.0, 800.0)).build_eframe(move |cc| {
-            PhotocraftApp::setup_context(&cc.egui_ctx, Default::default());
-            app
-        });
-        h.run_steps(4);
-        h.get_by_label("System title bar").scroll_to_me();
-        h.run_steps(4);
-        h.get_by_label("Applies at next launch.");
-        for desired in [true, false] {
-            h.get_by_label("System title bar").click();
+        for legacy in [true, false] {
+            let saved = json!({"interface": {"systemTitleBar": legacy, "language": "en", "showTooltips": false}}).to_string();
+            let (mut app, _) = app_with_saved(Some(saved));
+            assert!(!app.custom_titlebar);
+            assert!(!app.session.prefs().interface.show_tooltips);
+            assert!(app.session.prefs().get("interface.systemTitleBar").is_none());
+            open_preferences(&mut app, "interface");
+            let mut h = Harness::builder().with_size(vec2(1280.0, 800.0)).build_eframe(move |cc| {
+                PhotocraftApp::setup_context(&cc.egui_ctx, Default::default());
+                app
+            });
             h.run_steps(4);
-            assert_eq!(h.state().ui.dialogs.iter().find(|d| d.id == id).unwrap().fields["values"]["interface"]["systemTitleBar"], desired);
-            assert_eq!(h.state().session.prefs().interface.system_title_bar, !desired, "the draft is not applied yet");
-            h.get_by_label("Applies at next launch.");
-            h.get_by_label("Apply").click();
-            h.run_steps(4);
-            assert_eq!(h.state().session.prefs().interface.system_title_bar, desired);
-            assert_eq!(stored(&store)["interface"]["systemTitleBar"], desired);
-            assert!(h.state().custom_titlebar, "do not change the current window or restart it");
-            let (reloaded, _) = app_with_saved(store.lock().unwrap().clone());
-            assert_eq!(reloaded.session.prefs().interface.system_title_bar, desired);
-            h.get_by_label("Applies at next launch.");
+            assert!(h.query_by_label("System title bar").is_none());
+            h.get_by_label("Show tooltips");
         }
-        h.get_by_label("System title bar").click();
-        h.run_steps(4);
-        h.get_by_label("Cancel").click();
-        h.run_steps(4);
-        assert!(h.state().ui.dialogs.iter().all(|d| d.id != id));
-        assert!(!h.state().session.prefs().interface.system_title_bar);
-        assert_eq!(stored(&store)["interface"]["systemTitleBar"], false);
-        assert!(h.state().custom_titlebar);
     }
 
     #[test]

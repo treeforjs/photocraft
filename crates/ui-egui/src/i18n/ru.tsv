@@ -1058,8 +1058,6 @@
 	Roman Hanging Punctuation	Висячая пунктуация (римская)
 	Avoid Widows/Orphans	Избегать висячих строк
 	Compose	Компоновка
-	Adobe Single-line Composer	Построчная компоновка Adobe
-	Adobe Every-line Composer	Абзацная компоновка Adobe
 	Justification	Выключка
 	Word Spacing	Межсловные интервалы
 	Letter Spacing	Межбуквенные интервалы
@@ -1098,7 +1096,6 @@
 	Path	Контур
 	Path:	Контур:
 	Work Path	Рабочий контур
-	Path to Illustrator…	Контур в Illustrator…
 	Make Work Path	Создать рабочий контур
 	Make Selection	Создать выделение
 	Fill Path	Залить контур
@@ -1737,7 +1734,6 @@
 	32-bit Preview Options…	Параметры предпросмотра 32 бит…
 	90° Clockwise	90° по часовой стрелке
 	90° Counter Clockwise	90° против часовой стрелке
-	AI Integrations…	Интеграции ИИ…
 	Again	Снова
 	Transform Again on a Copy	Дублировать и снова трансформировать
 	Anamorphic 2:1 (2)	Анаморф 2:1 (2)
@@ -1838,7 +1834,7 @@
 	Other	Другое
 	Other…	Другой…
 	Paragraph Styles Panel	Панель «Стили абзацев»
-	Paths to Illustrator…	Контуры в Illustrator…
+	Export paths (.ai)…	Экспортировать контуры (.ai)…
 	Pattern Preview	Предпросмотр паттерна
 	Pattern…	Паттерн…
 	Pixel Art	Пиксель-арт
@@ -2145,7 +2141,6 @@
 	Yellow  ·  Blue	Жёлтый  ·  Синий
 
 # Preference dialog: generated setting labels and dropdown choices
-	Adobe	Adobe
 	Adobe rgb	Adobe RGB
 	Allow agent control	Разрешить управление агентами
 	Allow scripts to connect	Разрешить подключение сценариев
@@ -2455,10 +2450,9 @@ cameraRaw	Roughness	Неровность
 	Use tablet pressure to change pen width	Использовать нажим планшета для изменения ширины пера
 
 
-# About ▸ Contributors / Models (credits, craftrules standards/contributors.md)
+# About ▸ Contributors (credits)
 	About	О программе
 	Contributors	Участники
-	Models	Модели
 	Sort	Сортировка
 	Username	Имя пользователя
 	Display name	Отображаемое имя
@@ -2480,7 +2474,6 @@ cameraRaw	Roughness	Неровность
 	Last	Последний
 	Contributors: {contributors} · Commits: {commits}	Участники: {contributors} · Коммиты: {commits}
 	No contributor data was built into this copy.	В эту копию не встроены данные об участниках.
-	No model credits were built into this copy.	В эту копию не встроены сведения о моделях.
 	Company	Компания
 	Version	Версия
 	% of all commits	% от всех коммитов

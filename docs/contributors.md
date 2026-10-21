@@ -1,15 +1,13 @@
 # Contributors in the About window
 
-**About ▸ Contributors** credits everyone who contributed to PhotoCraft, and **About ▸ Models** credits
-the AI models named in `Co-Authored-By` trailers. This page is the local copy of the decision (the standard it follows was written in the upstream
-maintainers' private standards repository, which is not part of this fork).
+**About ▸ Contributors** credits the people who contributed to PhotoCraft.
 
 ## Decision
 
 - Two files, both **compiled into the binary** by the UI crate's `build.rs` (nothing is read from
   disk or the network at run time; the web build has them too):
   - [`contributors/contributors.json`](../contributors/contributors.json): commit stats per GitHub
-    username. **Generated** by the maintainers' `contributors.py` script (see below); never hand-edit.
+    username. A historical statistics snapshot; preserve existing human records when a maintainer imports a reviewed refresh.
   - [`contributors/people.toml`](../contributors/people.toml): the names people chose for
     themselves. **Each contributor adds only their own entry**, in their own PR.
 - Each contributor gets one line: GitHub username (always), display name (opt-in, or their synced
@@ -23,7 +21,7 @@ maintainers' private standards repository, which is not part of this fork).
 ## In PhotoCraft
 
 - The About window is `DialogKind::About` in `crates/ui-egui/src/dialogs.rs` (Help ▸ About PhotoCraft).
-  Its tab is the dialog field `tab` (`about`, `contributors`, `models`), so agents can switch it with
+  Its tab is the dialog field `tab` (`about`, `contributors`), so automation can switch it with
   `ui.dialog.set`. Labels are translated like the rest of the shell (`tl!` + `crates/ui-egui/src/i18n/*.tsv`).
 
 ## Credit yourself
@@ -37,13 +35,15 @@ display_name = "Nickname"
 sync_github_name = true   # use the name on your public GitHub profile as display name
 ```
 
-Names show after the next refresh: the maintainers' script checks that each entry was committed by its own
-user (or by a maintainer with a `consent_source`). Delete your entry to remove your names.
+Maintainers verify that each requested name was submitted by its own contributor (or with a recorded
+`consent_source`) before marking that entry verified in the statistics snapshot. Delete your own entry
+to remove your names from the next build.
 
 ## Refreshing (maintainers)
 
-`contributors.json` is regenerated and `people.toml` verified by the `contributors.py` script the
-upstream maintainers keep in their private standards repository; it is not part of this fork (needs
-git, Python 3.11+ and `gh`). Until the fork carries its own copy, a maintainer runs it.
+This repository does not include a Git-history statistics generator. A maintainer can import a
+reviewed refresh of `contributors.json` while retaining existing human contributor records and
+verified consent. Keep the last verified snapshot until such a refresh is available; building and
+editing the application do not require an external standards repository.
 
 Commit the updated `contributors/contributors.json`. Git author names and emails are never recorded.

@@ -222,8 +222,11 @@ fn export_warnings_reach_status_notice_and_control_response() {
     let r = menus::invoke(&mut app, &ctx, "file.saveAs", json!({ "path": "/pics/cat.png" })).unwrap();
     assert_eq!(r["path"], "/pics/cat.png");
     assert_eq!(r["warnings"][0], "Layers were flattened");
-    assert!(app.ui.status.contains("Saved cat.png"), "{}", app.ui.status);
+    assert_eq!(app.ui.status, "Saved cat.png: Layers were flattened");
+    assert!(!app.ui.status_error, "the file was saved with an export warning");
     assert_eq!(app.ui.notices.len(), 1);
+    assert_eq!(app.ui.notices[0].lines, ["Layers were flattened"]);
+    assert!(!app.ui.notices[0].error);
     // No warnings: no notice, and the response says so.
     let r = menus::invoke(&mut app, &ctx, "file.saveAs", json!({ "path": "/pics/cat.psd" })).unwrap();
     assert_eq!(r["warnings"], json!([]));

@@ -47,7 +47,7 @@
 	Layer Comps to Files…	레이어 구성 요소를 파일로…
 	Color Lookup Tables…	색상 조회 테이블…
 	Data Sets as Files…	데이터 세트를 파일로…
-	Paths to Illustrator…	패스를 Illustrator로…
+	Export paths (.ai)…	패스 내보내기 (.ai)…
 	Render Video…	비디오 렌더링…
 	Generate	생성
 	Image Assets	이미지 에셋
@@ -163,7 +163,6 @@
 	Camera Raw…	Camera Raw…
 	Raw Defaults…	RAW 기본값…
 	Integrations…	연동…
-	AI Integrations…	AI 연동…
 	Install Plug-in…	플러그인 설치…
 	Language Options	언어 옵션
 	Settings…	설정…
@@ -1706,7 +1705,6 @@
 @plural	{n} layer|{n} layers	레이어 {n}개
 @plural	Group · {n} layer|Group · {n} layers	그룹 · 레이어 {n}개
 	Additional plugins folder	추가 플러그인 폴더
-	Adobe	Adobe
 	Adobe rgb	Adobe RGB
 	Allow agent control	에이전트 제어 허용
 	Allow scripts to connect	스크립트 연결 허용
@@ -2387,7 +2385,6 @@ cameraRaw	Color	색상
 	Layer Comps to Files	레이어 구성 요소를 파일로
 	Color Lookup Tables	색상 조회 테이블
 	Data Sets as Files	데이터 세트를 파일로
-	Paths to Illustrator	패스를 Illustrator로
 	Render Video	비디오 렌더링
 	Place Embedded	포함하여 가져오기
 	Place Linked	연결하여 가져오기
@@ -2417,7 +2414,6 @@ cameraRaw	Color	색상
 	Convert to Profile	프로파일로 변환
 	Camera Raw	Camera Raw
 	Raw Defaults	RAW 기본값
-	AI Integrations	AI 연동
 	Install Plug-in	플러그인 설치
 	Settings	설정
 	Color Table	색상표
@@ -2767,10 +2763,9 @@ cameraRaw	Color	색상
 	Use tablet pressure to change pen width	태블릿 압력을 사용하여 펜 폭 변경
 
 
-# About ▸ Contributors / Models (credits, craftrules standards/contributors.md)
+# About ▸ Contributors (credits)
 	About	정보
 	Contributors	기여자
-	Models	모델
 	Sort	정렬
 	Username	사용자 이름
 	Display name	표시 이름
@@ -2792,7 +2787,6 @@ cameraRaw	Color	색상
 	Last	마지막
 	Contributors: {contributors} · Commits: {commits}	기여자: {contributors} · 커밋: {commits}
 	No contributor data was built into this copy.	이 사본에는 기여자 데이터가 포함되어 있지 않습니다.
-	No model credits were built into this copy.	이 사본에는 모델 크레딧이 포함되어 있지 않습니다.
 	Company	회사
 	Version	버전
 	% of all commits	전체 커밋 대비 %

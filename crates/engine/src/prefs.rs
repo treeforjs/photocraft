@@ -57,7 +57,7 @@ choice!(
 choice!(TypeUnit { Points = "points", Pixels = "pixels", Millimeters = "mm" } default Points);
 choice!(PointSize { PostScript = "postScript", Traditional = "traditional" } default PostScript);
 choice!(Interpolation { BicubicAutomatic = "bicubicAutomatic", Nearest = "nearestNeighbor", Bilinear = "bilinear", Bicubic = "bicubic", BicubicSmoother = "bicubicSmoother", BicubicSharper = "bicubicSharper", PreserveDetails = "preserveDetails" } default BicubicAutomatic);
-choice!(ColorPicker { Adobe = "adobe", System = "system" } default Adobe);
+choice!(ColorPicker { Standard = "standard" | "adobe", System = "system" } default Standard);
 choice!(Theme { CraftLight = "light", Warm = "warm" | "paper" | "cream", Dim = "dim" | "proMedium", Craft = "dark" | "pro", HighContrast = "highContrast", Studio = "studio", StudioLight = "studioLight", Classic = "classic", SolarizedDark = "solarizedDark", Adwaita = "adwaita", AdwaitaDark = "adwaitaDark" } default Craft);
 choice!(AppearanceMode { Auto = "auto", Dark = "dark", Light = "light" } default Auto);
 choice!(DarkTheme { Dim = "dim" | "proMedium", Craft = "dark" | "pro", HighContrast = "highContrast", Studio = "studio", SolarizedDark = "solarizedDark", AdwaitaDark = "adwaitaDark" } default Craft);
@@ -198,7 +198,7 @@ pub struct General {
 impl Default for General {
     fn default() -> Self {
         Self {
-            color_picker: ColorPicker::Adobe,
+            color_picker: ColorPicker::Standard,
             image_interpolation: Interpolation::BicubicAutomatic,
             beep_when_done: false,
             export_clipboard: true,
@@ -241,10 +241,6 @@ pub struct Interface {
     /// Move tool drags show only the layer's outline and an arrow, leaving its pixels in place
     /// until release. Off (the default), the pixels follow the pointer live inside the outline.
     pub show_bounding_box_when_dragging_layer: bool,
-    /// Windows and Linux: use the system's title bar and window buttons instead of PhotoCraft's
-    /// own one-row title bar (tiling window managers, desktops that draw their own decorations;
-    /// #1271, #1316). Read when the app starts. macOS always uses the system's.
-    pub system_title_bar: bool,
     /// Notices (the lower-right cards) hide themselves after
     /// [`Interface::notification_duration_seconds`] unless the pointer rests on them (#2022).
     pub notification_auto_hide: bool,
@@ -276,7 +272,6 @@ impl Default for Interface {
             show_menu_colors: true,
             show_tooltips: true,
             show_bounding_box_when_dragging_layer: false,
-            system_title_bar: false,
             notification_auto_hide: true,
             notification_duration_seconds: 6,
             animations: true,

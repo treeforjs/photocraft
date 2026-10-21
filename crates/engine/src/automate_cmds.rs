@@ -31,6 +31,8 @@ pub struct FileMenuState {
     pub slices_locked: bool,
     /// Documents with File › Generate › Image Assets on.
     pub image_assets: Vec<DocId>,
+    /// Files this session generated, so later saves can refresh unchanged outputs safely.
+    pub(crate) asset_outputs: std::collections::HashMap<DocId, crate::export_files::OwnedOutputs>,
     /// File › Print settings used last (Print One Copy repeats them).
     pub last_print: Option<Value>,
     /// Save for Web settings used last.
@@ -259,6 +261,10 @@ pub fn fire_event(s: &mut Session, event: &str) -> usize {
 /// their layers and fires the engine-side script events.
 pub(crate) fn after_command(s: &mut Session, id: &str) {
     crate::slice_cmds::refresh(s);
+    if matches!(id, "file.close" | "file.closeAll" | "file.closeOthers") {
+        let open: Vec<_> = s.documents().iter().map(|d| d.doc.id).collect();
+        s.file_menu.asset_outputs.retain(|doc, _| open.contains(doc));
+    }
     let event = match id {
         "file.new" => "newDocument",
         "file.close" | "file.closeAll" | "file.closeOthers" => "closeDocument",

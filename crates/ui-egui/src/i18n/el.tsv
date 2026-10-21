@@ -41,7 +41,7 @@
 	Layer Comps to Files…	Συνθέσεις επιπέδων σε αρχεία…
 	Color Lookup Tables…	Πίνακες αντιστοίχισης χρωμάτων…
 	Data Sets as Files…	Σύνολα δεδομένων σε αρχεία…
-	Paths to Illustrator…	Διαδρομές προς Illustrator…
+	Export paths (.ai)…	Εξαγωγή διαδρομών (.ai)…
 	Render Video…	Απόδοση βίντεο…
 	Generate	Δημιουργία
 	Image Assets	Πόροι εικόνας
@@ -1413,7 +1413,6 @@
 	Zigzag	Ζιγκ ζαγκ
 	Wetness	Υγρασία
 	Contributors	Συντελεστές
-	Models	Μοντέλα
 	Username	Όνομα χρήστη
 	Display name	Εμφανιζόμενο όνομα
 	Real name	Πραγματικό όνομα
@@ -1434,7 +1433,6 @@
 	Last	Τελευταίο
 	Contributors: {contributors} · Commits: {commits}	Συντελεστές: {contributors} · Commits: {commits}
 	No contributor data was built into this copy.	Αυτή η έκδοση δεν περιλαμβάνει δεδομένα συντελεστών.
-	No model credits were built into this copy.	Αυτή η έκδοση δεν περιλαμβάνει στοιχεία αναγνώρισης μοντέλων.
 	Company	Εταιρεία
 	% of all commits	% του συνόλου των commits
 	Lines +/−	Γραμμές +/−
@@ -1678,7 +1676,6 @@
 	Enhanced Controls…	Προηγμένα χειριστήρια…
 	Raw Defaults…	Προεπιλογές RAW…
 	Integrations…	Ενσωματώσεις…
-	AI Integrations…	Ενσωματώσεις ΤΝ…
 	Install Plug-in…	Εγκατάσταση προσθέτου…
 	Language Options	Επιλογές γλώσσας
 	Settings…	Ρυθμίσεις…
@@ -1925,7 +1922,6 @@
 	4-up	Τέσσερα παράθυρα
 	6-up	Έξι παράθυρα
 	@{login}: {prs} PRs, {commits} commits, +{added} / −{deleted} lines (Δ {delta}), +{binAdded} / −{binDeleted} binary assets, {first} – {last}	@{login}: {prs} PR, {commits} commits, +{added} / −{deleted} γραμμές (Δ {delta}), +{binAdded} / −{binDeleted} δυαδικά αρχεία, {first} – {last}
-	AI Integrations	Ενσωματώσεις τεχνητής νοημοσύνης
 	Absolute	Απόλυτο
 	Absolute Colorimetric	Απόλυτη χρωματομετρική απόδοση
 	Action	Ενέργεια
@@ -1949,7 +1945,6 @@
 	Adds grain to the soft edges of the brush tip.	Προσθέτει κόκκο στις απαλές άκρες του πινέλου.
 	Adjust for Zoom	Προσαρμογή στη μεγέθυνση
 	Adjustment visible	Η προσαρμογή είναι ορατή
-	Adobe PDF Presets…	Προεπιλογές Adobe PDF…
 	Adobe RGB (1998) compatible	Συμβατό με Adobe RGB (1998)
 	Advanced Blending	Σύνθετες επιλογές ανάμειξης
 	After (X)	Μετά (X)
@@ -2704,9 +2699,7 @@
 	Patch:	Επιδιόρθωση:
 	Path Blur	Θόλωση διαδρομής
 	Path Blur…	Θόλωση διαδρομής…
-	Path to Illustrator…	Διαδρομή προς Illustrator…
 	Path:	Διαδρομή:
-	Paths to Illustrator	Διαδρομές σε Illustrator
 	Pattern Preview	Προεπισκόπηση μοτίβου
 	Perceptual	Αντιληπτικό
 	Performance	Επιδόσεις
@@ -3348,7 +3341,6 @@ cameraRaw	Yellow	Κίτρινο
 	300%	300%
 	50% Gray	50% γκρι
 	75%	75%
-	Adobe	Adobe
 	Adobe rgb	Adobe RGB
 	Android 1080p	Android 1080p
 	Apple Watch 45mm	Apple Watch 45mm

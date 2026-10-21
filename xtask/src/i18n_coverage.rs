@@ -94,12 +94,20 @@ fn registered_languages(source: &str) -> Result<Vec<Language>, String> {
         let catalog = if code == "en" {
             None
         } else {
-            let marker = "include_str!(\"";
-            let start = block.find(marker).ok_or_else(|| format!("language `{code}` has no include_str! catalog"))? + marker.len();
+            let (marker, compressed) = if block.contains("catalog!(\"") { ("catalog!(\"", true) } else { ("include_str!(\"", false) };
+            let start = block.find(marker).ok_or_else(|| format!("language `{code}` has no catalog"))? + marker.len();
             let rest = block.get(start..).ok_or_else(|| format!("language `{code}` has a malformed catalog path"))?;
             let end = rest.find("\")").ok_or_else(|| format!("language `{code}` has a malformed catalog path"))?;
             let file = rest.get(..end).ok_or_else(|| format!("language `{code}` has an invalid catalog path"))?;
-            let path = Path::new(file);
+            let file = if compressed {
+                if file != code {
+                    return Err(format!("language `{code}` uses the wrong compressed catalog `{file}`"));
+                }
+                format!("{file}.tsv")
+            } else {
+                file.to_string()
+            };
+            let path = Path::new(&file);
             if path.components().count() != 1 || path.extension().and_then(|ext| ext.to_str()) != Some("tsv") {
                 return Err(format!("language `{code}` has unsafe catalog path `{file}`"));
             }
@@ -476,6 +484,15 @@ mod tests {
     fn rejects_duplicate_keys() {
         let error = parse_catalog(Path::new("xx.tsv"), "\tOpen\tOuvrir\n\tOpen\tOuvert\n").err();
         assert!(error.is_some_and(|message| message.contains("duplicate key")));
+    }
+
+    #[test]
+    fn compressed_catalog_registry_uses_the_source_tsv_and_checks_its_identity() {
+        let registry = "pub static LANGUAGES = [LangInfo { code: \"en\" }, LangInfo { code: \"ja\", source: catalog!(\"ja\") }]; impl LangInfo";
+        let languages = registered_languages(registry).unwrap();
+        assert_eq!(languages[1].catalog.as_deref(), Some(Path::new("ja.tsv")));
+        assert!(registered_languages(&registry.replace("catalog!(\"ja\")", "catalog!(\"fr\")")).is_err());
+        assert!(registered_languages(&registry.replace("\"ja\"", "\"../ja\"")).is_err());
     }
 
     #[test]

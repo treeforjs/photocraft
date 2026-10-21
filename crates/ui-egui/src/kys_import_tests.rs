@@ -102,6 +102,24 @@ fn rows_match_our_commands_by_label_with_photoshop_tie_breaks() {
 }
 
 #[test]
+fn path_export_keeps_legacy_shortcut_names_with_a_neutral_menu_label() {
+    let app = app();
+    let id = "file.export.pathsToIllustrator";
+    let items = crate::menus::menu_items(&app);
+    let item = items.iter().find(|item| item.id == id).unwrap();
+    assert_eq!(item.label, "Export paths (.ai)…");
+    assert_eq!(photocraft_engine::commands::find(id).unwrap().label, item.label);
+    for name in ["Paths to Illustrator...", "  PATHS TO ILLUSTRATOR…  ", "Export paths (.ai)…"] {
+        let xml = format!(r#"<photoshop-keyboard-shortcuts><command name="{name}"><shortcut>Cmd+Alt+P</shortcut></command></photoshop-keyboard-shortcuts>"#);
+        let p = plan(&app, &parse(&xml).unwrap());
+        assert_eq!(p.set.get(id).map(String::as_str), Some("Cmd+Alt+P"), "{name}");
+        assert_eq!(p.set.len(), 1);
+        assert!(p.unknown.is_empty());
+        assert!(p.unreadable.is_empty());
+    }
+}
+
+#[test]
 fn an_unreadable_shortcut_is_reported_not_imported() {
     let app = app();
     let set = super::KysSet { name: None, commands: vec![KysCommand { name: "Undo".into(), shortcuts: vec!["Cmd+Shift+Ctrl".into()] }], tool_keys: 0 };

@@ -54,13 +54,6 @@ issue = 219
 note = "ABI v2 adds photocraft.progress (progress + cancel, host-enforced between fuel slices); plugin.run is a cancellable background job; Last Filter repeats plug-in runs (tests/abi.rs, plugin_cmds/tests.rs). Missing: panel kind (manifest.rs Kind::Filter only), reading other layers"
 
 [[item]]
-id = "AUTO-219-7"
-target = "Local ONNX models behind a flag, managed in Preferences; subject select, background removal"
-status = "missing"
-issue = 219
-note = "No ONNX runtime dependency"
-
-[[item]]
 id = "AUTO-219-8"
 target = "xtask check that every panel button routes through a command id"
 status = "done"

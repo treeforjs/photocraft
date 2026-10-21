@@ -38,7 +38,12 @@ flate2 = { workspace = true }
 # the network and installers stay in the desktop app and ui-egui, behind `default-features = false`).
 craft-update = { workspace = true }
 
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+# Export filenames come from untrusted document/layer names; keep them beneath the chosen folder.
+cap-std = "4"
+
 [dev-dependencies]
+tempfile = "3"
 photocraft-affinity = { workspace = true, features = ["synth"] }
 # Synthetic camera raw files for the open tests.
 photocraft-raw = { workspace = true, features = ["testgen"] }

@@ -1,11 +1,11 @@
-//! File › Print…, Print One Copy, File › Package… and File › Export › Paths to Illustrator….
+//! File › Print…, Print One Copy, File › Package… and File › Export › Export paths (.ai)….
 //!
 //! Printing renders the flattened document into a PDF page (paper size, orientation, position,
 //! scale, colour handling with printer profile / intent / black-point compensation, corner and
 //! centre crop marks, registration marks, description and label) with a small PDF writer
 //! (ISO 32000: one page, a Flate-compressed image XObject, vector marks, Helvetica text), then
-//! hands it to the system spooler with `lp` (CUPS, macOS and Linux). `"dryRun": true` stops
-//! before spooling and reports the command line, which is how the tests exercise the path.
+//! hands it to CUPS on supported Unix desktops. Windows supports an explicit output PDF;
+//! physical printing is unavailable there. `"dryRun": true` renders without spooling.
 //!
 //! Paths to Illustrator writes the document's paths as an Adobe Illustrator 3 compatible
 //! PostScript file (`m`/`L`/`C` path construction, `n`/`N` unpainted closed/open paths, `*u`/`*U`
@@ -313,10 +313,35 @@ pub fn layout(doc: &Document, p: &Value, cmd: &str) -> Result<PrintLayout> {
     Ok(PrintLayout { paper: (pw, ph), rect: (x, y, w, h), scale, marks })
 }
 
+/// Whether this platform has a physical-print dispatch implementation.
+pub const fn physical_printing_available() -> bool {
+    cfg!(any(target_os = "linux", target_os = "macos", target_os = "freebsd")) && !cfg!(target_arch = "wasm32")
+}
+
+fn print_destination(p: &Value, cmd: &str) -> Result<(Option<String>, bool, bool)> {
+    let output = p.get("output").and_then(Value::as_str).filter(|value| !value.is_empty()).map(str::to_string);
+    let send = p.get("send").and_then(Value::as_bool).unwrap_or(output.is_none());
+    let dry = p.get("dryRun").and_then(Value::as_bool).unwrap_or(false);
+    if !physical_printing_available() && !dry {
+        if send {
+            return Err(bad(
+                cmd,
+                "Physical printing is unavailable on this platform. Choose an output PDF path with send:false, then print that PDF from a PDF viewer.",
+            ));
+        }
+        if output.is_none() {
+            return Err(bad(cmd, "Choose an output PDF path. Physical printing is unavailable on this platform."));
+        }
+    }
+    Ok((output, send, dry))
+}
+
 /// Lays out, renders and (unless dry-run) spools a print. Shared by Print and Print One Copy.
 fn do_print(s: &mut Session, p: &Value, cmd: &str) -> Result<Value> {
     let d = s.active().ok_or(EngineError::NoDocument)?;
     let doc = d.doc.clone();
+    // Reject unsupported dispatch before rendering or creating/replacing any output.
+    let (output, send, dry) = print_destination(p, cmd)?;
     let PrintLayout { paper: (pw, ph), rect: (x, y, w, h), scale, marks } = layout(&doc, p, cmd)?;
     let (img, color) = print_image(&doc, p, cmd)?;
     let description = p
@@ -327,8 +352,6 @@ fn do_print(s: &mut Session, p: &Value, cmd: &str) -> Result<Value> {
     let label = p.get("labels").and_then(Value::as_bool).unwrap_or(false).then(|| doc.name.clone());
     let page = PrintPage { paper: (pw, ph), image: img, rect: (x, y, w, h), marks, description, label };
     let pdf = print_pdf(&page);
-    let output = p.get("output").and_then(Value::as_str).filter(|v| !v.is_empty()).map(str::to_string);
-    let send = p.get("send").and_then(Value::as_bool).unwrap_or(output.is_none());
     let pdf_path = match &output {
         Some(o) => o.clone(),
         None => {
@@ -349,7 +372,6 @@ fn do_print(s: &mut Session, p: &Value, cmd: &str) -> Result<Value> {
         argv.extend(["-n".into(), copies.to_string()]);
     }
     argv.extend(["-t".into(), doc.name.clone(), pdf_path.clone()]);
-    let dry = p.get("dryRun").and_then(Value::as_bool).unwrap_or(false);
     let mut sent = false;
     let mut spool = Value::Null;
     if send && !dry {
@@ -364,11 +386,12 @@ fn do_print(s: &mut Session, p: &Value, cmd: &str) -> Result<Value> {
     s.file_menu.last_print = Some(remembered);
     crate::automate_cmds::fire_event(s, "print");
     Ok(
-        json!({"pdf": pdf_path, "bytes": pdf.len(), "paper": [pw, ph], "imageRect": [x, y, w, h], "scale": scale * 100.0, "copies": copies, "command": if send { json!(argv) } else { Value::Null }, "sent": sent, "spooler": spool, "color": color}),
+        json!({"pdf": pdf_path, "bytes": pdf.len(), "paper": [pw, ph], "imageRect": [x, y, w, h], "scale": scale * 100.0, "copies": copies, "command": if send && physical_printing_available() { json!(argv) } else { Value::Null }, "sent": sent, "spooler": spool, "color": color,
+            "physicalPrinting": physical_printing_available(), "note": if physical_printing_available() { Value::Null } else { json!("Physical printing is unavailable. Print the saved PDF from a PDF viewer.") }}),
     )
 }
 
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(all(not(target_arch = "wasm32"), any(target_os = "linux", target_os = "macos", target_os = "freebsd")))]
 fn spool_pdf(argv: &[String]) -> Result<String> {
     let out = std::process::Command::new(&argv[0]).args(&argv[1..]).output().map_err(|e| other(format!("could not run `lp` (CUPS): {e}")))?;
     if !out.status.success() {
@@ -376,9 +399,9 @@ fn spool_pdf(argv: &[String]) -> Result<String> {
     }
     Ok(String::from_utf8_lossy(&out.stdout).trim().to_string())
 }
-#[cfg(target_arch = "wasm32")]
+#[cfg(not(all(not(target_arch = "wasm32"), any(target_os = "linux", target_os = "macos", target_os = "freebsd"))))]
 fn spool_pdf(_: &[String]) -> Result<String> {
-    Err(other("printing needs the desktop app"))
+    Err(other("Physical printing is unavailable. Save a PDF and print it from a PDF viewer."))
 }
 
 fn print(s: &mut Session, p: &Value) -> Result<Value> {
@@ -454,7 +477,7 @@ fn package(s: &mut Session, p: &Value) -> Result<Value> {
     Ok(json!({"folder": folder, "document": out, "links": copied.iter().map(|(_, t)| t).collect::<Vec<_>>(), "missing": missing, "warnings": warnings}))
 }
 
-// ---------- Paths to Illustrator ----------
+// ---------- Path export (.ai) ----------
 
 /// The document's paths as an Illustrator 3 PostScript file. `which`: "all", "work" or a path
 /// name. Coordinates are points (pixels at the document resolution), y up.
@@ -549,7 +572,7 @@ pub fn specs() -> Vec<CommandSpec> {
             CommandSpec { id: $id, label: $label, menu: $menu, shortcut: $sc, params: $params, enabled: $enabled, journal: true, run: $run }
         };
     }
-    const PRINT_PARAMS: &str = r##"{"printer":name? (default printer),"copies":1..999=1,"paper":"letter|legal|tabloid|a3|a4|a5|4x6|5x7"|[w,h] pt="letter","orientation":"portrait|landscape"="portrait","center":bool=true,"top":in?,"left":in?,"scale":%=100,"scaleToFit":bool=false,"colorHandling":"printerManages|photocraftManages|noColorManagement"="printerManages","printerProfile":profile? (photocraftManages),"intent":"perceptual|relative|saturation|absolute"="relative","bpc":bool=true,"cornerCropMarks":bool,"centerCropMarks":bool,"registrationMarks":bool,"description":bool,"labels":bool,"output":pdf path? (print to PDF; then "send" defaults to false),"send":bool?,"dryRun":bool=false (render the PDF, report the lp command, don't spool)} → {pdf, imageRect, command, sent}"##;
+    const PRINT_PARAMS: &str = r##"{"printer":name? (default printer),"copies":1..999=1,"paper":"letter|legal|tabloid|a3|a4|a5|4x6|5x7"|[w,h] pt="letter","orientation":"portrait|landscape"="portrait","center":bool=true,"top":in?,"left":in?,"scale":%=100,"scaleToFit":bool=false,"colorHandling":"printerManages|photocraftManages|noColorManagement"="printerManages","printerProfile":profile? (photocraftManages),"intent":"perceptual|relative|saturation|absolute"="relative","bpc":bool=true,"cornerCropMarks":bool,"centerCropMarks":bool,"registrationMarks":bool,"description":bool,"labels":bool,"output":pdf path? (print to PDF; then "send" defaults to false),"send":bool?,"dryRun":bool=false (render without spooling; CUPS command only on supported Unix desktops; Windows requires output PDF for non-dry runs)} → {pdf, imageRect, command, sent, physicalPrinting, note}"##;
     vec![
         spec!("file.print", "Print…", &["File"], Some("Cmd+P"), PRINT_PARAMS, native_doc, print),
         spec!(
@@ -572,7 +595,7 @@ pub fn specs() -> Vec<CommandSpec> {
         ),
         spec!(
             "file.export.pathsToIllustrator",
-            "Paths to Illustrator…",
+            "Export paths (.ai)…",
             &["File", "Export"],
             None,
             r##"{"path":str? (.ai; omit to return the text),"paths":"all|work|<path name>"="all"} → {path, paths}"##,

@@ -77,9 +77,9 @@ missing-glyph boxes. Check every new panel with the offscreen snapshot tool (`do
 
 ## Title bar
 
-The app's top bar (`panels::title_bar`) starts with the brand mark (the app icon, `brand.rs`), then the menus, the document title and the workspace controls, like Photoshop's Ps tile and menu row.
+The app's top bar (`panels::title_bar`) keeps the menus and workspace controls together below the native title bar on Windows and Linux. The document name and unsaved marker appear in the native title.
 
-- **Windows and Linux:** the window has no OS decorations, so there is one bar, not two stacked. The top bar is the title bar (`titlebar.rs`): Minimize, Maximize/Restore and Close (red on hover, `caption_close` tokens) sit flush in the window's top-right corner, the free gap between the menus and the controls drags the window and a double-click there maximizes it, and invisible 5 pt edges (12 pt corners) resize it. Close runs File › Exit, so unsaved documents are asked about first.
+- **Windows and Linux:** standard minimize, maximize/restore and close controls come from the native Windows/X11 frame or Wayland's compositor/Adwaita frame. The custom caption buttons and invisible resize edges are disabled. Close retains the unsaved-document prompt.
 - **macOS:** the traffic lights sit over the integrated title strip (`integrated_titlebar`).
 - **Narrow windows** drop controls that are also in a menu before anything overlaps: the theme toggle, then search (Edit › Search), then the workspace switcher narrows (Window › Workspace).
 
@@ -110,9 +110,11 @@ Preferences has **Apply**, **OK** and **Cancel**. Apply saves the edited section
 dialog open; it is disabled when the values match the saved preferences. OK saves and closes.
 Cancel discards only changes made since the last successful Apply. A failed Apply leaves the
 draft open for correction. Settings marked for the next launch still require a restart.
-On Windows and Linux, System Title Bar displays “Applies at next launch.” beneath its checkbox,
-including before editing and after Apply. Saving this preference does not restart the app or
-change the current window's decorations; the next launch reads the saved choice.
+Windows and Linux always use standard minimize, maximize and close controls. Windows and X11
+use the desktop's native frame; Wayland uses the compositor's frame or an Adwaita frame when
+the compositor delegates decorations. The menu and workspace toolbar stays inside the window.
+Old System Title Bar preferences no longer override the standard frame, and their obsolete
+checkbox is removed. Closing still asks about unsaved documents.
 
 ## High DPI and 4K displays
 

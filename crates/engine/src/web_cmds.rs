@@ -1110,6 +1110,14 @@ fn asset_settings(spec: &AssetSpec) -> WebSettings {
 
 /// Exports every asset named by `doc`'s layers into `dir`. Returns (files, errors).
 pub fn generate_assets(doc: &Document, dir: &str) -> (Vec<String>, Vec<Value>) {
+    generate_assets_with(doc, dir, &mut crate::export_files::OwnedOutputs::default())
+}
+
+fn generate_assets_with(doc: &Document, dir: &str, owned: &mut crate::export_files::OwnedOutputs) -> (Vec<String>, Vec<Value>) {
+    let mut output = match crate::export_files::OutputDirectory::new(dir) {
+        Ok(output) => output,
+        Err(error) => return (Vec::new(), vec![json!({"error": error.to_string()})]),
+    };
     let dpi = f64::from(doc.resolution_dpi.max(1.0));
     let mut defaults: Option<Vec<AssetDefault>> = None;
     let mut jobs: Vec<(LayerId, AssetSpec)> = Vec::new();
@@ -1134,6 +1142,10 @@ pub fn generate_assets(doc: &Document, dir: &str) -> (Vec<String>, Vec<Value>) {
     for (id, spec) in &jobs {
         for v in &variants {
             let r = (|| -> Result<String> {
+                let (name_stem, ext) = spec.file.rsplit_once('.').unwrap_or((spec.file.as_str(), "png"));
+                let rel = format!("{}{}{}.{ext}", v.folder, name_stem, v.suffix);
+                crate::export_files::relative_path(&rel).map_err(other)?;
+                let out = join(dir, &rel);
                 let mut one = crate::layer_menu_cmds::layer_document(doc, *id)?;
                 one.metadata = Default::default();
                 let (w0, h0) = (f64::from(one.size.width), f64::from(one.size.height));
@@ -1158,16 +1170,14 @@ pub fn generate_assets(doc: &Document, dir: &str) -> (Vec<String>, Vec<Value>) {
                 let st = asset_settings(spec);
                 let p = json!({"width": tw.round().max(1.0), "height": th.round().max(1.0)});
                 let (wdoc, _, _) = web_document(&one, &p, &WebSettings { convert_to_srgb: true, ..st.clone() })?;
-                let (name_stem, ext) = spec.file.rsplit_once('.').unwrap_or((spec.file.as_str(), "png"));
-                let rel = format!("{}{}{}.{ext}", v.folder, name_stem, v.suffix);
-                let out = join(dir, &rel);
                 if spec.format == "webp" {
-                    crate::file_cmds::save_doc(&wdoc, &out, None)?;
+                    let encoded = photocraft_io::export(&wdoc, "webp", &Default::default()).map_err(other)?;
+                    output.write(&rel, &encoded.bytes, Some(owned)).map_err(other)?;
                     return Ok(out);
                 }
                 let buf = photocraft_compose::flatten(&wdoc);
                 let o = optimize(&buf.px, wdoc.size.width as usize, wdoc.bounds(), &st, None, None, wdoc.resolution_dpi, false)?;
-                write_file(&out, &o.bytes)?;
+                output.write(&rel, &o.bytes, Some(owned)).map_err(other)?;
                 Ok(out)
             })();
             match r {
@@ -1199,13 +1209,15 @@ fn image_assets(s: &mut Session, p: &Value) -> Result<Value> {
         s.file_menu.image_assets.retain(|x| *x != id);
     }
     let d = s.active().ok_or(EngineError::NoDocument)?;
+    let doc = std::sync::Arc::clone(&d.doc);
     let dir = p.get("dir").and_then(Value::as_str).map(str::to_string).or_else(|| d.path.as_deref().map(assets_dir));
     if !on {
         return Ok(json!({"enabled": false}));
     }
     match dir {
         Some(dir) if !cfg!(target_arch = "wasm32") => {
-            let (files, errors) = generate_assets(&d.doc, &dir);
+            let owned = s.file_menu.asset_outputs.entry(id).or_default();
+            let (files, errors) = generate_assets_with(&doc, &dir, owned);
             Ok(json!({"enabled": true, "dir": dir, "files": files, "errors": errors}))
         }
         _ => Ok(json!({"enabled": true, "dir": null, "files": [], "note": "assets are written when the document is saved"})),
@@ -1213,13 +1225,15 @@ fn image_assets(s: &mut Session, p: &Value) -> Result<Value> {
 }
 
 /// After a save: regenerate the document's image assets when Generate › Image Assets is on.
-pub fn on_saved(s: &Session, index: usize) -> Option<Value> {
+pub fn on_saved(s: &mut Session, index: usize) -> Option<Value> {
     let d = s.documents().get(index)?;
     if !s.file_menu.image_assets.contains(&d.doc.id) || !s.prefs().plug_ins.generator_enabled || cfg!(target_arch = "wasm32") {
         return None;
     }
     let dir = assets_dir(d.path.as_deref()?);
-    let (files, errors) = generate_assets(&d.doc, &dir);
+    let doc = std::sync::Arc::clone(&d.doc);
+    let owned = s.file_menu.asset_outputs.entry(doc.id).or_default();
+    let (files, errors) = generate_assets_with(&doc, &dir, owned);
     Some(json!({"dir": dir, "files": files, "errors": errors}))
 }
 

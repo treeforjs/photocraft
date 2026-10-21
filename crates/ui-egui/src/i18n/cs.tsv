@@ -12,8 +12,8 @@
 #
 # Clean-room: every entry was written from the plain meaning of the English label using ordinary
 # Czech computing vocabulary (vrstva, výběr, štětec, přechod, rozostření, krytí ...). No
-# proprietary localisation resource, string table or product UI was consulted or copied; in
-# particular not the Czech localisation of Adobe Photoshop. Add entries the same way.
+# proprietary localisation resource, string table or product UI was consulted or copied.
+# Add entries the same way.
 # Conventions: menus are nouns (Soubor, Úpravy, Obraz ...), commands are infinitives (Otevřít…,
 # Uložit jako…), sentence case as in the English source. Product and technology names
 # (PhotoCraft, OpenType, CMYK, Lab ...) stay in Latin letters; the trailing "…" of
@@ -63,7 +63,7 @@
 	Layer Comps to Files…	Kompozice vrstev do souborů…
 	Color Lookup Tables…	Převodní tabulky barev…
 	Data Sets as Files…	Datové sady jako soubory…
-	Paths to Illustrator…	Cesty do Illustratoru…
+	Export paths (.ai)…	Exportovat cesty (.ai)…
 	Render Video…	Renderovat video…
 	Generate	Generovat
 	Image Assets	Obrazové podklady
@@ -179,7 +179,6 @@
 	Camera Raw…	Camera Raw…
 	Raw Defaults…	Výchozí nastavení Raw…
 	Integrations…	Integrace…
-	AI Integrations…	Integrace AI…
 	Install Plug-in…	Instalovat zásuvný modul…
 	Language Options	Jazykové možnosti
 	Settings…	Nastavení…
@@ -1753,7 +1752,6 @@
 
 # Preferences (labels are generated from the setting names)
 	Additional plugins folder	Složka dalších zásuvných modulů
-	Adobe	Adobe
 	Adobe rgb	Adobe RGB
 	Allow agent control	Povolit ovládání agenty
 	Allow scripts to connect	Povolit připojení skriptů
@@ -2181,10 +2179,9 @@ cameraRaw	Color	Barvy
 	Use tablet pressure to change pen width	Měnit šířku pera přítlakem tabletu
 
 
-# About ▸ Contributors / Models (credits, craftrules standards/contributors.md)
+# About ▸ Contributors (credits)
 	About	O aplikaci
 	Contributors	Přispěvatelé
-	Models	Modely
 	Sort	Řadit
 	Username	Uživatelské jméno
 	Display name	Zobrazované jméno
@@ -2206,7 +2203,6 @@ cameraRaw	Color	Barvy
 	Last	Poslední
 	Contributors: {contributors} · Commits: {commits}	Přispěvatelé: {contributors} · Commity: {commits}
 	No contributor data was built into this copy.	Tato kopie neobsahuje údaje o přispěvatelích.
-	No model credits were built into this copy.	Tato kopie neobsahuje údaje o modelech.
 	Company	Společnost
 	Model	Model
 	Version	Verze

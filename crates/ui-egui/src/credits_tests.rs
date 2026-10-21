@@ -158,48 +158,6 @@ fn the_grab_bag_rows_are_evenly_spaced() {
     assert!(gaps[0] > line + 4.0, "rows {} pt apart for {line} pt links", gaps[0]);
 }
 
-fn model(company: &'static str, name: &'static str, commits: u64) -> Model {
-    Model { company, model: name, version: "1.0", commits, lines_added: 150_000 + commits, lines_deleted: 20_000 }
-}
-
-#[test]
-fn a_model_with_commits_never_reads_zero_percent() {
-    assert_eq!(percent(228, 482), "47%");
-    assert_eq!(percent(2, 482), "<1%");
-    assert_eq!(percent(0, 482), "0%");
-    assert_eq!(percent(5, 0), "100%"); // a total that trails the model's own count
-    assert_eq!(percent(3, 1), "100%");
-}
-
-#[test]
-fn the_models_table_lines_counts_up_on_the_right_under_a_rule_of_headers() {
-    let models: Vec<Model> = (0..8).map(|i| model("Example Labs", leak(format!("Model {i}")), [228, 45, 6, 2, 2, 1, 1, 1][i])).collect();
-    let mut h = Harness::builder().with_size(vec2(WIDTH + 20.0, 520.0)).build_ui(move |ui| {
-        if !ui.ctx().fonts(|f| f.families().contains(&egui::FontFamily::Name("semibold".into()))) {
-            return;
-        }
-        ui.set_width(WIDTH);
-        models_in(ui, &models, 482);
-    });
-    crate::PhotocraftApp::setup_context(&h.ctx, crate::theme::ThemeKind::Craft);
-    h.run_steps(4);
-    let head = |l: &str| h.query_all_by_label(l).next().map(|n| n.rect()).unwrap_or_else(|| panic!("no {l} header"));
-    let (commits, lines) = (head("Commits"), head("Lines +/−"));
-    assert!(lines.right() - head("Company").left() <= WIDTH + 0.5, "the table is wider than the window");
-    let column = |col: Rect| -> Vec<Rect> {
-        h.query_all_by_role(Role::Label)
-            .map(|n| n.rect())
-            .filter(|r| r.top() > col.bottom() && r.center().x > col.left() && r.center().x < col.right())
-            .collect()
-    };
-    for (name, col) in [("Commits", commits), ("Lines", lines)] {
-        let cells = column(col);
-        assert_eq!(cells.len(), 8, "{name}: {} cells", cells.len());
-        assert!(cells.iter().all(|r| (r.right() - cells[0].right()).abs() < 0.5), "{name} isn't right-aligned: {cells:?}");
-    }
-    assert!(h.query_all_by_label("<1%").count() == 5, "small shares read <1%");
-}
-
 /// The About window on `tab` (and the Contributors table when `table`): the top of its title and of
 /// its OK button, and the bottom of the lowest thing between them.
 fn about_window(tab: &str, table: bool) -> (f32, f32, f32) {
@@ -225,12 +183,26 @@ fn about_window(tab: &str, table: bool) -> (f32, f32, f32) {
 }
 
 #[test]
-fn about_and_models_end_where_their_content_does() {
-    for tab in ["about", "models"] {
-        let (_, ok, lowest) = about_window(tab, false);
-        assert!(lowest > f32::MIN, "{tab}: nothing above OK");
-        assert!(ok - lowest < 40.0, "{tab}: {} pt of blank space above OK", ok - lowest);
-    }
+fn about_ends_where_its_content_does() {
+    let (_, ok, lowest) = about_window("about", false);
+    assert!(lowest > f32::MIN, "nothing above OK");
+    assert!(ok - lowest < 40.0, "{} pt of blank space above OK", ok - lowest);
+}
+
+#[test]
+fn about_keeps_human_contributors_and_ignores_a_retired_tab() {
+    let mut h = Harness::builder().with_size(vec2(1440.0, 900.0)).with_max_steps(64).build_eframe(|cc| {
+        crate::PhotocraftApp::setup_context(&cc.egui_ctx, Default::default());
+        crate::PhotocraftApp::new(photocraft_engine::Session::new(), crate::Services::default())
+    });
+    let mut fields = serde_json::Map::new();
+    fields.insert("tab".into(), serde_json::json!("models"));
+    h.state_mut().ui.open_dialog(crate::state::DialogKind::About, fields);
+    h.run_steps(6);
+    assert!(h.query_all_by_label("PhotoCraft — an open-source, native image editor written in Rust.").next().is_some());
+    h.get_by_label("Contributors").click();
+    h.run_steps(4);
+    assert!(h.query_all_by_role(Role::Link).any(|n| n.accesskit_node().label().is_some_and(|label| label.starts_with('@'))));
 }
 
 #[test]

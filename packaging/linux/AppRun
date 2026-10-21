@@ -2,7 +2,7 @@
 # PhotoCraft AppImage entry point (packaging/linux/AppRun; installed by package.sh).
 #
 # On Wayland the compositor resolves a window's dock icon by taking the window's
-# app_id (ai.storyteller.photocraft) and looking up an installed .desktop file.
+# app_id (io.github.treeforjs.photocraft) and looking up an installed .desktop file.
 # An AppImage installs nothing, so every AppImage run would otherwise show the
 # generic "Wayland" icon (#593). Best-effort desktop integration: on first run
 # (and whenever the AppImage's path changes) install the .desktop entry and the
@@ -12,7 +12,10 @@
 set -u
 
 APPDIR="$(dirname "$(readlink -f "$0")")"
-DESK_ID=ai.storyteller.photocraft
+DESK_ID=io.github.treeforjs.photocraft
+# Compatibility only: remove an old AppImage shortcut only when it targets this
+# exact AppImage. Other installations and all document/preferences folders stay.
+LEGACY_DESK_ID=ai.storyteller.photocraft
 
 integrate() {
   case "${PHOTOCRAFT_NO_DESKTOP_INTEGRATION:-}" in
@@ -46,6 +49,13 @@ integrate() {
       rm -f "$tmp"
     else
       if mv -f "$tmp" "$apps/$DESK_ID.desktop" 2>/dev/null; then
+        legacy="$apps/$LEGACY_DESK_ID.desktop"
+        if [ ! -L "$legacy" ] && [ -f "$legacy" ] &&
+          grep -Fxq "Exec=\"$appimage\" %F" "$legacy" &&
+          grep -Fxq 'Name=PhotoCraft' "$legacy" &&
+          grep -Fxq "Icon=$LEGACY_DESK_ID" "$legacy"; then
+          rm -f "$legacy"
+        fi
         command -v update-desktop-database >/dev/null 2>&1 && update-desktop-database "$apps" >/dev/null 2>&1
       else
         rm -f "$tmp"

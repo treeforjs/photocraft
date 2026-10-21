@@ -257,7 +257,7 @@ pub fn version_info_resource(has_real_merged_data: bool) -> ImageResource {
         VersionInfo {
             version: 1,
             has_real_merged_data,
-            writer: UnicodeString::new_nul("Adobe Photoshop"),
+            writer: UnicodeString::new_nul("PhotoCraft"),
             reader: UnicodeString::new_nul("Adobe Photoshop CS6"),
             file_version: 1,
         }
@@ -360,6 +360,8 @@ mod tests {
         match r.parsed() {
             Some(Ok(ResourceData::VersionInfo(v))) => {
                 assert!(!v.has_real_merged_data);
+                assert_eq!(v.writer, UnicodeString::new_nul("PhotoCraft"));
+                assert_eq!(v.reader, UnicodeString::new_nul("Adobe Photoshop CS6"));
                 assert_eq!(v.to_bytes(), r.data);
             }
             other => panic!("{other:?}"),

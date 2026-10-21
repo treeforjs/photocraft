@@ -10,6 +10,7 @@ next to them.
 
 | Path | Title | Author | Source | License |
 |---|---|---|---|---|
+| `sctk-adwaita` 0.10.1 dependency: `src/title/Cantarell-Regular.ttf` (embedded on Linux, not stored here) | Cantarell Regular 0.05, fallback title font for the Wayland frame | Understanding Limited (2009–2011); Jakub Steiner (2010–2011) | [Locked dependency source](https://github.com/PolyMeilex/sctk-adwaita/blob/d5f343c45c04d4a026db57f76760819b7325db00/src/title/Cantarell-Regular.ttf) | SIL OFL 1.1, [`assets/fonts/OFL-Cantarell.txt`](assets/fonts/OFL-Cantarell.txt); shipped in Linux packages under `share/licenses/photocraft/` |
 | `crates/ui-egui/src/i18n/el.tsv` | Greek UI translations | PhotoCraft contributors | Original translations of PhotoCraft's English labels | MIT OR Apache-2.0, [`LICENSE-translations.txt`](crates/ui-egui/src/i18n/LICENSE-translations.txt) |
 | `crates/ui-egui/src/i18n/de.tsv` | German UI translations | PhotoCraft contributors | Original translations of PhotoCraft's English labels | MIT OR Apache-2.0, [`LICENSE-translations.txt`](crates/ui-egui/src/i18n/LICENSE-translations.txt) |
 | `crates/ui-egui/src/i18n/it.tsv` | Italian UI translations | PhotoCraft contributors | Original translations of PhotoCraft's English labels | MIT OR Apache-2.0, [`LICENSE-translations.txt`](crates/ui-egui/src/i18n/LICENSE-translations.txt) |

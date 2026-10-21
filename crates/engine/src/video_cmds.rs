@@ -320,8 +320,12 @@ fn frames_to_layers(s: &mut Session, p: &Value) -> Result<Value> {
 /// sequence (`{dir}/{stem}_NNNN.{format}`). Clean-room; no proprietary codec.
 fn render_video(s: &mut Session, p: &Value) -> Result<Value> {
     let dir = p.get("dir").and_then(Value::as_str).ok_or_else(|| EngineError::BadParams { cmd: "file.export.renderVideo".into(), msg: "need `dir`".into() })?;
-    std::fs::create_dir_all(dir).map_err(|e| EngineError::Other(format!("mkdir `{dir}`: {e}")))?;
-    render_video_with(s, p, |name, bytes| crate::file_cmds::write_file(&format!("{dir}/{name}"), bytes), |_, _| true)
+    let mut output = crate::export_files::OutputDirectory::new(dir).map_err(|e| EngineError::Other(e.to_string()))?;
+    let result = render_video_with(s, p, |name, bytes| output.write(name, bytes, None).map_err(|e| EngineError::Other(e.to_string())), |_, _| true);
+    if result.is_err() {
+        output.rollback();
+    }
+    result
 }
 
 /// Render through a caller-owned writer. The writer receives one filename, never an ambient
@@ -339,7 +343,7 @@ pub fn render_video_with(
     store(&mut base);
     let frames = base.timeline.as_ref().map_or(1, |t| t.duration).max(1);
     let fps = base.timeline.as_ref().map_or(30.0, |t| t.fps).max(1.0);
-    let stem = base.name.rsplit_once('.').map_or(base.name.as_str(), |(a, _)| a).to_string();
+    let stem = crate::file_cmds::sanitize(base.name.rsplit_once('.').map_or(base.name.as_str(), |(a, _)| a));
     let fmt = base.pixel_format();
     let bounds = base.bounds();
     let (w, h) = (bounds.width() as usize, bounds.height() as usize);

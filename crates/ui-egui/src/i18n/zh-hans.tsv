@@ -55,7 +55,7 @@
 	Layer Comps to Files…	将图层复合导出为文件…
 	Color Lookup Tables…	颜色查找表…
 	Data Sets as Files…	将数据组导出为文件…
-	Paths to Illustrator…	将路径导出到 Illustrator…
+	Export paths (.ai)…	导出路径 (.ai)…
 	Render Video…	渲染视频…
 	Generate	生成
 	Image Assets	图像资源
@@ -141,7 +141,6 @@
 	Histories	历史记录
 	Video Cache	视频缓存
 	All	全部
-	Adobe PDF Presets…	Adobe PDF 预设…
 	Presets	预设
 	Preset Manager…	预设管理器…
 	Migrate Presets	迁移预设
@@ -174,7 +173,6 @@
 	Camera Raw…	Camera Raw…
 	Raw Defaults…	Raw 默认设置…
 	Integrations…	集成…
-	AI Integrations…	AI 集成…
 	Install Plug-in…	安装插件…
 	Language Options	语言选项
 	Settings…	设置…
@@ -1746,7 +1744,6 @@
 @plural	{n} Layer|{n} Layers	{n} 个图层
 @plural	Group · {n} layer|Group · {n} layers	组 · {n} 个图层
 	Additional plugins folder	附加插件文件夹
-	Adobe	Adobe
 	Adobe rgb	Adobe RGB
 	Allow agent control	允许代理控制
 	Allow scripts to connect	允许脚本连接
@@ -2189,10 +2186,9 @@ cameraRaw	Blending	混合
 	Use tablet pressure to change pen width	使用绘图板压力以更改钢笔宽度
 
 
-# About ▸ Contributors / Models (credits, craftrules standards/contributors.md)
+# About ▸ Contributors (credits)
 	About	关于
 	Contributors	贡献者
-	Models	模型
 	Sort	排序
 	Username	用户名
 	Display name	显示名称
@@ -2214,7 +2210,6 @@ cameraRaw	Blending	混合
 	Last	最近
 	Contributors: {contributors} · Commits: {commits}	贡献者：{contributors} · 提交：{commits}
 	No contributor data was built into this copy.	此副本未内置贡献者数据。
-	No model credits were built into this copy.	此副本未内置模型致谢。
 	Company	公司
 	Model	模型
 	Version	版本

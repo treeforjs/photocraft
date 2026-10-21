@@ -4,7 +4,7 @@
 <mime-info xmlns="http://www.freedesktop.org/standards/shared-mime-info">
   <mime-type type="application/x-photocraft">
     <comment>PhotoCraft document</comment>
-    <icon name="ai.storyteller.photocraft"/>
+    <icon name="io.github.treeforjs.photocraft"/>
     <glob pattern="*.pcraft"/>
   </mime-type>
   <mime-type type="image/x-psb">

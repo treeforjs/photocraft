@@ -54,7 +54,7 @@
 	Layer Comps to Files…	Layer Comp ke Berkas…
 	Color Lookup Tables…	Tabel Color Lookup…
 	Data Sets as Files…	Data Set sebagai Berkas…
-	Paths to Illustrator…	Path ke Illustrator…
+	Export paths (.ai)…	Ekspor path (.ai)…
 	Render Video…	Render Video…
 	Generate	Generate
 	Image Assets	Aset Gambar
@@ -168,7 +168,6 @@
 	Camera Raw…	Camera Raw…
 	Raw Defaults…	Default Raw…
 	Integrations…	Integrasi…
-	AI Integrations…	Integrasi AI…
 	Install Plug-in…	Pasang Plug-in…
 	Language Options	Opsi Bahasa
 	Settings…	Pengaturan…
@@ -1704,7 +1703,6 @@
 @plural	{n} layer|{n} layers	{n} layer
 @plural	Group · {n} layer|Group · {n} layers	Grup · {n} layer
 	Additional plugins folder	Folder plugin tambahan
-	Adobe	Adobe
 	Adobe rgb	Adobe RGB
 	Allow agent control	Izinkan kontrol agen
 	Allow scripts to connect	Izinkan skrip terhubung
@@ -2181,8 +2179,6 @@
 	Roman Hanging Punctuation	Tanda Baca Menggantung Roman
 	Avoid Widows/Orphans	Hindari Widow/Orphan
 	Compose	Komposisi
-	Adobe Single-line Composer	Adobe Single-line Composer
-	Adobe Every-line Composer	Adobe Every-line Composer
 	Justification	Justifikasi
 	Word Spacing	Spasi Kata
 	Letter Spacing	Spasi Huruf
@@ -2197,7 +2193,6 @@
 	Symbols	Simbol
 	Punctuation	Tanda Baca
 	Path:	Path:
-	Path to Illustrator…	Path ke Illustrator…
 	Make Work Path	Buat Work Path
 	Make Selection	Buat Seleksi
 	Fill Path	Isi Path
@@ -2434,7 +2429,6 @@
 	Intersect with	Irisan dengan
 	Capture Comp	Tangkap Comp
 	No Layer Comps	Tidak Ada Layer Comp
-	Adobe PDF Presets…	Preset Adobe PDF…
 	3D…	3D…
 	Technology Previews…	Pratinjau Teknologi…
 	Background from Layer	Background dari Layer
@@ -2594,10 +2588,9 @@ cameraRaw	Blending	Pembauran
 	Use tablet pressure to change pen width	Gunakan tekanan tablet untuk mengubah lebar pena
 
 
-# About ▸ Contributors / Models (credits, craftrules standards/contributors.md)
+# About ▸ Contributors (credits)
 	About	Tentang
 	Contributors	Kontributor
-	Models	Model
 	Sort	Urutkan
 	Username	Nama pengguna
 	Display name	Nama tampilan
@@ -2619,7 +2612,6 @@ cameraRaw	Blending	Pembauran
 	Last	Terakhir
 	Contributors: {contributors} · Commits: {commits}	Kontributor: {contributors} · Commit: {commits}
 	No contributor data was built into this copy.	Salinan ini tidak memuat data kontributor.
-	No model credits were built into this copy.	Salinan ini tidak memuat kredit model.
 	Company	Perusahaan
 	Version	Versi
 	% of all commits	% dari semua commit

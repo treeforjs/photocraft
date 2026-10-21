@@ -29,14 +29,14 @@ impl craft_update::Source for FakeGitHub {
 }
 
 fn info() -> craft_update::AppInfo {
-    use base64::Engine as _;
     craft_update::AppInfo {
         id: "photocraft".into(),
         display_name: "PhotoCraft".into(),
         repo: "treeforjs/photocraft".into(),
         current: env!("CARGO_PKG_VERSION").into(),
-        // Any 32 bytes make a key: these tests never get as far as checking a signature.
-        public_key: Some(base64::engine::general_purpose::STANDARD.encode([7u8; 32])),
+        // RFC 8032 test vector 1: a valid, non-weak Ed25519 public key.
+        // No private key or signature is needed for release-discovery UI tests.
+        public_key: Some("11qYAYKxCrfVS/7TyWQHOg7hcvPapiMlrwIaaPcHURo=".into()),
         prereleases: false,
     }
 }

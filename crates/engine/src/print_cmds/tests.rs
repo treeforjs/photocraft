@@ -33,7 +33,7 @@ fn pdf_image(pdf: &[u8]) -> (u32, u32, String, Vec<u8>) {
 }
 
 #[test]
-fn print_dry_run_renders_a_pdf_and_reports_lp() {
+fn print_dry_run_renders_a_pdf_and_reports_only_available_platform_dispatch() {
     let dir = tmp("print");
     for depth in [8, 16, 32] {
         let mut s = session("rgb", depth);
@@ -43,8 +43,14 @@ fn print_dry_run_renders_a_pdf_and_reports_lp() {
                 json!({"dryRun": true, "printer": "Office", "copies": 2, "paper": "a4", "cornerCropMarks": true, "registrationMarks": true, "labels": true}),
             )
             .unwrap();
-        let cmd: Vec<String> = serde_json::from_value(r["command"].clone()).unwrap();
-        assert_eq!(&cmd[..5], &["lp", "-d", "Office", "-n", "2"]);
+        if physical_printing_available() {
+            let cmd: Vec<String> = serde_json::from_value(r["command"].clone()).unwrap();
+            assert_eq!(&cmd[..5], &["lp", "-d", "Office", "-n", "2"]);
+        } else {
+            assert!(r["command"].is_null());
+            assert_eq!(r["physicalPrinting"], false);
+            assert!(r["note"].as_str().unwrap().contains("unavailable"));
+        }
         assert_eq!(r["sent"], false);
         let pdf = std::fs::read(r["pdf"].as_str().unwrap()).unwrap();
         assert!(pdf.starts_with(b"%PDF-1.4"));
@@ -102,8 +108,12 @@ fn print_one_copy_repeats_the_last_settings() {
     assert_eq!(r["copies"], 1);
     assert_eq!(r["paper"], json!([419.53, 595.28]));
     assert_eq!(r["scale"], 50.0);
-    let cmd: Vec<String> = serde_json::from_value(r["command"].clone()).unwrap();
-    assert!(!cmd.contains(&"-n".to_string()));
+    if physical_printing_available() {
+        let cmd: Vec<String> = serde_json::from_value(r["command"].clone()).unwrap();
+        assert!(!cmd.contains(&"-n".to_string()));
+    } else {
+        assert!(r["command"].is_null());
+    }
     let _ = std::fs::remove_file(r["pdf"].as_str().unwrap());
 }
 
@@ -168,4 +178,25 @@ fn paths_export_as_illustrator_postscript() {
     let r = s.execute("file.export.pathsToIllustrator", json!({"path": format!("{dir}/p.ai"), "paths": "Shapes"})).unwrap();
     assert_eq!(r["paths"], 1);
     assert!(s.execute("file.export.pathsToIllustrator", json!({"paths": "Nope"})).is_err());
+}
+
+#[cfg(windows)]
+#[test]
+fn windows_print_requires_pdf_output_and_refuses_physical_dispatch_before_replacing_files() {
+    let dir = tempfile::tempdir().unwrap();
+    let out = dir.path().join("existing.pdf");
+    std::fs::write(&out, b"previous PDF").unwrap();
+    let mut s = session("rgb", 8);
+    for p in [json!({}), json!({"send": false}), json!({"output": out, "send": true})] {
+        let error = s.execute("file.print", p).unwrap_err().to_string();
+        assert!(error.contains("Physical printing is unavailable"), "{error}");
+        assert_eq!(std::fs::read(&out).unwrap(), b"previous PDF");
+        assert!(s.file_menu.last_print.is_none());
+    }
+    assert!(s.execute("file.printOneCopy", json!({})).is_err());
+    let r = s.execute("file.print", json!({"output": out})).unwrap();
+    assert_eq!(r["sent"], false);
+    assert_eq!(r["physicalPrinting"], false);
+    assert!(r["command"].is_null());
+    assert!(std::fs::read(out).unwrap().starts_with(b"%PDF"));
 }

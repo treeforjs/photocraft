@@ -55,7 +55,7 @@
 	Layer Comps to Files…	Composiciones de capa en archivos…
 	Color Lookup Tables…	Tablas de búsqueda de color…
 	Data Sets as Files…	Conjuntos de datos en archivos…
-	Paths to Illustrator…	Trazados en formato de Illustrator…
+	Export paths (.ai)…	Exportar trazados (.ai)…
 	Render Video…	Renderizar vídeo…
 	Generate	Generar
 	Image Assets	Recursos de imagen
@@ -171,7 +171,6 @@
 	Camera Raw…	Camera Raw…
 	Raw Defaults…	Valores predeterminados de RAW…
 	Integrations…	Integraciones…
-	AI Integrations…	Integraciones de IA…
 	Install Plug-in…	Instalar complemento…
 	Language Options	Opciones de idioma
 	Settings…	Configuración…
@@ -1737,7 +1736,6 @@
 
 # Preferences (labels are generated from the setting names)
 	Additional plugins folder	Carpeta adicional de complementos
-	Adobe	Adobe
 	Adobe rgb	Adobe RGB
 	Allow agent control	Permitir el control por parte de agentes
 	Allow scripts to connect	Permitir que los scripts se conecten
@@ -2251,10 +2249,9 @@ cameraRaw	Amount	Cantidad
 	Use tablet pressure to change pen width	Usar la presión de la tableta para cambiar la anchura del lápiz
 
 
-# About ▸ Contributors / Models (credits, craftrules standards/contributors.md)
+# About ▸ Contributors (credits)
 	About	Acerca de
 	Contributors	Colaboradores
-	Models	Modelos
 	Sort	Ordenar
 	Username	Nombre de usuario
 	Display name	Nombre visible
@@ -2276,7 +2273,6 @@ cameraRaw	Amount	Cantidad
 	Last	Último
 	Contributors: {contributors} · Commits: {commits}	Colaboradores: {contributors} · Commits: {commits}
 	No contributor data was built into this copy.	Esta copia no incluye datos de colaboradores.
-	No model credits were built into this copy.	Esta copia no incluye créditos de modelos.
 	Company	Empresa
 	Version	Versión
 	% of all commits	% de todos los commits

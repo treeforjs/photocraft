@@ -13,7 +13,7 @@
   <key>CFBundleExecutable</key>
   <string>PhotoCraft</string>
   <key>CFBundleIdentifier</key>
-  <string>ai.storyteller.photocraft</string>
+  <string>io.github.treeforjs.photocraft</string>
   <key>CFBundleInfoDictionaryVersion</key>
   <string>6.0</string>
   <key>CFBundlePackageType</key>
@@ -50,7 +50,7 @@
   <array>
     <dict>
       <key>UTTypeIdentifier</key>
-      <string>ai.storyteller.photocraft.document</string>
+      <string>io.github.treeforjs.photocraft.document</string>
       <key>UTTypeDescription</key>
       <string>PhotoCraft Document</string>
       <key>UTTypeConformsTo</key>
@@ -74,7 +74,7 @@
   <array>
     <dict>
       <key>UTTypeIdentifier</key>
-      <string>ai.storyteller.photocraft.pdn</string>
+      <string>io.github.treeforjs.photocraft.pdn</string>
       <key>UTTypeDescription</key>
       <string>Paint.NET Document</string>
       <key>UTTypeConformsTo</key>
@@ -105,7 +105,7 @@
     </dict>
     <dict>
       <key>UTTypeIdentifier</key>
-      <string>ai.storyteller.photocraft.qoi</string>
+      <string>io.github.treeforjs.photocraft.qoi</string>
       <key>UTTypeDescription</key>
       <string>QOI Image</string>
       <key>UTTypeConformsTo</key>
@@ -133,7 +133,7 @@
       <key>CFBundleTypeIconFile</key>
       <string>PhotoCraft</string>
       <key>LSItemContentTypes</key>
-      <array><string>ai.storyteller.photocraft.document</string></array>
+      <array><string>io.github.treeforjs.photocraft.document</string></array>
     </dict>
     <dict>
       <key>CFBundleTypeName</key>
@@ -169,8 +169,8 @@
         <string>com.ilm.openexr-image</string>
         <string>public.radiance</string>
         <string>public.avif</string>
-        <string>ai.storyteller.photocraft.qoi</string>
-        <string>ai.storyteller.photocraft.pdn</string>
+        <string>io.github.treeforjs.photocraft.qoi</string>
+        <string>io.github.treeforjs.photocraft.pdn</string>
       </array>
     </dict>
   </array>

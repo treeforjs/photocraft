@@ -33,6 +33,7 @@ pub mod document_preset_cmds;
 pub mod edit_cmds;
 pub mod edit_menu_cmds;
 pub mod eraser_cmds;
+mod export_files;
 pub mod extra_cmds;
 pub mod file_cmds;
 pub mod fill_cmds;

@@ -86,7 +86,12 @@ pub struct Plan {
 /// surrounding space do not count.
 fn key(label: &str) -> String {
     let l = label.trim().replace("...", "…");
-    l.trim_end_matches('…').trim().to_lowercase()
+    let key = l.trim_end_matches('…').trim().to_lowercase();
+    // Older shortcut files name this command by its original menu label.
+    match key.as_str() {
+        "paths to illustrator" => "export paths (.ai)".into(),
+        _ => key,
+    }
 }
 
 /// Match the rows to our commands (see the module notes for the tie-breaks).

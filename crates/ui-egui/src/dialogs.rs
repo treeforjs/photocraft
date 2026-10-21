@@ -181,12 +181,12 @@ pub fn show(app: &mut PhotocraftApp, ctx: &egui::Context) {
                     }
                 }
                 DialogKind::About => {
-                    // Tabs About · Contributors · Models (craftrules standards/contributors.md). The
+                    // About and contributor tabs. The
                     // tab is a dialog field, so automation can switch it with `ui.dialog.set`.
                     let tab = about_tab(&fields);
                     let mut chosen = tab;
                     ui.horizontal(|ui| {
-                        for (key, label) in [("about", tl!("About")), ("contributors", tl!("Contributors")), ("models", tl!("Models"))] {
+                        for (key, label) in [("about", tl!("About")), ("contributors", tl!("Contributors"))] {
                             if crate::widgets::pill_tab(ui, label, tab == key).clicked() {
                                 chosen = key;
                             }
@@ -355,7 +355,7 @@ pub fn show(app: &mut PhotocraftApp, ctx: &egui::Context) {
 }
 
 /// The About window's tabs, as stored in its `tab` field.
-pub const ABOUT_TABS: [&str; 3] = ["about", "contributors", "models"];
+pub const ABOUT_TABS: [&str; 2] = ["about", "contributors"];
 
 /// The About tab to show: the `tab` field when it names one, otherwise "about".
 fn about_tab(fields: &serde_json::Map<String, Value>) -> &'static str {
@@ -367,7 +367,6 @@ fn about_tab(fields: &serde_json::Map<String, Value>) -> &'static str {
 fn about_tab_body(app: &mut PhotocraftApp, ui: &mut egui::Ui, tab: &str) {
     match tab {
         "contributors" => crate::credits::contributors_ui(app, ui),
-        "models" => crate::credits::models_ui(ui),
         _ => {
             ui.label(tl!("PhotoCraft — an open-source, native image editor written in Rust."));
             ui.label(crate::i18n::fmt(tl!("Version {version}"), &[("version", &photocraft_engine::build_info::long_version())]));

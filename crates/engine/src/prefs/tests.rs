@@ -23,6 +23,17 @@ fn defaults_match_photoshop() {
 }
 
 #[test]
+fn legacy_color_picker_name_migrates_without_losing_other_preferences() {
+    let general: General = serde_json::from_value(json!({"colorPicker": "adobe", "autoShowHomeScreen": false})).unwrap();
+    assert_eq!(general.color_picker, ColorPicker::Standard);
+    let value = serde_json::to_value(general).unwrap();
+    assert_eq!(value["colorPicker"], "standard");
+    assert_eq!(value["autoShowHomeScreen"], false);
+    assert_eq!(ColorPicker::parse("adobe"), Some(ColorPicker::Standard));
+    assert_eq!(ColorPicker::NAMES, &["standard", "system"]);
+}
+
+#[test]
 fn appearance_defaults_and_legacy_theme_migrate() {
     let p = Preferences::default();
     // New users follow the desktop, with the shared craft-ui Dark and Light themes.

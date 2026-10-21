@@ -54,27 +54,13 @@ use photocraft_engine::Session;
 use photocraft_ui_egui::PhotocraftApp;
 
 /// Matches the `.desktop` file and hicolor icon name, so Wayland docks pick up the icon.
-const APP_ID: &str = "ai.storyteller.photocraft";
-
-/// Windows and Linux: no OS title bar; the app's top bar is the title bar, with its own caption
-/// buttons and edge resizing (`photocraft_ui_egui::titlebar`), as Photoshop does on Windows. macOS
-/// keeps its traffic lights over the integrated title strip.
-const CUSTOM_TITLEBAR: bool = !cfg!(target_os = "macos");
-
-/// Whether this start draws its own title bar: Windows and Linux do, unless Preferences ›
-/// Interface › System Title Bar asks for the system's (#1271, #1316). Read from the saved
-/// preferences before the window opens; a missing or unreadable file keeps the default.
-fn custom_titlebar(prefs_file: Option<&std::path::Path>) -> bool {
-    let prefs: photocraft_engine::prefs::Preferences =
-        prefs_file.and_then(|p| std::fs::read_to_string(p).ok()).and_then(|t| serde_json::from_str(&t).ok()).unwrap_or_default();
-    CUSTOM_TITLEBAR && !prefs.interface.system_title_bar
-}
+const APP_ID: &str = "io.github.treeforjs.photocraft";
 
 /// The main window: 1440 × 900 (shrunk to fit the monitor, and maximized on the first frame
 /// when it still doesn't fit, `work_area::fit_window`), centred on the main monitor. Without
 /// `centered`, Windows cascades each new window from the top-left corner, so it opened at a
 /// different offset every launch (#419). Wayland compositors place windows themselves.
-fn native_options(custom_titlebar: bool) -> eframe::NativeOptions {
+fn native_options() -> eframe::NativeOptions {
     eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
             .with_icon(app_icon::window_icon())
@@ -83,10 +69,12 @@ fn native_options(custom_titlebar: bool) -> eframe::NativeOptions {
             .with_inner_size([1440.0, 900.0])
             .with_min_inner_size([760.0, 480.0])
             .with_drag_and_drop(true)
-            .with_decorations(!custom_titlebar)
-            .with_fullsize_content_view(true)
-            .with_titlebar_shown(false)
-            .with_title_shown(false),
+            // Native Windows/X11 controls, or Adwaita decorations on Wayland when the
+            // compositor delegates its frame. Keep macOS's integrated title strip.
+            .with_decorations(true)
+            .with_fullsize_content_view(cfg!(target_os = "macos"))
+            .with_titlebar_shown(!cfg!(target_os = "macos"))
+            .with_title_shown(!cfg!(target_os = "macos")),
         centered: true,
         // eframe saves native window geometry and egui panel/window sizes on exit.
         // Keep that state beside preferences, including config overrides and portable mode.
@@ -292,8 +280,7 @@ fn main() -> eframe::Result {
     let monitor = monitor_profile::detect_async();
     // Brush presets load in the background; the app attaches them when they arrive.
     let presets = services::presets_dir().map(photocraft_engine::preset_store::open_dir_async);
-    let custom_titlebar = custom_titlebar(services::prefs_file().as_deref());
-    let mut options = native_options(custom_titlebar);
+    let mut options = native_options();
     // winit picks Wayland whenever `WAYLAND_DISPLAY` is set; open on X11 when that was chosen.
     #[cfg(target_os = "linux")]
     if session == linux_libs::DisplaySession::X11 {
@@ -360,7 +347,7 @@ fn main() -> eframe::Result {
             }
             let mut app = PhotocraftApp::new(Session::new(), services);
             app.integrated_titlebar = cfg!(target_os = "macos");
-            app.custom_titlebar = custom_titlebar;
+            app.custom_titlebar = false;
             // Only the title bar's free gap drags the window, never the menus (mac_window.rs).
             #[cfg(target_os = "macos")]
             mac_window::disable_native_title_drag();
@@ -552,7 +539,7 @@ fn updater() -> craft_update::Updater {
 mod tests {
     #[test]
     fn window_and_panel_geometry_survive_a_restart() {
-        let options = super::native_options(super::CUSTOM_TITLEBAR);
+        let options = super::native_options();
         assert!(options.persist_window);
         assert_eq!(options.persistence_path, super::services::config_dir().map(|dir| dir.join("ui.ron")));
 
@@ -590,31 +577,10 @@ mod tests {
 
     #[test]
     fn the_window_opens_centred_at_its_default_size() {
-        let o = super::native_options(super::CUSTOM_TITLEBAR);
+        let o = super::native_options();
         assert!(o.centered, "#419: centred, not cascaded from the top-left corner");
         assert_eq!(o.viewport.inner_size, Some(egui::vec2(1440.0, 900.0)));
         // eframe shrinks the start size to the monitor, so the centred position is on-screen.
         assert_ne!(o.viewport.clamp_size_to_monitor_size, Some(false));
-    }
-
-    #[test]
-    fn the_system_title_bar_preference_keeps_the_window_decorations() {
-        // #1271, #1316: Preferences › Interface › System Title Bar gives the window back its
-        // system decorations on Windows and Linux; macOS always has them.
-        let dir = std::env::temp_dir().join(format!("pc-titlebar-{}", std::process::id()));
-        std::fs::create_dir_all(&dir).unwrap();
-        let file = dir.join("prefs.json");
-        assert_eq!(super::custom_titlebar(None), super::CUSTOM_TITLEBAR, "no preferences file: the default");
-        std::fs::write(&file, "not json").unwrap();
-        assert_eq!(super::custom_titlebar(Some(&file)), super::CUSTOM_TITLEBAR, "an unreadable file: the default");
-        std::fs::write(&file, r#"{"interface":{"systemTitleBar":true}}"#).unwrap();
-        assert!(!super::custom_titlebar(Some(&file)));
-        assert_eq!(super::native_options(false).viewport.decorations, Some(true));
-        std::fs::write(&file, r#"{"interface":{"systemTitleBar":false}}"#).unwrap();
-        assert_eq!(super::custom_titlebar(Some(&file)), super::CUSTOM_TITLEBAR);
-        if super::CUSTOM_TITLEBAR {
-            assert_eq!(super::native_options(true).viewport.decorations, Some(false));
-        }
-        let _ = std::fs::remove_dir_all(&dir);
     }
 }

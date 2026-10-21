@@ -26,6 +26,7 @@ pub mod atomic;
 pub mod autosave;
 mod convert;
 mod finite;
+mod limits;
 pub mod manifest;
 mod migrate;
 pub mod read;
@@ -83,7 +84,7 @@ pub struct SaveOptions {
     pub composite: Option<Rgba8Image>,
 }
 
-/// Limits applied while loading untrusted bundles.
+/// Limits applied while loading untrusted bundles and preparing normal saves.
 #[derive(Debug, Clone, Copy)]
 pub struct LoadOptions {
     /// Maximum size of `manifest.json`.

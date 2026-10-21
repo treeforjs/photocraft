@@ -59,7 +59,7 @@
 	Layer Comps to Files…	レイヤーカンプをファイルへ…
 	Color Lookup Tables…	カラールックアップテーブル…
 	Data Sets as Files…	データセットをファイルへ…
-	Paths to Illustrator…	パスをベクター形式へ…
+	Export paths (.ai)…	パスを書き出し (.ai)…
 	Render Video…	ビデオを書き出し…
 	Generate	自動生成
 	Image Assets	画像アセット
@@ -175,7 +175,6 @@
 	Camera Raw…	Camera Raw…
 	Raw Defaults…	RAW の既定値…
 	Integrations…	連携…
-	AI Integrations…	AI 連携…
 	Install Plug-in…	プラグインをインストール…
 	Language Options	言語オプション
 	Settings…	設定…
@@ -1742,7 +1741,6 @@
 
 # Preferences (labels are generated from the setting names)
 	Additional plugins folder	追加のプラグインフォルダー
-	Adobe	Adobe
 	Adobe rgb	Adobe RGB
 	Allow agent control	エージェントによる操作を許可
 	Allow scripts to connect	スクリプトからの接続を許可
@@ -2160,10 +2158,9 @@ cameraRaw	Color	カラー
 	Use tablet pressure to change pen width	タブレットの筆圧を使用してペンの幅を変更
 
 
-# About ▸ Contributors / Models (credits, craftrules standards/contributors.md)
+# About ▸ Contributors (credits)
 	About	バージョン情報
 	Contributors	コントリビューター
-	Models	モデル
 	Sort	並べ替え
 	Username	ユーザー名
 	Display name	表示名
@@ -2185,7 +2182,6 @@ cameraRaw	Color	カラー
 	Last	最後
 	Contributors: {contributors} · Commits: {commits}	コントリビューター: {contributors} · コミット: {commits}
 	No contributor data was built into this copy.	このコピーにはコントリビューターのデータが含まれていません。
-	No model credits were built into this copy.	このコピーにはモデルのクレジットが含まれていません。
 	Company	会社
 	Model	モデル
 	Version	バージョン
@@ -2982,7 +2978,6 @@ fontWeight	Italic	斜体
 	Out Black	出力の黒
 	Out White	出力の白
 	Path:	パス:
-	Paths to Illustrator	パスをベクター形式へ
 	Pen	ペン
 	Picture Frame	ピクチャフレーム
 	Pins	ピン
@@ -3054,7 +3049,6 @@ fontWeight	Italic	斜体
 	3D	3D
 	3D…	3D…
 	ACES	ACES
-	AI Integrations	AI 連携
 	Accurate	高精度
 	Actual Color	実際のカラー
 	Add Pins	ピンを追加
@@ -3062,10 +3056,7 @@ fontWeight	Italic	斜体
 	Add to selection  (⇧)	選択範囲に追加  (⇧)
 	Adds grain to the soft edges of the brush tip.	ブラシ先端の柔らかい縁に粒子を加えます。
 	Adjustment Layer	色調補正レイヤー
-	Adobe Every-line Composer	Adobe 全行コンポーザー
-	Adobe PDF Presets…	Adobe PDF プリセット…
 	Adobe RGB (1998)	Adobe RGB (1998)
-	Adobe Single-line Composer	Adobe 1 行コンポーザー
 	Advanced Controls	詳細コントロール
 	After (X)	後 (X)
 	Airbrush: keeps painting while the pointer rests.	エアブラシ: ポインターを止めている間も描き続けます。
@@ -3255,7 +3246,6 @@ fontWeight	Italic	斜体
 	PAL/SECAM	PAL/SECAM
 	PDF Presentation…	PDF プレゼンテーション…
 	Panel Options…	パネルオプション…
-	Path to Illustrator…	パスを Illustrator へ…
 	Perspective Crop	遠近法の切り抜き
 	Phone	電話
 	Photo (2 × 3 in)	写真 (2 × 3 in)

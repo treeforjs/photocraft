@@ -481,11 +481,9 @@ fn color_chips(app: &mut PhotocraftApp, ui: &mut egui::Ui, two_columns: bool) {
 
 // ----------------------------------------------------------------------------- title bar
 
-/// The app's top bar: brand mark, menus, the document title and the workspace controls. With
-/// [`PhotocraftApp::custom_titlebar`] (Windows and Linux) it is also the window's title bar, as in
-/// Photoshop on Windows: the caption buttons take its right end (`titlebar`). With the system
-/// title bar (Windows and Linux, `system_title_bar`) the OS draws its own icon and title, so the
-/// in-app bar shows menus and workspace controls only: no brand mark, no centred title.
+/// The app's top bar: menus and workspace controls beneath the native Windows/Linux frame.
+/// The native frame owns the icon, document title and window buttons. Optional hosts that set
+/// [`PhotocraftApp::custom_titlebar`] draw those in this bar instead.
 pub fn title_bar(app: &mut PhotocraftApp, ui: &mut egui::Ui) {
     let t = Tokens::get(ui.ctx());
     let custom = app.custom_titlebar;
@@ -597,13 +595,11 @@ pub fn title_bar(app: &mut PhotocraftApp, ui: &mut egui::Ui) {
     }
 }
 
-/// Whether the window shows the system's title bar instead of the app drawing its own: Windows
-/// and Linux with Preferences › Interface › System Title Bar. macOS always has system decorations,
-/// but keeps the in-app brand mark and centred title, so it never counts as system mode here; nor
-/// does the web build (the browser tab has no document title), nor an embedder or the snapshot
-/// example that never turned the preference on.
+/// Native Windows and Linux windows put the document title in the standard frame. macOS keeps
+/// its integrated strip, and the web build has no native frame. An embedder can still draw its
+/// own caption by setting `custom_titlebar`.
 pub fn system_title_bar(app: &PhotocraftApp) -> bool {
-    !app.custom_titlebar && app.session.prefs().interface.system_title_bar && !cfg!(any(target_os = "macos", target_arch = "wasm32"))
+    !app.custom_titlebar && !cfg!(any(target_os = "macos", target_arch = "wasm32"))
 }
 
 /// The OS window title: the active document's name suffixed with the app name (a `*` prefix
@@ -664,16 +660,13 @@ mod title_tests {
     fn app(custom_titlebar: bool) -> crate::PhotocraftApp {
         let mut app = crate::PhotocraftApp::new(photocraft_engine::Session::new(), crate::Services::default());
         app.custom_titlebar = custom_titlebar;
-        // The preference that makes the shell launch without its own title bar.
-        app.session.edit_prefs(|p| p.interface.system_title_bar = !custom_titlebar);
         app
     }
 
     #[test]
-    fn without_the_preference_the_mark_stays() {
-        // The default (e.g. the web build or the snapshot example): no custom bar, no preference.
+    fn native_windows_use_the_standard_frame_by_default() {
         let app = crate::PhotocraftApp::new(photocraft_engine::Session::new(), crate::Services::default());
-        assert!(!system_title_bar(&app));
+        assert_eq!(system_title_bar(&app), !cfg!(any(target_os = "macos", target_arch = "wasm32")));
     }
 
     fn open_named(app: &mut crate::PhotocraftApp, name: &str) {
@@ -715,7 +708,7 @@ mod title_tests {
                 collect_text(&shape.shape, &mut texts);
             }
             let system = system_title_bar(&app);
-            assert_eq!(system, !custom && !cfg!(target_os = "macos"));
+            assert_eq!(system, !custom && !cfg!(any(target_os = "macos", target_arch = "wasm32")));
             assert_eq!(crate::brand::mark_rect(&ctx).is_some(), !system, "mark in system mode (custom={custom})");
             assert_eq!(texts.iter().any(|t| t.contains("foo.psd")), !system, "centred title in system mode (custom={custom}): {texts:?}");
         }

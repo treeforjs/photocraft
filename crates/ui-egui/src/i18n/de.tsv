@@ -59,7 +59,7 @@
 	Layer Comps to Files…	Ebenenkompositionen in Dateien…
 	Color Lookup Tables…	Farblookup-Tabellen…
 	Data Sets as Files…	Datensätze als Dateien…
-	Paths to Illustrator…	Pfade nach Illustrator…
+	Export paths (.ai)…	Pfade exportieren (.ai)…
 	Render Video…	Video rendern…
 	Generate	Generieren
 	Image Assets	Bild-Assets
@@ -175,7 +175,6 @@
 	Camera Raw…	Camera Raw…
 	Raw Defaults…	RAW-Standardwerte…
 	Integrations…	Integrationen…
-	AI Integrations…	KI-Integrationen…
 	Install Plug-in…	Plug-in installieren…
 	Language Options	Sprachoptionen
 	Settings…	Einstellungen…
@@ -1729,7 +1728,6 @@
 @plural	{n} layer|{n} layers	{n} Ebene|{n} Ebenen
 @plural	Group · {n} layer|Group · {n} layers	Gruppe · {n} Ebene|Gruppe · {n} Ebenen
 	Additional plugins folder	Zusätzlicher Plug-in-Ordner
-	Adobe	Adobe
 	Adobe rgb	Adobe RGB
 	Allow agent control	Agentensteuerung erlauben
 	Allow scripts to connect	Skriptverbindungen erlauben
@@ -2221,10 +2219,9 @@
 	Frequency	Frequenz
 	Use tablet pressure to change pen width	Tablettdruck zum Ändern der Stiftbreite verwenden
 
-# About ▸ Contributors / Models (credits, craftrules standards/contributors.md)
+# About ▸ Contributors (credits)
 	About	Über
 	Contributors	Mitwirkende
-	Models	Modelle
 	Sort	Sortieren
 	Username	Benutzername
 	Display name	Anzeigename
@@ -2246,7 +2243,6 @@
 	Last	Letzter
 	Contributors: {contributors} · Commits: {commits}	Mitwirkende: {contributors} · Commits: {commits}
 	No contributor data was built into this copy.	In diese Kopie wurden keine Mitwirkendendaten eingebaut.
-	No model credits were built into this copy.	In diese Kopie wurden keine Modellnennungen eingebaut.
 	Company	Firma
 	Version	Version
 	% of all commits	% aller Commits
