@@ -51,7 +51,7 @@
 	Layer Comps to Files…	Laagcomposities naar bestanden…
 	Color Lookup Tables…	Kleuropzoektabellen…
 	Data Sets as Files…	Gegevenssets als bestanden…
-	Paths to Illustrator…	Paden naar Illustrator…
+	Export paths (.ai)…	Paden exporteren (.ai)…
 	Render Video…	Video renderen…
 	Generate	Genereren
 	Image Assets	Afbeeldingsmiddelen
@@ -1720,7 +1720,6 @@
 @plural	{n} layer|{n} layers	{n} laag|{n} lagen
 @plural	Group · {n} layer|Group · {n} layers	Groep · {n} laag|Groep · {n} lagen
 	Additional plugins folder	Extra map voor plug-ins
-	Adobe	Adobe
 	Adobe rgb	Adobe RGB
 	Allow agent control	Agentbesturing toestaan
 	Allow scripts to connect	Scripts toestaan verbinding te maken
@@ -3127,7 +3126,6 @@ cameraRaw	Color	Kleur
 	Add Pins	Spelden toevoegen
 	Add a mask  (from the selection; ⌥ inverts)	Een masker toevoegen  (vanuit de selectie; ⌥ keert om)
 	Adds grain to the soft edges of the brush tip.	Voegt korrel toe aan de zachte randen van de penseelpunt.
-	Adobe PDF Presets…	Adobe PDF-voorinstellingen…
 	Advanced Blending	Geavanceerd overvloeien
 	After (X)	Na (X)
 	Airbrush: keeps painting while the pointer rests.	Airbrush: blijft schilderen zolang de aanwijzer stilstaat.
@@ -3291,9 +3289,7 @@ cameraRaw	Color	Kleur
 	Package	Verpakken
 	Paint Daubs	Verfklodders
 	Path Blur	Padvervaging
-	Path to Illustrator…	Pad naar Illustrator…
 	Path:	Pad:
-	Paths to Illustrator	Paden naar Illustrator
 	Photomerge	Photomerge
 	Picture Frame	Fotolijst
 	Pinch	Knijpen
@@ -3433,8 +3429,6 @@ cameraRaw	Whites	Witten
 	Mac Crisp	Mac helder
 	Mac Strong	Mac krachtig
 	Mac Smooth	Mac vloeiend
-	Adobe Single-line Composer	Adobe-zetmachine per regel
-	Adobe Every-line Composer	Adobe-zetmachine voor alle regels
 	X	X
 	Y	Y
 	30 fps	30 fps

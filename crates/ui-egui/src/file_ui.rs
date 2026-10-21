@@ -2,7 +2,7 @@
 //! (Original / Optimized / 2-Up / 4-Up previews, GIF / PNG-8 / PNG-24 / JPEG / WBMP settings,
 //! image size, per-slice output), the Print dialog (page preview with position, scale, marks;
 //! colour handling), and form dialogs for Contact Sheet II, Create Droplet, Statistics, Script
-//! Events Manager, Package and Paths to Illustrator. Every OK runs the engine command with the
+//! Events Manager, Package and path export (.ai). Every OK runs the engine command with the
 //! dialog's fields, so the control channel can drive them with `ui.dialog.set` / `confirm`.
 
 use std::sync::Arc;

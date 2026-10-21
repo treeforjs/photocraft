@@ -1040,8 +1040,6 @@
 	Roman Hanging Punctuation	Висяча латинська пунктуація
 	Avoid Widows/Orphans	Уникати висячих рядків
 	Compose	Компонування
-	Adobe Single-line Composer	Однорядковий компонувальник Adobe
-	Adobe Every-line Composer	Багаторядковий компонувальник Adobe
 	Justification	Вирівнювання по ширині
 	Word Spacing	Інтервал між словами
 	Letter Spacing	Інтервал між літерами
@@ -1080,7 +1078,6 @@
 	Path	Контур
 	Path:	Контур:
 	Work Path	Робочий контур
-	Path to Illustrator…	Контур до Illustrator…
 	Make Work Path	Створити робочий контур
 	Make Selection	Створити виділення
 	Fill Path	Залити контур
@@ -1822,7 +1819,7 @@
 	Other	Інше
 	Other…	Інше…
 	Paragraph Styles Panel	Панель стилів абзаців
-	Paths to Illustrator…	Контури до Illustrator…
+	Export paths (.ai)…	Експортувати контури (.ai)…
 	Pattern Preview	Перегляд візерунка
 	Pattern…	Візерунок…
 	Pixel Art	Піксельна графіка
@@ -2126,7 +2123,6 @@
 	Yellow  ·  Blue	Жовтий  ·  Синій
 
 # Preference dialog: generated setting labels and dropdown choices
-	Adobe	Adobe
 	Adobe rgb	Adobe RGB
 	Allow agent control	Дозволити керування агентом
 	Allow scripts to connect	Дозволити підключення скриптів
@@ -3055,7 +3051,6 @@ cameraRaw	Masking	Маскування
 	Layer Comps to Files	Композиції шарів у файли
 	Color Lookup Tables	Таблиці перетворення кольорів
 	Data Sets as Files	Набори даних як файли
-	Paths to Illustrator	Контури до Illustrator
 	Render Video	Рендерити відео
 	Place Embedded	Розмістити вбудований
 	Place Linked	Розмістити пов'язаний
@@ -3368,7 +3363,6 @@ cameraRaw	Masking	Маскування
 @id	filter.sharpen.sharpen	Підвищити різкість
 	Good	Добра
 	Best	Найкраща
-	Adobe PDF Presets…	Набори Adobe PDF…
 	3D…	3D…
 	Technology Previews…	Попередній перегляд технологій…
 	Background from Layer	Фон із шару

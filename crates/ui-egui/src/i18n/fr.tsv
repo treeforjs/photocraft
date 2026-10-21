@@ -61,7 +61,7 @@
 	Layer Comps to Files…	Compositions de calques en fichiers…
 	Color Lookup Tables…	Tables de correspondance des couleurs…
 	Data Sets as Files…	Jeux de données en fichiers…
-	Paths to Illustrator…	Tracés vers Illustrator…
+	Export paths (.ai)…	Exporter les tracés (.ai)…
 	Render Video…	Rendu vidéo…
 	Generate	Générer
 	Image Assets	Ressources d'image
@@ -1709,7 +1709,6 @@
 @plural	{n} layer|{n} layers	{n} calque|{n} calques
 @plural	Group · {n} layer|Group · {n} layers	Groupe · {n} calque|Groupe · {n} calques
 	Additional plugins folder	Dossier d'extensions supplémentaire
-	Adobe	Adobe
 	Adobe rgb	Adobe RGB
 	Allow agent control	Autoriser le pilotage par des agents
 	Allow scripts to connect	Autoriser la connexion des scripts
@@ -2189,8 +2188,6 @@
 	Roman Hanging Punctuation	Ponctuation latine hors justification
 	Avoid Widows/Orphans	Éviter les veuves et orphelines
 	Compose	Composition
-	Adobe Single-line Composer	Composeur ligne par ligne Adobe
-	Adobe Every-line Composer	Composeur multiligne Adobe
 	Justification	Justification
 	Word Spacing	Espacement des mots
 	Letter Spacing	Espacement des lettres
@@ -2205,7 +2202,6 @@
 	Symbols	Symboles
 	Punctuation	Ponctuation
 	Path:	Tracé :
-	Path to Illustrator…	Tracé vers Illustrator…
 	Make Work Path	Créer un tracé de travail
 	Make Selection	Créer une sélection
 	Fill Path	Remplir le tracé
@@ -2442,7 +2438,6 @@
 	Intersect with	Intersection avec
 	Capture Comp	Capturer la composition
 	No Layer Comps	Aucune composition de calques
-	Adobe PDF Presets…	Préréglages Adobe PDF…
 	3D…	3D…
 	Technology Previews…	Aperçus technologiques…
 	Background from Layer	Arrière-plan d'après le calque

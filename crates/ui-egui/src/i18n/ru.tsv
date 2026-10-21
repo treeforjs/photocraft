@@ -1058,8 +1058,6 @@
 	Roman Hanging Punctuation	Висячая пунктуация (римская)
 	Avoid Widows/Orphans	Избегать висячих строк
 	Compose	Компоновка
-	Adobe Single-line Composer	Построчная компоновка Adobe
-	Adobe Every-line Composer	Абзацная компоновка Adobe
 	Justification	Выключка
 	Word Spacing	Межсловные интервалы
 	Letter Spacing	Межбуквенные интервалы
@@ -1098,7 +1096,6 @@
 	Path	Контур
 	Path:	Контур:
 	Work Path	Рабочий контур
-	Path to Illustrator…	Контур в Illustrator…
 	Make Work Path	Создать рабочий контур
 	Make Selection	Создать выделение
 	Fill Path	Залить контур
@@ -1837,7 +1834,7 @@
 	Other	Другое
 	Other…	Другой…
 	Paragraph Styles Panel	Панель «Стили абзацев»
-	Paths to Illustrator…	Контуры в Illustrator…
+	Export paths (.ai)…	Экспортировать контуры (.ai)…
 	Pattern Preview	Предпросмотр паттерна
 	Pattern…	Паттерн…
 	Pixel Art	Пиксель-арт
@@ -2144,7 +2141,6 @@
 	Yellow  ·  Blue	Жёлтый  ·  Синий
 
 # Preference dialog: generated setting labels and dropdown choices
-	Adobe	Adobe
 	Adobe rgb	Adobe RGB
 	Allow agent control	Разрешить управление агентами
 	Allow scripts to connect	Разрешить подключение сценариев

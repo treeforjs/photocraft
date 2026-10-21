@@ -1,4 +1,4 @@
-//! File › Print…, Print One Copy, File › Package… and File › Export › Paths to Illustrator….
+//! File › Print…, Print One Copy, File › Package… and File › Export › Export paths (.ai)….
 //!
 //! Printing renders the flattened document into a PDF page (paper size, orientation, position,
 //! scale, colour handling with printer profile / intent / black-point compensation, corner and
@@ -477,7 +477,7 @@ fn package(s: &mut Session, p: &Value) -> Result<Value> {
     Ok(json!({"folder": folder, "document": out, "links": copied.iter().map(|(_, t)| t).collect::<Vec<_>>(), "missing": missing, "warnings": warnings}))
 }
 
-// ---------- Paths to Illustrator ----------
+// ---------- Path export (.ai) ----------
 
 /// The document's paths as an Illustrator 3 PostScript file. `which`: "all", "work" or a path
 /// name. Coordinates are points (pixels at the document resolution), y up.
@@ -595,7 +595,7 @@ pub fn specs() -> Vec<CommandSpec> {
         ),
         spec!(
             "file.export.pathsToIllustrator",
-            "Paths to Illustrator…",
+            "Export paths (.ai)…",
             &["File", "Export"],
             None,
             r##"{"path":str? (.ai; omit to return the text),"paths":"all|work|<path name>"="all"} → {path, paths}"##,

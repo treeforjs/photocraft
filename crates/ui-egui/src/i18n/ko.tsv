@@ -47,7 +47,7 @@
 	Layer Comps to Files…	레이어 구성 요소를 파일로…
 	Color Lookup Tables…	색상 조회 테이블…
 	Data Sets as Files…	데이터 세트를 파일로…
-	Paths to Illustrator…	패스를 Illustrator로…
+	Export paths (.ai)…	패스 내보내기 (.ai)…
 	Render Video…	비디오 렌더링…
 	Generate	생성
 	Image Assets	이미지 에셋
@@ -1705,7 +1705,6 @@
 @plural	{n} layer|{n} layers	레이어 {n}개
 @plural	Group · {n} layer|Group · {n} layers	그룹 · 레이어 {n}개
 	Additional plugins folder	추가 플러그인 폴더
-	Adobe	Adobe
 	Adobe rgb	Adobe RGB
 	Allow agent control	에이전트 제어 허용
 	Allow scripts to connect	스크립트 연결 허용
@@ -2386,7 +2385,6 @@ cameraRaw	Color	색상
 	Layer Comps to Files	레이어 구성 요소를 파일로
 	Color Lookup Tables	색상 조회 테이블
 	Data Sets as Files	데이터 세트를 파일로
-	Paths to Illustrator	패스를 Illustrator로
 	Render Video	비디오 렌더링
 	Place Embedded	포함하여 가져오기
 	Place Linked	연결하여 가져오기

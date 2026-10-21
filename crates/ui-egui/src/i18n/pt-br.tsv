@@ -58,7 +58,7 @@
 	Layer Comps to Files…	Composições de camadas em arquivos…
 	Color Lookup Tables…	Tabelas de pesquisa de cores…
 	Data Sets as Files…	Conjuntos de dados como arquivos…
-	Paths to Illustrator…	Demarcadores para o Illustrator…
+	Export paths (.ai)…	Exportar demarcadores (.ai)…
 	Render Video…	Renderizar vídeo…
 	Generate	Gerar
 	Image Assets	Recursos de imagem
@@ -1708,7 +1708,6 @@
 @plural	{n} layer|{n} layers	{n} camada|{n} camadas
 @plural	Group · {n} layer|Group · {n} layers	Grupo · {n} camada|Grupo · {n} camadas
 	Additional plugins folder	Pasta adicional de plug-ins
-	Adobe	Adobe
 	Adobe rgb	Adobe RGB
 	Allow agent control	Permitir controle por agentes
 	Allow scripts to connect	Permitir conexão de scripts
@@ -2189,8 +2188,6 @@
 	Roman Hanging Punctuation	Pontuação romana deslocada
 	Avoid Widows/Orphans	Evitar viúvas/órfãs
 	Compose	Compor
-	Adobe Single-line Composer	Compositor de linha única Adobe
-	Adobe Every-line Composer	Compositor de todas as linhas Adobe
 	Justification	Justificação
 	Word Spacing	Espaçamento entre palavras
 	Letter Spacing	Espaçamento entre letras
@@ -2205,7 +2202,6 @@
 	Symbols	Símbolos
 	Punctuation	Pontuação
 	Path:	Demarcador:
-	Path to Illustrator…	Demarcador para o Illustrator…
 	Make Work Path	Criar demarcador de trabalho
 	Make Selection	Fazer seleção
 	Fill Path	Preencher demarcador
@@ -2443,7 +2439,6 @@
 	Intersect with	Fazer interseção com
 	Capture Comp	Capturar composição
 	No Layer Comps	Nenhuma composição de camadas
-	Adobe PDF Presets…	Predefinições do Adobe PDF…
 	3D…	3D…
 	Technology Previews…	Prévias de tecnologia…
 	Background from Layer	Plano de fundo a partir da camada

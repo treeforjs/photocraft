@@ -59,7 +59,7 @@
 	Layer Comps to Files…	レイヤーカンプをファイルへ…
 	Color Lookup Tables…	カラールックアップテーブル…
 	Data Sets as Files…	データセットをファイルへ…
-	Paths to Illustrator…	パスをベクター形式へ…
+	Export paths (.ai)…	パスを書き出し (.ai)…
 	Render Video…	ビデオを書き出し…
 	Generate	自動生成
 	Image Assets	画像アセット
@@ -1741,7 +1741,6 @@
 
 # Preferences (labels are generated from the setting names)
 	Additional plugins folder	追加のプラグインフォルダー
-	Adobe	Adobe
 	Adobe rgb	Adobe RGB
 	Allow agent control	エージェントによる操作を許可
 	Allow scripts to connect	スクリプトからの接続を許可
@@ -2979,7 +2978,6 @@ fontWeight	Italic	斜体
 	Out Black	出力の黒
 	Out White	出力の白
 	Path:	パス:
-	Paths to Illustrator	パスをベクター形式へ
 	Pen	ペン
 	Picture Frame	ピクチャフレーム
 	Pins	ピン
@@ -3058,10 +3056,7 @@ fontWeight	Italic	斜体
 	Add to selection  (⇧)	選択範囲に追加  (⇧)
 	Adds grain to the soft edges of the brush tip.	ブラシ先端の柔らかい縁に粒子を加えます。
 	Adjustment Layer	色調補正レイヤー
-	Adobe Every-line Composer	Adobe 全行コンポーザー
-	Adobe PDF Presets…	Adobe PDF プリセット…
 	Adobe RGB (1998)	Adobe RGB (1998)
-	Adobe Single-line Composer	Adobe 1 行コンポーザー
 	Advanced Controls	詳細コントロール
 	After (X)	後 (X)
 	Airbrush: keeps painting while the pointer rests.	エアブラシ: ポインターを止めている間も描き続けます。
@@ -3251,7 +3246,6 @@ fontWeight	Italic	斜体
 	PAL/SECAM	PAL/SECAM
 	PDF Presentation…	PDF プレゼンテーション…
 	Panel Options…	パネルオプション…
-	Path to Illustrator…	パスを Illustrator へ…
 	Perspective Crop	遠近法の切り抜き
 	Phone	電話
 	Photo (2 × 3 in)	写真 (2 × 3 in)
