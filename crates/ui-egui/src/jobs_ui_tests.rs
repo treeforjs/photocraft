@@ -16,28 +16,34 @@ use crate::PhotocraftApp;
 
 #[test]
 fn saved_document_stays_saved_when_image_asset_regeneration_is_refused() {
-    let dir = tempfile::tempdir().unwrap();
-    let path = dir.path().join("document.pcraft").to_string_lossy().into_owned();
-    let assets = dir.path().join("document-assets");
-    std::fs::create_dir(&assets).unwrap();
-    std::fs::write(assets.join("existing.png"), b"previous work").unwrap();
-    let mut session = photocraft_engine::Session::new();
-    session.execute("file.new", json!({"width": 8, "height": 8, "background": "#ffffff"})).unwrap();
-    let layer = session.active().unwrap().active_layer.unwrap();
-    session.execute("layer.renameLayer", json!({"layer": layer.0, "name": "existing.png"})).unwrap();
-    session.execute("file.generate.imageAssets", json!({"on": true})).unwrap();
-    let st = session.active().unwrap();
-    let (doc, revision) = (st.doc.id, st.revision);
-    let mut app = PhotocraftApp::new(session, crate::Services::default());
-    // saved() is invoked only after the primary document bytes were committed.
-    app.saved(doc, revision, &path, &[], false);
-    let st = app.session.active().unwrap();
-    assert_eq!(st.path.as_deref(), Some(path.as_str()));
-    assert_eq!(st.saved_revision, revision);
-    assert!(!app.ui.status_error, "the primary save succeeded");
-    assert!(app.ui.status.contains("image asset exports failed"), "{}", app.ui.status);
-    assert!(app.ui.notices.iter().any(|n| n.lines.iter().any(|line| line.contains("Image Assets") && line.contains("existing.png"))));
-    assert_eq!(std::fs::read(assets.join("existing.png")).unwrap(), b"previous work");
+    for warnings in [Vec::new(), vec!["Layers were flattened".to_string()]] {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("document.pcraft").to_string_lossy().into_owned();
+        let assets = dir.path().join("document-assets");
+        std::fs::create_dir(&assets).unwrap();
+        std::fs::write(assets.join("existing.png"), b"previous work").unwrap();
+        let mut session = photocraft_engine::Session::new();
+        session.execute("file.new", json!({"width": 8, "height": 8, "background": "#ffffff"})).unwrap();
+        let layer = session.active().unwrap().active_layer.unwrap();
+        session.execute("layer.renameLayer", json!({"layer": layer.0, "name": "existing.png"})).unwrap();
+        session.execute("file.generate.imageAssets", json!({"on": true})).unwrap();
+        let st = session.active().unwrap();
+        let (doc, revision) = (st.doc.id, st.revision);
+        let mut app = PhotocraftApp::new(session, crate::Services::default());
+        // saved() is invoked only after the primary document bytes were committed.
+        app.saved(doc, revision, &path, &warnings, false);
+        let st = app.session.active().unwrap();
+        assert_eq!(st.path.as_deref(), Some(path.as_str()));
+        assert_eq!(st.saved_revision, revision);
+        assert!(!app.ui.status_error, "the primary save succeeded");
+        if let Some(warning) = warnings.first() {
+            assert!(app.ui.status.contains(warning), "{}", app.ui.status);
+            assert!(app.ui.notices.iter().any(|n| n.lines.contains(warning)));
+        }
+        assert!(app.ui.status.contains("image asset exports failed"), "{}", app.ui.status);
+        assert!(app.ui.notices.iter().any(|n| n.lines.iter().any(|line| line.contains("Image Assets") && line.contains("existing.png"))));
+        assert_eq!(std::fs::read(assets.join("existing.png")).unwrap(), b"previous work");
+    }
 }
 
 #[test]
@@ -441,6 +447,7 @@ fn saves_run_in_the_background_and_are_recorded_when_they_end() {
     assert_eq!(st.path.as_deref(), Some("/tmp/photocraft-test/big.psd"));
     assert_eq!(st.doc.name, "big.psd", "the document takes the saved file's name, as a synchronous Save As does");
     assert_eq!(h.state().ui.status, "Saved big.psd: a warning");
+    assert!(!h.state().ui.status_error, "the completed background save succeeded");
     assert!(noticed(h.state(), "a warning"), "the export warnings are shown");
     assert!(h.state_mut().run("layer.new.layer", json!({})).is_ok(), "unlocked again");
 }

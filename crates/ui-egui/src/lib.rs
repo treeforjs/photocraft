@@ -1162,6 +1162,7 @@ impl PhotocraftApp {
     /// state (unless a copy), the status, script events and the warnings.
     pub(crate) fn saved(&mut self, doc: DocId, revision: u64, path: &str, warnings: &[String], copy: bool) {
         let mut warnings = warnings.to_vec();
+        let mut asset_status = None;
         self.ui.status = format!("Saved {path}");
         if !copy {
             // A background save may finish while another document is active (or after its
@@ -1176,7 +1177,7 @@ impl PhotocraftApp {
                 if let Some(i) = app.session.active_index()
                     && let Some(r) = photocraft_engine::automate_cmds::document_saved(&mut app.session, i)
                 {
-                    app.ui.status = format!("Saved {path}; {} image assets in {}", r["files"].as_array().map_or(0, Vec::len), r["dir"].as_str().unwrap_or(""));
+                    let mut status = format!("{} image assets in {}", r["files"].as_array().map_or(0, Vec::len), r["dir"].as_str().unwrap_or(""));
                     if let Some(errors) = r["errors"].as_array() {
                         for error in errors {
                             warnings.push(format!(
@@ -1186,16 +1187,21 @@ impl PhotocraftApp {
                             ));
                         }
                         if !errors.is_empty() {
-                            app.ui.status.push_str(&format!("; {} image asset exports failed (see notice)", errors.len()));
+                            status.push_str(&format!("; {} image asset exports failed (see notice)", errors.len()));
                         }
                     }
+                    app.ui.status = format!("Saved {path}; {status}");
+                    asset_status = Some(status);
                 }
                 Ok(())
             });
         }
-        let saved_status = self.ui.status.clone();
         notices::io_warnings(self, &format!("Saved {}", file_open::display_name(path)), &warnings);
-        self.ui.status = saved_status;
+        if !warnings.is_empty()
+            && let Some(status) = asset_status
+        {
+            self.ui.status.push_str(&format!("; {status}"));
+        }
         self.ui.status_error = false;
         self.sync_views();
     }
