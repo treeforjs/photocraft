@@ -1,0 +1,553 @@
+# Read-only verification of three fixed private Windows/Linux release drafts.
+# Local review candidate; contains no release, tag or branch write operation.
+name: Verify reviewed audit draft bytes
+on:
+  push:
+    branches:
+      - release-verify-craftworks-v0.1.6
+      - release-verify-v0.8.2
+      - release-verify-v0.6.2
+    paths: [.github/workflows/verify-audit-drafts.yml]
+permissions:
+  contents: read
+concurrency:
+  group: ${{ github.repository == 'treeforjs/craftworks' && 'craftworks-release' || 'release-refs/heads/release' }}
+  cancel-in-progress: false
+jobs:
+  verify:
+    if: github.event_name == 'push' && github.repository_owner == 'treeforjs'
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    environment: release
+    steps:
+      - name: Verify actual signed checksum bytes and unchanged draft metadata
+        id: verify
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          CRAFT_UPDATE_PUBLIC_KEY: ${{ vars.CRAFT_UPDATE_PUBLIC_KEY }}
+          CRAFTWORKS_UPDATE_PUBLIC_KEY: ${{ vars.CRAFTWORKS_UPDATE_PUBLIC_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          case "$GH_REPO" in
+            treeforjs/craftworks) BRANCH=release-verify-craftworks-v0.1.6 ;;
+            treeforjs/vectorcraft) BRANCH=release-verify-v0.8.2 ;;
+            treeforjs/photocraft) BRANCH=release-verify-v0.6.2 ;;
+            *) echo "::error::Repository is outside this read-only draft verification plan."; exit 1 ;;
+          esac
+          if [ "$GITHUB_REF_NAME" != "$BRANCH" ] || [ "$GITHUB_REF" != "refs/heads/$BRANCH" ]; then
+            echo "::error::Unexpected draft verification branch."
+            exit 1
+          fi
+          WORK=$(mktemp -d "$RUNNER_TEMP/verify-reviewed-draft.XXXXXXXX")
+          cleanup() {
+            case "$WORK" in "$RUNNER_TEMP"/verify-reviewed-draft.*) rm -rf -- "$WORK" ;; esac
+          }
+          trap cleanup EXIT
+          cat >"$WORK/verify-audit-drafts-verifier.py" <<'PY'
+          #!/usr/bin/env python3
+          """Verify four fixed Windows/Linux release candidates and their signed checksums."""
+          import argparse
+          import base64
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+          import re
+          import subprocess
+          import tempfile
+          
+          
+          RELEASES = {
+              "treeforjs/craftworks": ("craftworks", "0.1.6", "5be884ea9973989501d9e25c25ea75268f136c9b", False),
+              "treeforjs/pdfcraft": ("pdfcraft", "0.5.2", "8363ae0ba2154071005bfc97bbe43438e840385c", True),
+              "treeforjs/vectorcraft": ("vectorcraft", "0.8.2", "ce28de61350de6bc973ceb56fcdb2fce168d49ca", False),
+              "treeforjs/photocraft": ("photocraft", "0.6.2", "fe5e2863b6709b193b23075bad14b3a27dfaba97", False),
+          }
+          DER_PREFIX = bytes.fromhex("302a300506032b6570032100")
+          FIELD_PRIME = (1 << 255) - 19
+          SCALAR_ORDER = (1 << 252) + 27742317777372353535851937790883648493
+          # The five y coordinates cover all eight small-order points (ignore the x sign bit).
+          # Mathematical constants from curve25519-dalek 5.0.0 EIGHT_TORSION, with Z=1:
+          # https://github.com/dalek-cryptography/curve25519-dalek/blob/07bef73ff85998a206cd2cea7f2605c801d0d1c9/curve25519-dalek/src/backend/serial/u64/constants.rs
+          SMALL_ORDER_Y = {
+              0, 1, FIELD_PRIME - 1,
+              0x05FC536D880238B13933C6D305ACDFD5F098EFF289F4C345B027B2C28F95E826,
+              0x7A03AC9277FDC74EC6CC392CFA53202A0F67100D760B3CBA4FD84D3D706A17C7,
+          }
+          
+          
+          def require(condition, message):
+              if not condition:
+                  raise ValueError(message)
+          
+          
+          def plan(repository):
+              require(repository in RELEASES, "Repository is outside this release plan.")
+              app, version, commit, cli_archive = RELEASES[repository]
+              packages = set()
+              if app == "craftworks":
+                  for arch in ("x64", "arm64"):
+                      packages.add(f"{app}-{version}-windows-{arch}-setup.exe")
+                      packages.add(f"{app}-{version}-windows-{arch}-portable.zip")
+                  for arch in ("x86_64", "aarch64"):
+                      packages.add(f"{app}-{version}-linux-{arch}.tar.gz")
+                      packages.add(f"{app}-{version}-linux-{arch}-setup.sh")
+                  tag = f"craftworks-v{version}"
+              else:
+                  for arch in ("x64", "x86", "arm64"):
+                      packages.add(f"{app}-{version}-windows-{arch}.msi")
+                      packages.add(f"{app}-{version}-windows-{arch}-portable.zip")
+                  for arch in ("x86_64", "aarch64"):
+                      for suffix in ("AppImage", "AppImage.zsync", "deb", "rpm", "tar.gz"):
+                          packages.add(f"{app}-{version}-linux-{arch}.{suffix}")
+                      if cli_archive:
+                          packages.add(f"{app}-cli-{version}-linux-{arch}.tar.gz")
+                  tag = f"v{version}"
+              return tag, commit, f"release-verify-{tag}", packages
+          
+          
+          RELEASE_NOTES = {
+              "treeforjs/craftworks": "Craftworks 0.1.6 hardens staged update installers and signed download verification. It checks updates for the launcher and the three managed apps, and provides Settings > Uninstall Craftworks for installed Windows and Linux launchers.\n\nUninstall previews exact paths and offers separate unchecked choices for managed app binaries and saved app data. Close the Craft apps first and back up recovery copies or profiles you want to keep. Unknown launcher files, standalone copies, documents outside selected profiles and old-copy backups are preserved. Managed PhotoCraft desktop entries and icons changed after the removal preview are preserved. Source/build and unpacked portable copies cannot uninstall themselves.\n\nOn Linux, run the setup script as your normal desktop user:\n\n```sh\nbash craftworks-0.1.6-linux-x86_64-setup.sh --dry-run\nbash craftworks-0.1.6-linux-x86_64-setup.sh\n```\n\nUse the aarch64 filename on ARM64. Open Craftworks from the application menu or run ~/.local/bin/craftworks. Windows packages include x64 and ARM64 setup executables and portable ZIPs.\n",
+              "treeforjs/pdfcraft": "PdfCraft 0.5.2 contains document scripting in a memory- and instruction-limited kernel, bounds control-channel and imported-identity work, and improves cancellation and password retry handling for digital IDs.\n\nWindows and Linux packages include standard title-bar controls and verified update downloads. Windows: use the MSI installer, portable ZIP, or Craftworks. Linux: use the AppImage, Debian/RPM package, tarball, or Craftworks; separate CLI tarballs are included.\n\nDownloads are verified using SHA256SUMS.txt and its Ed25519 signature. Resource limits and supported workflow boundaries are documented in the repository.\n",
+              "treeforjs/vectorcraft": "VectorCraft 0.8.2 hardens document input, transactional commands and update verification. Control connections and automation messages are bounded; timed-out operations report whether they were cancelled before dispatch or may already have started.\n\nWindows and Linux packages include standard minimize, maximize and close controls. Windows: use the MSI installer, portable ZIP, or Craftworks. Linux: use the AppImage, Debian/RPM package, tarball, or Craftworks.\n\nDownloads are verified using SHA256SUMS.txt and its Ed25519 signature.\n",
+              "treeforjs/photocraft": "PhotoCraft 0.6.2 confines generated exports to their selected folders, preserves unrelated files, bounds automation messages and checks project-save limits before writing. Windows printing currently exports PDF for printing in another application.\n\nWindows and Linux packages include standard minimize, maximize and close controls and verified update downloads. Windows: use the MSI installer, portable ZIP, or Craftworks. Linux: use the AppImage, Debian/RPM package, tarball, or Craftworks.\n\nDownloads are verified using SHA256SUMS.txt and its Ed25519 signature.\n"
+          }
+          
+          
+          def release_notes(repository):
+              plan(repository)
+              return RELEASE_NOTES[repository]
+          
+          
+          def configured_public_key():
+              # The launcher alone permits its own override. App builds use only the shared key.
+              names = ("CRAFTWORKS_UPDATE_PUBLIC_KEY", "CRAFT_UPDATE_PUBLIC_KEY") if os.environ.get("GH_REPO") == "treeforjs/craftworks" else ("CRAFT_UPDATE_PUBLIC_KEY",)
+              for name in names:
+                  key = os.environ.get(name, "").strip()
+                  if key:
+                      return key
+              return ""
+          
+          
+          def metadata_fingerprint(metadata, repository, published):
+              tag, commit, branch, packages = plan(repository)
+              require(isinstance(metadata, dict), "Release metadata must be an object.")
+              require(os.environ.get("GITHUB_REF_NAME") == branch, "Unexpected publication branch.")
+              require(metadata.get("tag_name") == tag, "Release tag changed.")
+              require(metadata.get("target_commitish") == commit, "Release target is not the reviewed commit.")
+              require(metadata.get("draft") is (not published), "Release draft status is unexpected.")
+              require(metadata.get("prerelease") is False, "A stable release is required.")
+              require(type(metadata.get("id")) is int and metadata["id"] > 0, "Invalid release id.")
+              assets = metadata.get("assets")
+              require(isinstance(assets, list), "Release assets are missing.")
+              required = packages | {"SHA256SUMS.txt", "SHA256SUMS.txt.sig"}
+              require(len(assets) == len(required), "Unexpected number of release assets.")
+              indexed = {}
+              identifiers = set()
+              for asset in assets:
+                  require(isinstance(asset, dict), "Release asset metadata must be an object.")
+                  name = asset.get("name")
+                  require(name in required and name not in indexed, "Unexpected or duplicate release asset.")
+                  require(type(asset.get("id")) is int and asset["id"] > 0, "Invalid asset id.")
+                  require(asset["id"] not in identifiers, "Duplicate release asset id.")
+                  identifiers.add(asset["id"])
+                  require(type(asset.get("size")) is int and asset["size"] > 0, "Empty or invalid release asset.")
+                  require(asset.get("state") == "uploaded", "A release asset has not finished uploading.")
+                  require(re.fullmatch(r"sha256:[0-9a-f]{64}", asset.get("digest") or "") is not None,
+                          "Every asset must expose its SHA-256 API digest.")
+                  indexed[name] = asset
+              require(set(indexed) == required, "A required release asset is missing.")
+              require(indexed["SHA256SUMS.txt"]["size"] <= 65536, "Checksum list is unexpectedly large.")
+              require(indexed["SHA256SUMS.txt.sig"]["size"] <= 1024, "Checksum signature is unexpectedly large.")
+              fingerprint = {
+                  "id": metadata["id"], "tag": tag, "commit": commit,
+                  "assets": sorted((a["id"], a["name"], a["size"], a["digest"]) for a in assets),
+              }
+              return fingerprint, indexed, packages
+          
+          
+          def canonical_base64(value, label):
+              try:
+                  result = base64.b64decode(value, validate=True)
+              except (ValueError, TypeError) as error:
+                  raise ValueError(f"{label} is not canonical base64.") from error
+              require(base64.b64encode(result) == value, f"{label} is not single-line canonical base64.")
+              return result
+          
+          
+          def require_strong_point(encoded, label):
+              require(len(encoded) == 32, f"{label} must contain 32 bytes.")
+              y = int.from_bytes(encoded, "little") & ((1 << 255) - 1)
+              require(y < FIELD_PRIME, f"{label} has a noncanonical point encoding.")
+              require(y not in SMALL_ORDER_Y, f"{label} is a small-order point.")
+          
+          
+          def verify_signature(manifest, signature_text, public_text):
+              public = canonical_base64(public_text.encode("ascii"), "Public key")
+              if len(public) == 32:
+                  public = DER_PREFIX + public
+              require(len(public) == 44 and public.startswith(DER_PREFIX), "Expected an Ed25519 public key.")
+              require_strong_point(public[-32:], "Public key")
+              signature = canonical_base64(signature_text, "Signature")
+              require(len(signature) == 64, "Expected a 64-byte Ed25519 signature.")
+              require_strong_point(signature[:32], "Signature R")
+              require(int.from_bytes(signature[32:], "little") < SCALAR_ORDER, "Signature S is not canonical.")
+              with tempfile.TemporaryDirectory(prefix="release-signature-") as work:
+                  directory = Path(work).resolve()
+                  require(directory.is_relative_to(Path(tempfile.gettempdir()).resolve()),
+                          "Signature verification temporary directory is outside the configured temp directory.")
+                  (directory / "public.der").write_bytes(public)
+                  (directory / "signature").write_bytes(signature)
+                  (directory / "checksums").write_bytes(manifest)
+                  result = subprocess.run([
+                      "openssl", "pkeyutl", "-verify", "-pubin", "-keyform", "DER",
+                      "-inkey", str(directory / "public.der"), "-rawin",
+                      "-in", str(directory / "checksums"), "-sigfile", str(directory / "signature"),
+                  ], capture_output=True, check=False, timeout=30)
+                  require(result.returncode == 0, "Checksum signature verification failed.")
+          
+          
+          def verify_downloads(directory, indexed, packages, public_text):
+              manifest = (directory / "SHA256SUMS.txt").read_bytes()
+              signature = (directory / "SHA256SUMS.txt.sig").read_bytes()
+              for name, payload in (("SHA256SUMS.txt", manifest), ("SHA256SUMS.txt.sig", signature)):
+                  require(len(payload) == indexed[name]["size"], f"Downloaded {name} size differs from the API.")
+                  require("sha256:" + hashlib.sha256(payload).hexdigest() == indexed[name]["digest"],
+                          f"Downloaded {name} differs from the API digest.")
+              verify_signature(manifest, signature, public_text)
+              checksums = {}
+              for line in manifest.splitlines(keepends=True):
+                  match = re.fullmatch(rb"([0-9a-f]{64})  ([A-Za-z0-9._-]+)\n", line)
+                  require(match is not None, "Malformed checksum list entry.")
+                  digest, encoded_name = match.groups()
+                  name = encoded_name.decode("ascii")
+                  require(name in packages and name not in checksums, "Unexpected or duplicate checksum entry.")
+                  checksums[name] = digest.decode("ascii")
+              require(set(checksums) == packages, "Checksum list does not cover every required package.")
+              for name, digest in checksums.items():
+                  require(indexed[name]["digest"] == "sha256:" + digest,
+                          f"Signed checksum for {name} differs from the asset API digest.")
+          
+          
+          def verify_tag_listing(path, tag, expected_commit, published):
+              direct_ref = f"refs/tags/{tag}"
+              refs = {}
+              for line in path.read_text(encoding="ascii").splitlines():
+                  match = re.fullmatch(r"([0-9a-f]{40})\t(.+)", line)
+                  require(match is not None, "Malformed remote git tag listing.")
+                  commit, ref = match.groups()
+                  require(ref in (direct_ref, direct_ref + "^{}") and ref not in refs,
+                          "Unexpected or duplicate remote git tag.")
+                  refs[ref] = commit
+              if not refs:
+                  require(not published, "The published release tag is missing.")
+                  return
+              require(direct_ref in refs, "The peeled tag has no direct tag reference.")
+              actual_commit = refs.get(direct_ref + "^{}", refs[direct_ref])
+              require(actual_commit == expected_commit, "The release tag points to a different commit.")
+          
+          
+          def candidate_release_id(path):
+              candidates = path.read_text(encoding="ascii").splitlines()
+              require(len(candidates) == 1 and re.fullmatch(r"[1-9][0-9]*", candidates[0]) is not None,
+                      "Expected exactly one draft release with the reviewed tag.")
+              return int(candidates[0])
+          
+          
+          def main():
+              parser = argparse.ArgumentParser()
+              parser.add_argument("--release-notes", action="store_true")
+              parser.add_argument("--metadata", type=Path)
+              parser.add_argument("--candidate-ids", type=Path)
+              parser.add_argument("--asset-id", choices=("SHA256SUMS.txt", "SHA256SUMS.txt.sig"))
+              parser.add_argument("--previous", type=Path)
+              parser.add_argument("--directory", type=Path)
+              parser.add_argument("--published", action="store_true")
+              parser.add_argument("--metadata-only", action="store_true")
+              parser.add_argument("--tag-listing", type=Path)
+              parser.add_argument("--expected-body", type=Path)
+              args = parser.parse_args()
+              repository = os.environ.get("GH_REPO", "")
+              plan(repository)
+              if args.release_notes:
+                  print(release_notes(repository), end="")
+                  return
+              if args.candidate_ids:
+                  print(candidate_release_id(args.candidate_ids))
+                  return
+              require(args.metadata is not None, "Release metadata is required.")
+              metadata = json.loads(args.metadata.read_text(encoding="utf-8"))
+              fingerprint, indexed, packages = metadata_fingerprint(metadata, repository, args.published)
+              if args.expected_body:
+                  require(args.published, "Release body is checked only after publication.")
+                  expected = args.expected_body.read_text(encoding="utf-8")
+                  require(expected == release_notes(repository), "Release notes file differs from the controlled text.")
+                  require(metadata.get("body") == expected,
+                          "Published release notes do not match the reviewed text.")
+              if args.asset_id:
+                  require(args.metadata_only, "Asset IDs require metadata-only verification.")
+                  print(indexed[args.asset_id]["id"])
+                  return
+              if args.tag_listing:
+                  tag, expected_commit, _, _ = plan(repository)
+                  verify_tag_listing(args.tag_listing, tag, expected_commit, args.published)
+              if args.previous:
+                  previous = json.loads(args.previous.read_text(encoding="utf-8"))
+                  old_fingerprint, _, _ = metadata_fingerprint(previous, repository, False)
+                  require(fingerprint == old_fingerprint, "Release assets or metadata changed during publication.")
+              if not args.metadata_only:
+                  require(args.directory is not None, "Downloaded checksum directory is required.")
+                  verify_downloads(args.directory, indexed, packages, configured_public_key())
+              tag, _, _, _ = plan(repository)
+              print(f"Verified {repository} {tag}: {len(packages)} packages and their signed checksum list.")
+          
+          
+          if __name__ == "__main__":
+              try:
+                  main()
+              except (ValueError, OSError, KeyError, TypeError, UnicodeError, subprocess.TimeoutExpired) as error:
+                  raise SystemExit(f"Release verification failed: {error}") from error
+          PY
+          cat >"$WORK/verify-audit-drafts.py" <<'PY'
+          #!/usr/bin/env python3
+          """Read-only, bounded verification of three fixed private release drafts."""
+          import argparse
+          import hashlib
+          import importlib.util
+          import json
+          import os
+          from pathlib import Path
+          import re
+          import socket
+          import sys
+          import tempfile
+          import time
+          from urllib.error import HTTPError, URLError
+          from urllib.parse import quote, urlsplit
+          from urllib.request import HTTPRedirectHandler, Request, build_opener
+          
+          sys.dont_write_bytecode = True
+          SPEC = importlib.util.spec_from_file_location(
+              "draft_verifier", Path(__file__).with_name("verify-audit-drafts-verifier.py"))
+          VERIFIER = importlib.util.module_from_spec(SPEC)
+          SPEC.loader.exec_module(VERIFIER)
+          require = VERIFIER.require
+          DRAFTS = {
+              "treeforjs/craftworks": 419074751,
+              "treeforjs/vectorcraft": 419101023,
+              "treeforjs/photocraft": 419098153,
+          }
+          API = "https://api.github.com"
+          ASSET_HOSTS = {"release-assets.githubusercontent.com", "objects.githubusercontent.com"}
+          JSON_LIMIT = 1 << 20
+          TRANSFER_BUDGET = 4 << 20
+          RUN_SECONDS = 180
+          
+          
+          def safe_https(url, hosts):
+              parts = urlsplit(url)
+              require(parts.scheme == "https" and parts.hostname in hosts,
+                      "Unexpected download host or protocol.")
+              require(parts.username is None and parts.password is None and
+                      parts.port in (None, 443) and not parts.fragment,
+                      "Unexpected download URL authority or fragment.")
+          
+          
+          class AssetRedirects(HTTPRedirectHandler):
+              max_redirections = 3
+              max_repeats = 1
+          
+              def __init__(self, assets):
+                  super().__init__()
+                  self.assets = assets
+          
+              def redirect_request(self, request, response, code, message, headers, newurl):
+                  require(self.assets, "Metadata redirects are refused.")
+                  require(request.get_method() == "GET", "Only read-only requests are allowed.")
+                  safe_https(newurl, ASSET_HOSTS)
+                  # Never forward the repository token, cookies or signed URL to another host.
+                  return Request(newurl, headers={"Accept": "application/octet-stream",
+                                                "User-Agent": "Craft-release-verifier"}, method="GET")
+          
+          
+          class Transport:
+              def __init__(self, token):
+                  require(isinstance(token, str) and 0 < len(token) <= 4096 and
+                          all(0x21 <= ord(character) <= 0x7e for character in token),
+                          "A valid read-only workflow token is required.")
+                  self.token = token
+                  self.deadline = time.monotonic() + RUN_SECONDS
+                  self.remaining = TRANSFER_BUDGET
+          
+              def timeout(self):
+                  remaining = self.deadline - time.monotonic()
+                  require(remaining > 0, "Draft verification exceeded its time limit.")
+                  return min(20, remaining)
+          
+              def get(self, path, limit, assets=False, missing=False):
+                  require(path.startswith("/repos/") and "?" not in path and "#" not in path,
+                          "Unexpected API path.")
+                  require(0 < limit <= JSON_LIMIT and limit <= self.remaining,
+                          "Download exceeded its aggregate budget.")
+                  url = API + path
+                  safe_https(url, {"api.github.com"})
+                  headers = {"Authorization": "Bearer " + self.token,
+                             "Accept": "application/octet-stream" if assets else "application/vnd.github+json",
+                             "X-GitHub-Api-Version": "2022-11-28",
+                             "User-Agent": "Craft-release-verifier"}
+                  request = Request(url, headers=headers, method="GET")
+                  try:
+                      with build_opener(AssetRedirects(assets)).open(request, timeout=self.timeout()) as response:
+                          require(response.status == 200, "Read-only download returned an unexpected status.")
+                          declared = response.headers.get("Content-Length")
+                          if declared is not None:
+                              require(re.fullmatch(r"[0-9]+", declared) is not None and int(declared) <= limit,
+                                      "Download Content-Length exceeds its limit.")
+                          chunks = bytearray()
+                          while True:
+                              self.timeout()
+                              chunk = response.read1(min(65536, limit + 1 - len(chunks)))
+                              if not chunk:
+                                  break
+                              chunks.extend(chunk)
+                              require(len(chunks) <= limit, "Download body exceeds its limit.")
+                          self.remaining -= len(chunks)
+                          return bytes(chunks)
+                  except HTTPError as error:
+                      if missing and error.code == 404:
+                          return None
+                      raise ValueError(f"Read-only API request failed with status {error.code}.") from None
+                  except (URLError, TimeoutError, socket.timeout):
+                      raise ValueError("Read-only download failed or timed out.") from None
+          
+              def json(self, path, limit=JSON_LIMIT, missing=False):
+                  payload = self.get(path, limit, missing=missing)
+                  if payload is None:
+                      return None
+                  value = json.loads(payload)
+                  require(isinstance(value, dict), "Expected an API JSON object.")
+                  return value
+          
+          
+          def entrypoint():
+              repository = os.environ.get("GH_REPO", "")
+              require(repository in DRAFTS, "Repository is outside the draft verification plan.")
+              tag, source, branch, packages = VERIFIER.plan(repository)
+              require(os.environ.get("GITHUB_REPOSITORY") == repository, "Repository context changed.")
+              require(os.environ.get("GITHUB_EVENT_NAME") == "push", "Only the fixed push trigger is allowed.")
+              require(os.environ.get("GITHUB_REF_NAME") == branch and
+                      os.environ.get("GITHUB_REF") == "refs/heads/" + branch,
+                      "Unexpected verification branch.")
+              workflow_sha = os.environ.get("GITHUB_SHA", "")
+              require(re.fullmatch(r"[0-9a-f]{40}", workflow_sha) is not None,
+                      "Invalid verification workflow commit.")
+              return repository, tag, source, packages, workflow_sha
+          
+          
+          def tag_listing(transport, repository, tag):
+              ref = transport.json(f"/repos/{repository}/git/ref/tags/{quote(tag, safe='')}",
+                                   limit=65536, missing=True)
+              if ref is None:
+                  return ""
+              require(ref.get("ref") == "refs/tags/" + tag, "Unexpected tag reference.")
+              obj = ref.get("object")
+              require(isinstance(obj, dict), "Missing tag object.")
+              first = obj.get("sha")
+              require(re.fullmatch(r"[0-9a-f]{40}", first or "") is not None, "Invalid tag object id.")
+              seen = set()
+              for _ in range(4):
+                  sha = obj.get("sha")
+                  require(re.fullmatch(r"[0-9a-f]{40}", sha or "") is not None and sha not in seen,
+                          "Invalid or recursive tag object.")
+                  seen.add(sha)
+                  if obj.get("type") == "commit":
+                      direct = f"{first}\trefs/tags/{tag}\n"
+                      return direct if len(seen) == 1 else direct + f"{sha}\trefs/tags/{tag}^{{}}\n"
+                  require(obj.get("type") == "tag", "Release tag is not a commit or annotated tag.")
+                  annotated = transport.json(f"/repos/{repository}/git/tags/{sha}", limit=65536)
+                  require(annotated.get("sha") == sha and isinstance(annotated.get("object"), dict),
+                          "Unexpected annotated tag metadata.")
+                  obj = annotated["object"]
+              raise ValueError("Release tag exceeds its resolution limit.")
+          
+          
+          def verify(transport, output):
+              repository, tag, source, packages, workflow_sha = entrypoint()
+              release_id = DRAFTS[repository]
+              metadata_path = f"/repos/{repository}/releases/{release_id}"
+              initial = transport.json(metadata_path)
+              fingerprint, indexed, _ = VERIFIER.metadata_fingerprint(initial, repository, False)
+              require(initial["id"] == release_id, "Draft id changed.")
+              with tempfile.TemporaryDirectory(prefix="read-only-draft-") as work:
+                  work = Path(work)
+                  listing = work / "tag.txt"
+                  listing.write_text(tag_listing(transport, repository, tag), encoding="ascii")
+                  VERIFIER.verify_tag_listing(listing, tag, source, False)
+                  for name in ("SHA256SUMS.txt", "SHA256SUMS.txt.sig"):
+                      asset = indexed[name]
+                      maximum = 65536 if name == "SHA256SUMS.txt" else 1024
+                      payload = transport.get(f"/repos/{repository}/releases/assets/{asset['id']}", maximum, assets=True)
+                      (work / name).write_bytes(payload)
+                  VERIFIER.verify_downloads(work, indexed, packages, VERIFIER.configured_public_key())
+                  final = transport.json(metadata_path)
+                  current, _, _ = VERIFIER.metadata_fingerprint(final, repository, False)
+                  require(current == fingerprint, "Draft metadata or assets changed during verification.")
+                  listing.write_text(tag_listing(transport, repository, tag), encoding="ascii")
+                  VERIFIER.verify_tag_listing(listing, tag, source, False)
+                  proof = {"repository": repository, "tag": tag, "source": source,
+                           "draft_id": release_id, "package_count": len(packages),
+                           "verification_workflow_sha": workflow_sha,
+                           "signature_verified": True,
+                           "metadata_fingerprint_sha256": hashlib.sha256(json.dumps(
+                               fingerprint, sort_keys=True, separators=(",", ":")).encode()).hexdigest(),
+                           "files": {}}
+                  for name in ("SHA256SUMS.txt", "SHA256SUMS.txt.sig"):
+                      data = (work / name).read_bytes()
+                      proof["files"][name] = {"size": len(data), "sha256": hashlib.sha256(data).hexdigest()}
+                  require(not output.exists() and not output.is_symlink(), "Proof directory must be new.")
+                  output.mkdir()
+                  for name in ("SHA256SUMS.txt", "SHA256SUMS.txt.sig"):
+                      (output / name).write_bytes((work / name).read_bytes())
+                  (output / "verification.json").write_text(json.dumps(proof, sort_keys=True, indent=2) + "\n",
+                                                             encoding="utf-8", newline="\n")
+              print(f"Verified {repository} {tag}: {len(packages)} packages, actual signed checksum bytes, unchanged draft.")
+              return proof
+          
+          
+          def main():
+              parser = argparse.ArgumentParser()
+              parser.add_argument("--output", type=Path, required=True)
+              args = parser.parse_args()
+              entrypoint()
+              verify(Transport(os.environ.get("GH_TOKEN", "")), args.output)
+          
+          
+          if __name__ == "__main__":
+              try:
+                  main()
+              except (ValueError, OSError, KeyError, TypeError, UnicodeError) as error:
+                  # No URL, token, raw server response or draft body is emitted on failure.
+                  raise SystemExit(f"Draft verification failed: {error}") from None
+          PY
+          OUTPUT="$RUNNER_TEMP/audit-draft-verification"
+          timeout --signal=TERM --kill-after=5s 240s python3 "$WORK/verify-audit-drafts.py" --output "$OUTPUT"
+          printf 'directory=%s\n' "$OUTPUT" >>"$GITHUB_OUTPUT"
+          printf 'Verified actual checksum/signature bytes, fixed source and complete API digest inventory; draft fingerprint unchanged. No release was changed.\n' >>"$GITHUB_STEP_SUMMARY"
+      - name: Preserve public signed checksum files only
+        uses: actions/upload-artifact@v4
+        with:
+          name: signed-public-checksums
+          path: |
+            ${{ steps.verify.outputs.directory }}/SHA256SUMS.txt
+            ${{ steps.verify.outputs.directory }}/SHA256SUMS.txt.sig
+          if-no-files-found: error
+          retention-days: 14
+      - name: Preserve small verification proof only
+        uses: actions/upload-artifact@v4
+        with:
+          name: draft-verification-proof
+          path: ${{ steps.verify.outputs.directory }}/verification.json
+          if-no-files-found: error
+          retention-days: 14
