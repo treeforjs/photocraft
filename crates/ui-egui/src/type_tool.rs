@@ -128,6 +128,26 @@ pub fn edit_active(app: &mut PhotocraftApp) -> Result<(), String> {
     Ok(())
 }
 
+/// Whether type is under document point (`x`, `y`).
+pub fn hits_type(app: &mut PhotocraftApp, x: f64, y: f64) -> bool {
+    hit_layer(app, x, y).is_some()
+}
+
+/// Move tool double-click at document point (`x`, `y`): over type, switch to the Type tool and
+/// edit that text with the caret at the click, as Photoshop does. False when no type is there.
+pub fn edit_at(app: &mut PhotocraftApp, x: f64, y: f64) -> bool {
+    let Some(id) = hit_layer(app, x, y) else { return false };
+    let vertical = app.session.active().and_then(|st| text_layer(&st.doc, id)).is_some_and(|t| t.orientation == photocraft_doc::text::Orientation::Vertical);
+    app.ui.tool = if vertical { crate::state::Tool::VerticalType } else { crate::state::Tool::Type };
+    app.ui.mask_target = false;
+    app.ui.vector_mask_target = false;
+    pointer_down(app, x, y, false);
+    if let Some(e) = app.ui.text_edit.as_mut() {
+        e.dragging = false;
+    }
+    app.ui.text_edit.as_ref().is_some_and(|e| e.layer == id.0)
+}
+
 pub(crate) fn hit_offset(app: &mut PhotocraftApp, id: LayerId, x: f64, y: f64) -> usize {
     let Some((l, aff, text)) = layout(app, id) else { return 0 };
     let (tx, ty) = to_text(&aff, text_path(app, id).as_ref(), x, y);

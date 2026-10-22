@@ -1487,3 +1487,31 @@ fn type_units_convert_shown_sizes_at_the_document_resolution() {
     let (u, unit) = super::type_unit(&app);
     assert!((u - 25.4 / 72.0).abs() < 1e-6 && unit == "mm");
 }
+
+/// Photoshop: a double-click on type with the Move tool switches to the Type tool and edits that
+/// text with the caret at the click; a double-click elsewhere stays with the Move tool.
+#[test]
+fn move_tool_double_click_on_type_edits_it() {
+    let mut app = new_app();
+    let id = LayerId(app.run("type.create", json!({"text": "HOHOHO", "size": 80, "x": 300, "y": 420})).unwrap()["layer"].as_u64().unwrap());
+    app.run("type.commit", json!({})).ok();
+    app.ui.text_edit = None;
+    app.ui.tool = crate::state::Tool::Move;
+    // 60 fps, so a double-click's two clicks fall inside egui's 0.3 s window.
+    let mut h = harness_with(Harness::builder().with_size(vec2(1200.0, 800.0)).with_step_dt(1.0 / 60.0), app, false);
+    let v = &mut h.state_mut().ui.views[0];
+    (v.zoom, v.center, v.fit_pending) = (1.0, [500.0, 400.0], false);
+    h.run_steps(2);
+    let empty = xf(h.state()).to_screen(1400.0, 800.0);
+    click(&mut h, empty);
+    click(&mut h, empty);
+    h.run_steps(30);
+    assert_eq!(h.state().ui.tool, crate::state::Tool::Move, "no type under a double-click elsewhere");
+    assert!(h.state().ui.text_edit.is_none());
+    let p = glyph(&mut h, id, 2, 0.2);
+    click(&mut h, p);
+    click(&mut h, p);
+    assert_eq!(h.state().ui.tool, crate::state::Tool::Type);
+    let ed = h.state().ui.text_edit.clone().expect("editing the type");
+    assert_eq!((ed.layer, ed.caret, ed.dragging), (id.0, 2, false));
+}
