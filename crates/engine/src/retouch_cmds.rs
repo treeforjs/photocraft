@@ -26,6 +26,7 @@ use crate::{EngineError, Result, Session};
 mod content_aware_move;
 mod patch;
 mod pattern_stamp;
+pub use content_aware_move::preview as content_aware_move_preview;
 pub use patch::preview as patch_preview;
 
 fn bad(cmd: &str, msg: impl Into<String>) -> EngineError {
