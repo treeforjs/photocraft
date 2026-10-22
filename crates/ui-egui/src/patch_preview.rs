@@ -1,6 +1,7 @@
 //! Patch Tool drags shown live: while the patch is dragged, the canvas shows the document healed
 //! at the pointer's offset ([`photocraft_engine::retouch_cmds::patch_preview`]) and recomposites
-//! only the healed area. The preview solves the colour fit coarser for large selections, so it
+//! only the healed area. Content-Aware Move drags show the content at the pointer the same way
+//! ([`photocraft_engine::retouch_cmds::content_aware_move_preview`]); its fills run on release. The preview solves the colour fit coarser for large selections, so it
 //! keeps up with the pointer; releasing commits the exact `paint.patch`, whose damage rect then
 //! refreshes the same area.
 
@@ -29,15 +30,16 @@ pub(crate) struct PatchPreview {
     shown: Option<Arc<Document>>,
 }
 
-/// The offset of the current Patch drag, if one is dragging the patch (not drawing a lasso).
-fn drag_offset(app: &mut PhotocraftApp) -> Option<[i32; 2]> {
-    let d = app.drag.as_ref().filter(|d| d.tool == Tool::Patch)?;
-    let (start, mods) = (d.start, d.modifiers);
+/// The tool and offset of the current Patch or Content-Aware Move drag, if one is dragging the
+/// selection (not drawing a lasso).
+fn drag_offset(app: &mut PhotocraftApp) -> Option<(Tool, [i32; 2])> {
+    let d = app.drag.as_ref().filter(|d| matches!(d.tool, Tool::Patch | Tool::ContentAwareMove))?;
+    let (tool, start, mods) = (d.tool, d.start, d.modifiers);
     let end = d.points.last().map_or(start, |p| [p[0], p[1]]);
     if !crate::retouch_ui::patch_drags_selection(app, start, mods) {
         return None;
     }
-    Some(crate::retouch_ui::patch_offset(app, start, end))
+    Some((tool, crate::retouch_ui::patch_offset(app, start, end)))
 }
 
 /// The document to show while the patch is dragged on document `idx`: healed at the pointer.
@@ -46,13 +48,14 @@ pub(crate) fn display_doc(app: &mut PhotocraftApp, idx: usize) -> Option<(Arc<Do
     if app.session.active_index() != Some(idx) {
         return None;
     }
-    let Some(offset) = drag_offset(app) else {
+    let Some((tool, offset)) = drag_offset(app) else {
         app.patch_preview = None;
         return None;
     };
     let st = app.session.documents().get(idx)?;
     let (doc_id, revision) = (st.doc.id, st.revision);
-    let mode = app.ui.tool_options.patch_mode.clone();
+    let o = &app.ui.tool_options;
+    let mode = if tool == Tool::Patch { o.patch_mode.clone() } else { format!("move:{}", o.sample_all_layers) };
     let fresh = app.patch_preview.as_ref().is_some_and(|p| p.doc == doc_id && p.revision == revision && p.mode == mode);
     if !fresh {
         app.patch_preview = Some(PatchPreview { doc: doc_id, revision, mode: mode.clone(), offsets: Vec::new(), shown: None });
@@ -64,8 +67,14 @@ pub(crate) fn display_doc(app: &mut PhotocraftApp, idx: usize) -> Option<(Arc<Do
         let t0 = crate::gpu_canvas::now_ms();
         // Zoomed out, a finer colour fit than the screen shows is wasted.
         let min_step = (1.0 / app.point_zoom().max(1e-3)).floor().clamp(1.0, 64.0) as u32;
-        let params = json!({"offset": offset, "mode": mode, "target": crate::canvas::paint_target(app)});
-        let result = photocraft_engine::retouch_cmds::patch_preview(&app.session, &params, MAX_CELLS, min_step);
+        let target = crate::canvas::paint_target(app);
+        let result = if tool == Tool::Patch {
+            let params = json!({"offset": offset, "mode": mode, "target": target});
+            photocraft_engine::retouch_cmds::patch_preview(&app.session, &params, MAX_CELLS, min_step)
+        } else {
+            let params = json!({"offset": offset, "sampleAllLayers": app.ui.tool_options.sample_all_layers, "target": target});
+            photocraft_engine::retouch_cmds::content_aware_move_preview(&app.session, &params)
+        };
         let p = app.patch_preview.as_mut()?;
         match result {
             Ok((d, area)) => {
@@ -79,7 +88,7 @@ pub(crate) fn display_doc(app: &mut PhotocraftApp, idx: usize) -> Option<(Arc<Do
                 return None;
             }
         }
-        app.perf.span("patch preview", crate::gpu_canvas::now_ms() - t0);
+        app.perf.span(if tool == Tool::Patch { "patch preview" } else { "content-aware move preview" }, crate::gpu_canvas::now_ms() - t0);
     }
     let p = app.patch_preview.as_ref()?;
     Some((p.shown.clone()?, BASE + p.offsets.len() as u64))
@@ -174,5 +183,28 @@ mod tests {
         tool_event(&mut app, ToolEvent::Down { x: 5.0, y: 5.0, pressure: 1.0 }, m);
         tool_event(&mut app, ToolEvent::Move { x: 30.0, y: 10.0, pressure: 1.0 }, m);
         assert!(display_doc(&mut app, 0).is_none());
+    }
+
+    #[test]
+    fn dragging_a_content_aware_move_shows_the_content_at_the_pointer() {
+        let mut app = PhotocraftApp::new(photocraft_engine::Session::new(), crate::Services::default());
+        app.run("file.new", json!({"width": 100, "height": 60})).unwrap();
+        app.run("paint.pencil", json!({"points": [[68, 30], [74, 30]], "size": 6, "color": "#ff0000"})).unwrap();
+        app.run("select.lasso", json!({"points": [[60, 20], [84, 20], [84, 40], [60, 40]]})).unwrap();
+        app.ui.tool = Tool::ContentAwareMove;
+        let m = egui::Modifiers::NONE;
+        let doc = |app: &PhotocraftApp| app.session.documents()[0].doc.clone();
+        tool_event(&mut app, ToolEvent::Down { x: 70.0, y: 30.0, pressure: 1.0 }, m);
+        assert!(display_doc(&mut app, 0).is_none());
+        tool_event(&mut app, ToolEvent::Move { x: 40.0, y: 30.0, pressure: 1.0 }, m);
+        let (shown, k) = display_doc(&mut app, 0).expect("a preview while dragging");
+        assert!(is_preview_key(k) && showing(&app));
+        assert!(red_at(&shown, 41, 30), "the content follows the pointer");
+        assert!(!red_at(&doc(&app), 41, 30), "the document is untouched while dragging");
+        let a = damage(&app, doc(&app).id, app.session.documents()[0].revision, 0, k).unwrap();
+        assert!(a.contains(41, 30) && !a.contains(90, 50), "{a:?}");
+        // Release hands over to the background job; the drag's preview ends.
+        tool_event(&mut app, ToolEvent::Up { x: 40.0, y: 30.0 }, m);
+        assert!(!showing(&app) && display_doc(&mut app, 0).is_none());
     }
 }
