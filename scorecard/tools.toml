@@ -134,9 +134,9 @@ note = "selection_cmds.rs sampled_colors_at_fuzziness_zero_select_the_exact_matc
 [[item]]
 id = "TOOL-214-4"
 target = "Move tool: box-select layers, Auto-Select hover outline, double-click fit, drag to a tab"
-status = "partial"
+status = "done"
 issue = 214
-note = "Box-select: with Auto-Select on, a drag from where nothing is picked selects the layers whose pixels meet the box (layer.pickInRect, Shift adds; move_ui::MoveBox); hover outline round the layer a click would pick (move_ui::draw_overlay); a_drag_from_an_empty_spot_box_selects_layers. Still missing: double-click fit, drag to a document tab"
+note = "Box-select: with Auto-Select on, a drag from where nothing is picked selects the layers whose pixels meet the box (layer.pickInRect, Shift adds; move_ui::MoveBox); hover outline round the layer a click would pick (move_ui::draw_overlay); a_drag_from_an_empty_spot_box_selects_layers. A double-click on type edits it with the Type tool, caret at the click, ending any transform the first click showed (type_tool::edit_at; move_tool_double_click_on_type_edits_it); a double-click on a transform commits it. Dragging layers onto another document's tab copies them there (layer_transfer.rs; a_move_tool_drag_onto_a_tab_copies_the_layer_under_the_pointer_and_leaves_the_source)"
 
 [[item]]
 id = "TOOL-214-5"

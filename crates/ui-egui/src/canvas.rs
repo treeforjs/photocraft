@@ -2919,7 +2919,22 @@ pub fn canvas_view(app: &mut PhotocraftApp, ui: &mut egui::Ui, idx: usize, rect:
             app.defer_live_stroke = false;
             crate::magnetic_lasso_ui::flush(app);
         }
-        if app.ui.transform.is_some() && response.double_clicked() {
+        // Move tool: a double-click on type edits it with the Type tool (Photoshop), ending
+        // any transform controls the first click showed.
+        let edited_type = tool == Tool::Move
+            && response.double_clicked()
+            && response.interact_pointer_pos().is_some_and(|p| {
+                let d = xf.to_doc(p);
+                let over = crate::type_tool::hits_type(app, d[0], d[1]);
+                if over {
+                    if app.ui.transform.is_some() {
+                        crate::transform_tool::commit(app);
+                    }
+                    crate::type_tool::edit_at(app, d[0], d[1]);
+                }
+                over
+            });
+        if !edited_type && app.ui.transform.is_some() && response.double_clicked() {
             crate::transform_tool::commit(app);
         }
         // Crop: a double-click inside the frame commits it, as ↵ does (#1792).
